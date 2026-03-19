@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState } from "react";
 import { authAPI } from "@/lib/authAPI";
 
 interface User {
@@ -15,7 +15,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ success?: boolean; message?: string; token?: string; user: User }>;
   register: (name: string, email: string, password: string, role: string) => Promise<void>;
   logout: () => void;
 }
@@ -23,21 +23,15 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Load user from localStorage on mount
+  const [user, setUser] = useState<User | null>(() => {
     const storedUser = authAPI.getUser();
-    if (storedUser) {
-      setUser(storedUser);
-    }
-    setIsLoading(false);
-  }, []);
+    return storedUser || null;
+  });
 
   const login = async (email: string, password: string) => {
     const response = await authAPI.login(email, password);
     setUser(response.user);
+    return response;
   };
 
   const register = async (name: string, email: string, password: string, role: string) => {
@@ -55,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         isAuthenticated: !!user,
-        isLoading,
+        isLoading: false,
         login,
         register,
         logout,

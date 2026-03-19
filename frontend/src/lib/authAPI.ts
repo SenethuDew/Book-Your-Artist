@@ -12,7 +12,7 @@ export const authAPI = {
 
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.error || "Registration failed");
+      throw new Error(data.error || data.message || "Registration failed");
     }
 
     // Store token

@@ -23,10 +23,10 @@ export default function RegisterPage() {
       await register(name, email, password, role);
       
       if (role === "artist") {
-        alert("Artist account created! Please wait for admin approval to login.");
+        alert("Artist account created! Your account is pending admin approval. You'll receive an email when approved.");
         router.push("/login");
       } else {
-        router.push("/dashboard/user");
+        router.push("/home/client");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");

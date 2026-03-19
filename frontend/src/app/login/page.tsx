@@ -18,8 +18,20 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      await login(email, password);
-      router.push("/dashboard/user");
+      const response = await login(email, password);
+      
+      // Redirect based on user role
+      if (response.user.role === "artist" && response.user.status !== "approved") {
+        // Artist not yet approved
+        alert("Your artist account is pending admin approval. You will be notified once approved.");
+        router.push("/");
+      } else if (response.user.role === "client") {
+        router.push("/home/client");
+      } else if (response.user.role === "artist") {
+        router.push("/home/artist");
+      } else if (response.user.role === "admin") {
+        router.push("/home/admin");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
@@ -74,7 +86,7 @@ export default function LoginPage() {
           </form>
           
           <p className="text-center text-gray-400 mt-4">
-            Don't have an account? <a href="/register" className="text-blue-400 hover:underline">Register</a>
+            Don&apos;t have an account? <a href="/register" className="text-blue-400 hover:underline">Register</a>
           </p>
         </div>
       </div>

@@ -3,6 +3,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 function UserDashboardContent() {
   const { user, logout } = useAuth();
@@ -49,7 +50,7 @@ function UserDashboardContent() {
         <h2 className="text-3xl font-bold mb-8">My Bookings</h2>
         <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
           <div className="text-center text-gray-400 py-12">
-            <p>No bookings yet. <a href="/artists" className="text-blue-400 hover:underline">Browse artists</a></p>
+            <p>No bookings yet. <Link href="/search" className="text-blue-400 hover:underline">Browse artists</Link></p>
           </div>
         </div>
       </div>

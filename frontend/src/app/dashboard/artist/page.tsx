@@ -19,7 +19,7 @@ function ArtistDashboardContent() {
         <div className="text-center">
           <h1 className="text-3xl font-bold mb-4">Waiting for Approval</h1>
           <p className="text-gray-400 mb-6">
-            Your artist account is pending admin approval. You'll be able to receive bookings once approved.
+            Your artist account is pending admin approval. You&apos;ll be able to receive bookings once approved.
           </p>
           <button 
             onClick={handleLogout}

@@ -3,7 +3,7 @@ const cors = require("cors");
 require("dotenv").config();
 
 const connectDB = require("./config/db");
-const authRoutes = require("./routes/auth");
+const apiRoutes = require("./routes/api"); // Consolidated API routes
 
 const app = express();
 app.use(cors());
@@ -13,8 +13,25 @@ app.get("/", (req, res) => {
   res.json({ message: "Book-Your-Artist API running" });
 });
 
-// Auth routes
-app.use("/api/auth", authRoutes);
+// API routes (includes auth, artists, bookings, reviews, messages, admin)
+app.use("/api", apiRoutes);
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Endpoint not found",
+  });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error("Error:", err);
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || "Internal server error",
+  });
+});
 
 const PORT = process.env.PORT || 5000;
 
