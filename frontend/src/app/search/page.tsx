@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { API_BASE_URL } from "@/lib/api";
 
 interface Artist {
   _id: string;
@@ -29,8 +29,6 @@ interface PriceStats {
 }
 
 export default function SearchArtists() {
-  const searchParams = useSearchParams();
-
   const [artists, setArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
   const [genres, setGenres] = useState<string[]>([]);
@@ -41,28 +39,31 @@ export default function SearchArtists() {
   });
 
   // Filter state
-  const [selectedGenres, setSelectedGenres] = useState<string[]>(
-    searchParams.get("genres")?.split(",").filter(Boolean) || []
-  );
-  const [minPrice, setMinPrice] = useState(
-    searchParams.get("minPrice") || ""
-  );
-  const [maxPrice, setMaxPrice] = useState(
-    searchParams.get("maxPrice") || ""
-  );
-  const [minRating, setMinRating] = useState(
-    searchParams.get("minRating") || ""
-  );
-  const [page, setPage] = useState(parseInt(searchParams.get("page") || "1"));
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [minRating, setMinRating] = useState("");
+  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      setSelectedGenres(urlParams.get("genres")?.split(",").filter(Boolean) || []);
+      setMinPrice(urlParams.get("minPrice") || "");
+      setMaxPrice(urlParams.get("maxPrice") || "");
+      setMinRating(urlParams.get("minRating") || "");
+      setPage(parseInt(urlParams.get("page") || "1", 10));
+    }
+  }, []);
 
   // Load genres and price stats
   useEffect(() => {
     const fetchFilters = async () => {
       try {
         const [genresRes, priceRes] = await Promise.all([
-          fetch("http://localhost:5000/api/artists/genres"),
-          fetch("http://localhost:5000/api/artists/price-stats"),
+          fetch(`${API_BASE_URL}/api/artists/genres`),
+          fetch(`${API_BASE_URL}/api/artists/price-stats`),
         ]);
 
         const genresData = await genresRes.json();
@@ -99,7 +100,7 @@ export default function SearchArtists() {
         params.append("limit", "12");
 
         const response = await fetch(
-          `http://localhost:5000/api/artists/search?${params}`
+          `${API_BASE_URL}/api/artists/search?${params}`
         );
         const data = await response.json();
 

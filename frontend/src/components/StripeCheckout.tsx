@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { API_BASE_URL } from "@/lib/api";
 import {
   PaymentElement,
   useStripe,
@@ -59,7 +60,7 @@ export default function StripeCheckout({
         setIsLoading(false);
       } else if (paymentIntent.status === "succeeded") {
         // Payment succeeded - confirm on backend
-        const confirmResponse = await fetch("/api/payments/confirm", {
+        const confirmResponse = await fetch(`${API_BASE_URL}/api/payments/confirm`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

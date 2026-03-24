@@ -1,9 +1,11 @@
 "use client";
 
-import { useAuth } from "@/contexts/AuthContext";
+import Link from "next/link";
+import { useAuth } from "@/contexts";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { API_BASE_URL } from "@/lib/api";
 
 function ArtistHomeContent() {
   const { user, logout } = useAuth();
@@ -21,7 +23,7 @@ function ArtistHomeContent() {
     const fetchStats = async () => {
       try {
         const token = localStorage.getItem("token");
-        const response = await fetch("http://localhost:5000/api/artists/me/stats", {
+        const response = await fetch(`${API_BASE_URL}/api/artists/me/stats`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -46,7 +48,7 @@ function ArtistHomeContent() {
     router.push("/");
   };
 
-  if (user?.status !== "approved" && user?.status !== "pending") {
+  if (user?.status !== "active" && user?.status !== "pending") {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
         <div className="text-center">
@@ -73,8 +75,8 @@ function ArtistHomeContent() {
         <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold">Book Your Artist</h1>
           <div className="space-x-4">
-            <a href="/bookings" className="text-gray-400 hover:text-white">My Bookings</a>
-            <a href="/artist/profile" className="text-gray-400 hover:text-white">My Profile</a>
+            <Link href="/bookings" className="text-gray-400 hover:text-white">My Bookings</Link>
+            <Link href="/artist/profile" className="text-gray-400 hover:text-white">My Profile</Link>
             <button 
               onClick={handleLogout}
               className="text-red-400 hover:text-red-300"
@@ -89,9 +91,9 @@ function ArtistHomeContent() {
         <div className="bg-linear-to-r from-green-600 to-green-700 rounded-lg p-12 text-center mb-12">
           <h2 className="text-4xl font-bold mb-4">Welcome, {user?.name}! 🎸</h2>
           <p className="text-lg mb-6">Your account is now live and visible to clients</p>
-          <a href="/artist/profile" className="inline-block bg-white text-green-600 font-bold px-8 py-3 rounded-lg hover:bg-gray-100 transition">
+          <Link href="/artist/profile" className="inline-block bg-white text-green-600 font-bold px-8 py-3 rounded-lg hover:bg-gray-100 transition">
             Complete Your Profile
-          </a>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
@@ -115,22 +117,22 @@ function ArtistHomeContent() {
 
         <h3 className="text-2xl font-bold mb-6">Get Started</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <a href="/artist/profile" className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-6 transition">
+          <Link href="/artist/profile" className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-6 transition">
             <p className="font-bold text-lg">👤 Complete Your Profile</p>
             <p className="text-gray-400 text-sm mt-2">Add genres, rates, bio, and portfolio links</p>
-          </a>
-          <a href="/bookings" className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-6 transition">
+          </Link>
+          <Link href="/bookings" className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-6 transition">
             <p className="font-bold text-lg">📌 My Bookings</p>
             <p className="text-gray-400 text-sm mt-2">View and manage booking requests ({stats.pending} pending)</p>
-          </a>
-          <a href="/artist/availability" className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-6 transition">
+          </Link>
+          <Link href="/artist/availability" className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-6 transition">
             <p className="font-bold text-lg">📅 Set Availability</p>
             <p className="text-gray-400 text-sm mt-2">Tell clients when you&apos;re available for bookings</p>
-          </a>
-          <a href="/messages" className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-6 transition">
+          </Link>
+          <Link href="/messages" className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-6 transition">
             <p className="font-bold text-lg">💬 Messages</p>
             <p className="text-gray-400 text-sm mt-2">Chat with clients about their events</p>
-          </a>
+          </Link>
         </div>
       </div>
     </div>

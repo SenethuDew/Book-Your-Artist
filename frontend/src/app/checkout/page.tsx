@@ -1,11 +1,14 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
 import StripeCheckout from "@/components/StripeCheckout";
-import { useAuth } from "@/contexts/AuthContext";
+import { API_BASE_URL } from "@/lib/api";
+import { useAuth } from "@/contexts";
 import Link from "next/link";
 
 const stripePromise = loadStripe(
@@ -23,14 +26,19 @@ interface Booking {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { user } = useAuth();
+  const [bookingId, setBookingId] = useState<string | null>(null);
   const [booking, setBooking] = useState<Booking | null>(null);
   const [clientSecret, setClientSecret] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const bookingId = searchParams.get("bookingId");
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const queryBookingId = new URLSearchParams(window.location.search).get("bookingId");
+      setBookingId(queryBookingId);
+    }
+  }, []);
 
   useEffect(() => {
     // Redirect to login if not authenticated
@@ -50,7 +58,7 @@ export default function CheckoutPage() {
       try {
         // Fetch booking details
         const token = localStorage.getItem("token");
-        const bookingResponse = await fetch(`/api/bookings/${bookingId}`, {
+        const bookingResponse = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -64,7 +72,7 @@ export default function CheckoutPage() {
         setBooking(bookingData.data);
 
         // Create payment intent
-        const intentResponse = await fetch("/api/payments/intent", {
+        const intentResponse = await fetch(`${API_BASE_URL}/api/payments/intent`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

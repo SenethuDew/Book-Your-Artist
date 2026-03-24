@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useRouter } from "next/navigation";
 
@@ -13,7 +13,7 @@ function ArtistDashboardContent() {
     router.push("/");
   };
 
-  if (user?.status !== "approved") {
+  if (user?.status !== "active") {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
         <div className="text-center">

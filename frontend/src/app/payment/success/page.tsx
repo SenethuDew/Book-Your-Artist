@@ -1,9 +1,12 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useAuth } from "@/contexts/AuthContext";
+import { API_BASE_URL } from "@/lib/api";
+import { useAuth } from "@/contexts";
 
 interface PaymentDetails {
   status: string;
@@ -15,14 +18,20 @@ interface PaymentDetails {
 
 export default function PaymentSuccessPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { user } = useAuth();
+  const [bookingId, setBookingId] = useState<string | null>(null);
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [payment, setPayment] = useState<PaymentDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const bookingId = searchParams.get("bookingId");
-  const paymentIntentId = searchParams.get("paymentIntentId");
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      setBookingId(params.get("bookingId"));
+      setPaymentIntentId(params.get("paymentIntentId"));
+    }
+  }, []);
 
   useEffect(() => {
     // Redirect to login if not authenticated
@@ -41,7 +50,7 @@ export default function PaymentSuccessPage() {
     const fetchPaymentStatus = async () => {
       try {
         const token = localStorage.getItem("token");
-        const response = await fetch(`/api/payments/${paymentIntentId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/payments/${paymentIntentId}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },

@@ -1,58 +1,110 @@
-"use client";
+'use client';
 
-import React, { createContext, useContext, useState } from "react";
-import { authAPI } from "@/lib/authAPI";
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { API_BASE_URL, parseJsonResponse, getAuthToken, setAuthToken, clearAuthToken } from '@/lib/api';
 
-interface User {
-  id: string;
+export interface User {
+  _id?: string;
   name: string;
   email: string;
-  role: "client" | "artist" | "admin";
-  status: "pending" | "approved" | "rejected";
+  role: 'client' | 'artist' | 'admin';
+  status?: 'active' | 'pending' | 'suspended';
 }
 
-interface AuthContextType {
+export interface AuthContextType {
   user: User | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<{ user: User }>;
+  logout: () => Promise<void>;
+  signup: (data: SignupData) => Promise<{ user: User }>;
   isAuthenticated: boolean;
-  isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ success?: boolean; message?: string; token?: string; user: User }>;
-  register: (name: string, email: string, password: string, role: string) => Promise<void>;
-  logout: () => void;
+}
+
+interface SignupData {
+  name: string;
+  email: string;
+  password: string;
+  role: 'client' | 'artist';
+  phone?: string;
+  bio?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    const storedUser = authAPI.getUser();
-    return storedUser || null;
-  });
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const token = getAuthToken();
+        
+        if (!token) {
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        const data = await parseJsonResponse<{ user: User }>(response);
+        setUser(data.user);
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        // Clear invalid token
+        clearAuthToken();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
 
   const login = async (email: string, password: string) => {
-    const response = await authAPI.login(email, password);
-    setUser(response.user);
-    return response;
+    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await parseJsonResponse<{ user: User; token: string }>(response);
+    setAuthToken(data.token);
+    setUser(data.user);
+    return data;
   };
 
-  const register = async (name: string, email: string, password: string, role: string) => {
-    const response = await authAPI.register(name, email, password, role);
-    setUser(response.user);
-  };
-
-  const logout = () => {
-    authAPI.logout();
+  const logout = async () => {
+    await fetch(`${API_BASE_URL}/api/auth/logout`, { method: 'POST' });
+    clearAuthToken();
     setUser(null);
+  };
+
+  const signup = async (data: SignupData) => {
+    const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    const result = await parseJsonResponse<{ user: User; token: string }>(response);
+    setAuthToken(result.token);
+    setUser(result.user);
+    return result;
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        isAuthenticated: !!user,
-        isLoading: false,
+        loading,
         login,
-        register,
         logout,
+        signup,
+        isAuthenticated: !!user,
       }}
     >
       {children}
@@ -63,7 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error("useAuth must be used within AuthProvider");
+    throw new Error('useAuth must be used within AuthProvider');
   }
   return context;
 }

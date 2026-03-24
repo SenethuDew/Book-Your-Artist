@@ -1,6 +1,7 @@
 "use client";
 
-import { useAuth } from "@/contexts/AuthContext";
+import Link from "next/link";
+import { useAuth } from "@/contexts";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -50,8 +51,8 @@ function ClientHomeContent() {
         <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold">Book Your Artist</h1>
           <div className="space-x-4">
-            <a href="/search" className="text-blue-400 hover:underline">Search Artists</a>
-            <a href="/bookings" className="text-gray-400 hover:text-white">My Bookings</a>
+            <Link href="/search" className="text-blue-400 hover:underline">Search Artists</Link>
+            <Link href="/bookings" className="text-gray-400 hover:text-white">My Bookings</Link>
             <button 
               onClick={handleLogout}
               className="text-red-400 hover:text-red-300"
@@ -66,9 +67,9 @@ function ClientHomeContent() {
         <div className="bg-linear-to-r from-blue-600 to-blue-700 rounded-lg p-12 text-center mb-12">
           <h2 className="text-4xl font-bold mb-4">Welcome, {user?.name}!</h2>
           <p className="text-lg mb-6">Find and book your favorite musicians</p>
-          <a href="/search" className="inline-block bg-white text-blue-600 font-bold px-8 py-3 rounded-lg hover:bg-gray-100 transition">
+          <Link href="/search" className="inline-block bg-white text-blue-600 font-bold px-8 py-3 rounded-lg hover:bg-gray-100 transition">
             Start Browsing Musicians
-          </a>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
@@ -88,14 +89,14 @@ function ClientHomeContent() {
 
         <h3 className="text-2xl font-bold mb-6">Quick Links</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <a href="/search" className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-6 transition">
+          <Link href="/search" className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-6 transition">
             <p className="font-bold text-lg">🔍 Search Musicians</p>
             <p className="text-gray-400 text-sm mt-2">Browse and filter musicians by genre, price, and rating</p>
-          </a>
-          <a href="/bookings" className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-6 transition">
+          </Link>
+          <Link href="/bookings" className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-6 transition">
             <p className="font-bold text-lg">📅 My Bookings</p>
             <p className="text-gray-400 text-sm mt-2">View and manage your booking requests and history</p>
-          </a>
+          </Link>
         </div>
       </div>
     </div>

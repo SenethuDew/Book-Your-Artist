@@ -1,6 +1,7 @@
 "use client";
 
-import { useAuth } from "@/contexts/AuthContext";
+import Link from "next/link";
+import { useAuth } from "@/contexts";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useRouter } from "next/navigation";
 
@@ -19,9 +20,9 @@ function AdminHomeContent() {
         <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold">Admin Dashboard</h1>
           <div className="space-x-4">
-            <a href="/admin/users" className="text-gray-400 hover:text-white">Users</a>
-            <a href="/admin/artists" className="text-gray-400 hover:text-white">Artists</a>
-            <a href="/admin/bookings" className="text-gray-400 hover:text-white">Bookings</a>
+            <Link href="/admin/users" className="text-gray-400 hover:text-white">Users</Link>
+            <Link href="/admin/artists" className="text-gray-400 hover:text-white">Artists</Link>
+            <Link href="/admin/bookings" className="text-gray-400 hover:text-white">Bookings</Link>
             <button 
               onClick={handleLogout}
               className="text-red-400 hover:text-red-300"
@@ -58,22 +59,22 @@ function AdminHomeContent() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <a href="/admin/artists" className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-6 transition">
+          <Link href="/admin/artists" className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-6 transition">
             <p className="font-bold text-lg">✓ Approve Artists</p>
             <p className="text-gray-400 text-sm mt-2">Review and approve pending artist registrations</p>
-          </a>
-          <a href="/admin/users" className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-6 transition">
+          </Link>
+          <Link href="/admin/users" className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-6 transition">
             <p className="font-bold text-lg">👥 Manage Users</p>
             <p className="text-gray-400 text-sm mt-2">View all users and manage account status</p>
-          </a>
-          <a href="/admin/bookings" className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-6 transition">
+          </Link>
+          <Link href="/admin/bookings" className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-6 transition">
             <p className="font-bold text-lg">📅 Monitor Bookings</p>
             <p className="text-gray-400 text-sm mt-2">Track all bookings and resolve disputes</p>
-          </a>
-          <a href="/admin/analytics" className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-6 transition">
+          </Link>
+          <Link href="/admin/analytics" className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-6 transition">
             <p className="font-bold text-lg">📊 Analytics</p>
             <p className="text-gray-400 text-sm mt-2">View platform statistics and insights</p>
-          </a>
+          </Link>
         </div>
       </div>
     </div>

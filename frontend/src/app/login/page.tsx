@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -21,7 +21,7 @@ export default function LoginPage() {
       const response = await login(email, password);
       
       // Redirect based on user role
-      if (response.user.role === "artist" && response.user.status !== "approved") {
+      if (response.user.role === "artist" && response.user.status !== "active") {
         // Artist not yet approved
         alert("Your artist account is pending admin approval. You will be notified once approved.");
         router.push("/");
