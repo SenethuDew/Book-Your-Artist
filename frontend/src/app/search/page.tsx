@@ -15,6 +15,8 @@ interface Artist {
     phone: string;
   };
   genres: string[];
+  specialties?: string[];
+  serviceTypes?: string[];
   hourlyRate: number;
   rating: number;
   reviewCount: number;
@@ -31,6 +33,7 @@ interface PriceStats {
 export default function SearchArtists() {
   const [artists, setArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [genres, setGenres] = useState<string[]>([]);
   const [priceStats, setPriceStats] = useState<PriceStats>({
     min: 0,
@@ -77,6 +80,7 @@ export default function SearchArtists() {
         }
       } catch (error) {
         console.error("Failed to load filters:", error);
+        setError("Some filters could not be loaded. You can still browse artists.");
       }
     };
 
@@ -87,6 +91,8 @@ export default function SearchArtists() {
   useEffect(() => {
     const searchArtists = async () => {
       setLoading(true);
+      setError("");
+
       try {
         const params = new URLSearchParams();
 
@@ -107,9 +113,14 @@ export default function SearchArtists() {
         if (data.success) {
           setArtists(data.artists);
           setTotalPages(data.pagination.pages);
+        } else {
+          setArtists([]);
+          setError(data.message || "Unable to load artists right now.");
         }
       } catch (error) {
         console.error("Search failed:", error);
+        setArtists([]);
+        setError("Unable to load artists. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -142,65 +153,104 @@ export default function SearchArtists() {
           <span
             key={star}
             className={`text-lg ${
-              star <= Math.round(rating) ? "text-yellow-500" : "text-gray-300"
+              star <= Math.round(rating) ? "text-yellow-400" : "text-gray-600"
             }`}
           >
             ★
           </span>
         ))}
-        <span className="text-sm text-gray-600 ml-1">({rating})</span>
+        <span className="ml-1 text-sm text-gray-300">({rating.toFixed(1)})</span>
       </div>
     );
   };
 
+  const getShortBio = (artist: Artist) => {
+    if (artist.specialties && artist.specialties.length > 0) {
+      return artist.specialties.slice(0, 2).join(" • ");
+    }
+    if (artist.serviceTypes && artist.serviceTypes.length > 0) {
+      return `Available for ${artist.serviceTypes.slice(0, 2).join(" and ")}`;
+    }
+    return `${artist.yearsOfExperience || 1}+ years performing at private and public events.`;
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <Link href="/" className="text-2xl font-bold text-purple-600">
-            Book-Your-Artist
+    <div className="min-h-screen bg-linear-to-b from-gray-900 via-gray-900 to-gray-950 text-white">
+      <header className="sticky top-0 z-20 border-b border-gray-800/50 bg-gray-900/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+          <Link href="/" className="text-xl font-bold tracking-tight text-white transition hover:text-blue-400 sm:text-2xl">
+            Book Your Artist
           </Link>
-          <nav className="flex gap-4">
-            <Link href="/home/client" className="text-gray-600 hover:text-gray-900">
-              Dashboard
+          <nav className="flex items-center gap-4 text-sm sm:gap-6 sm:text-base">
+            <Link href="/home/client" className="text-gray-300 transition hover:text-blue-400">
+              Client Home
             </Link>
-            <Link href="/search" className="text-purple-600 font-semibold">
+            <Link href="/bookings" className="text-gray-300 transition hover:text-blue-400">
+              My Bookings
+            </Link>
+            <Link href="/search" className="font-semibold text-blue-400">
               Browse Artists
             </Link>
           </nav>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+        <div className="mb-8 rounded-2xl border border-gray-800 bg-gray-800/50 p-6 sm:p-8">
+          <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+            Browse Artists
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-300 sm:text-base">
+            Discover verified performers by genre, budget, and rating. Compare profiles and book the perfect artist for your event.
+          </p>
+        </div>
+
+        {error && (
+          <div className="mb-6 rounded-xl border border-red-500/40 bg-red-900/25 px-4 py-3 text-sm text-red-200" role="alert" aria-live="polite">
+            {error}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[300px_1fr]">
           {/* Sidebar - Filters */}
-          <div className="bg-white rounded-lg shadow p-6 h-fit sticky top-20">
-            <h2 className="text-xl font-bold mb-6">Filters</h2>
+          <aside className="h-fit rounded-2xl border border-gray-700 bg-gray-800/80 p-6 shadow-xl lg:sticky lg:top-24">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-white">Filters</h2>
+              <button
+                onClick={handleClearFilters}
+                className="rounded-lg border border-gray-600 bg-gray-700/60 px-3 py-1.5 text-xs font-semibold text-gray-200 transition hover:border-gray-500 hover:bg-gray-700"
+              >
+                Clear
+              </button>
+            </div>
 
             {/* Genre Filter */}
             <div className="mb-6">
-              <h3 className="text-sm font-bold text-gray-700 mb-3">Genre</h3>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-300">Genre</h3>
+              <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
                 {genres.map((genre) => (
-                  <label key={genre} className="flex items-center gap-2 cursor-pointer">
+                  <label key={genre} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-gray-700/60">
                     <input
                       type="checkbox"
                       checked={selectedGenres.includes(genre)}
                       onChange={() => handleGenreToggle(genre)}
-                      className="w-4 h-4 text-purple-600 rounded"
+                      className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-blue-500 focus:ring-2 focus:ring-blue-500/40"
                     />
-                    <span className="text-sm text-gray-700">{genre}</span>
+                    <span className="text-sm text-gray-200">{genre}</span>
                   </label>
                 ))}
+                {genres.length === 0 && (
+                  <p className="text-xs text-gray-400">Genres will appear here when available.</p>
+                )}
               </div>
             </div>
 
-            <hr className="my-4" />
+            <hr className="my-5 border-gray-700" />
 
             {/* Price Filter */}
             <div className="mb-6">
-              <h3 className="text-sm font-bold text-gray-700 mb-3">Price Range</h3>
-              <div className="text-xs text-gray-500 mb-2">
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-300">Price Range</h3>
+              <div className="mb-2 text-xs text-gray-400">
                 ${priceStats.min} - ${priceStats.max}/hour
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -212,7 +262,7 @@ export default function SearchArtists() {
                     setMinPrice(e.target.value);
                     setPage(1);
                   }}
-                  className="border rounded px-2 py-1 text-sm"
+                  className="rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                 />
                 <input
                   type="number"
@@ -222,23 +272,23 @@ export default function SearchArtists() {
                     setMaxPrice(e.target.value);
                     setPage(1);
                   }}
-                  className="border rounded px-2 py-1 text-sm"
+                  className="rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                 />
               </div>
             </div>
 
-            <hr className="my-4" />
+            <hr className="my-5 border-gray-700" />
 
             {/* Rating Filter */}
             <div className="mb-6">
-              <h3 className="text-sm font-bold text-gray-700 mb-3">Min Rating</h3>
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-300">Minimum Rating</h3>
               <select
                 value={minRating}
                 onChange={(e) => {
                   setMinRating(e.target.value);
                   setPage(1);
                 }}
-                className="w-full border rounded px-2 py-2 text-sm"
+                className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
               >
                 <option value="">All Ratings</option>
                 <option value="4">4+ Stars</option>
@@ -246,48 +296,39 @@ export default function SearchArtists() {
                 <option value="3">3+ Stars</option>
               </select>
             </div>
-
-            <button
-              onClick={handleClearFilters}
-              className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 rounded transition"
-            >
-              Clear Filters
-            </button>
-          </div>
+          </aside>
 
           {/* Main Content */}
-          <div className="lg:col-span-3">
+          <section>
             {/* Header */}
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                Find & Book Your Favorite Musicians
-              </h1>
-              <p className="text-gray-600">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-800 bg-gray-800/50 px-4 py-3">
+              <p className="text-sm text-gray-300">
                 {artists.length > 0
-                  ? `Showing ${artists.length} of ${(totalPages || 1) * 12} artists`
-                  : "No artists found. Try adjusting your filters."}
+                  ? `Showing ${artists.length} artist${artists.length > 1 ? "s" : ""} on page ${page} of ${totalPages}`
+                  : "Apply filters or clear them to discover available artists."}
               </p>
+              <p className="text-xs text-gray-400">Results update automatically when filters change.</p>
             </div>
 
             {/* Artist Cards Grid */}
             {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 {[...Array(6)].map((_, i) => (
                   <div
                     key={i}
-                    className="bg-gray-200 rounded-lg h-72 animate-pulse"
+                    className="h-80 animate-pulse rounded-2xl border border-gray-800 bg-gray-800/70"
                   />
                 ))}
               </div>
             ) : artists.length > 0 ? (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2">
                   {artists.map((artist) => (
                     <Link
                       key={artist._id}
                       href={`/artists/${artist._id}`}
                     >
-                      <div className="bg-white rounded-lg shadow hover:shadow-lg transition cursor-pointer overflow-hidden">
+                      <article className="h-full overflow-hidden rounded-2xl border border-gray-700 bg-gray-800/85 transition duration-200 hover:-translate-y-1 hover:border-blue-500/60 hover:shadow-xl hover:shadow-blue-900/20">
                         {/* Artist Image */}
                         {artist.user.profileImage ? (
                           <Image
@@ -295,84 +336,91 @@ export default function SearchArtists() {
                             alt={artist.user.name}
                             width={300}
                             height={192}
-                            className="w-full h-48 object-cover"
+                            className="h-48 w-full object-cover"
                           />
                         ) : (
-                          <div className="w-full h-48 bg-linear-to-br from-purple-400 to-purple-600 flex items-center justify-center">
-                            <span className="text-white text-4xl">
+                          <div className="flex h-48 w-full items-center justify-center bg-linear-to-br from-blue-700 to-blue-900">
+                            <span className="text-4xl font-bold text-white">
                               {artist.user.name.charAt(0)}
                             </span>
                           </div>
                         )}
 
                         {/* Card Content */}
-                        <div className="p-4">
-                          <div className="flex justify-between items-start mb-2">
+                        <div className="p-5">
+                          <div className="mb-3 flex items-start justify-between gap-3">
                             <div>
-                              <h3 className="text-lg font-bold text-gray-900">
+                              <h3 className="text-xl font-bold text-white">
                                 {artist.user.name}
                               </h3>
-                              <p className="text-sm text-gray-600">
-                                {artist.yearsOfExperience || "N/A"} years experience
+                              <p className="text-sm text-gray-300">
+                                {artist.genres?.[0] || "Performer"} • {artist.user.phone ? "Contact available" : "Contact on request"}
+                              </p>
+                              <p className="mt-1 text-xs text-gray-400">
+                                {artist.user.phone ? "Location: Flexible / On-request" : "Location: Remote / Flexible"}
                               </p>
                             </div>
                             {artist.verified && (
-                              <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded">
+                              <span className="rounded-full border border-green-500/40 bg-green-500/10 px-2 py-1 text-xs font-semibold text-green-300">
                                 ✓ Verified
                               </span>
                             )}
                           </div>
 
                           {/* Genres */}
-                          <div className="flex flex-wrap gap-1 mb-3">
+                          <div className="mb-4 flex flex-wrap gap-2">
                             {artist.genres.slice(0, 3).map((genre) => (
                               <span
                                 key={genre}
-                                className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded"
+                                className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2.5 py-1 text-xs font-medium text-blue-200"
                               >
                                 {genre}
                               </span>
                             ))}
                             {artist.genres.length > 3 && (
-                              <span className="text-xs text-gray-600">
+                              <span className="text-xs text-gray-400">
                                 +{artist.genres.length - 3} more
                               </span>
                             )}
                           </div>
 
+                          <p className="mb-4 line-clamp-2 text-sm leading-relaxed text-gray-300">
+                            {getShortBio(artist)}
+                          </p>
+
                           {/* Rating */}
-                          <div className="mb-3">
+                          <div className="mb-4">
                             {renderStars(artist.rating)}
-                            <p className="text-xs text-gray-600 mt-1">
+                            <p className="mt-1 text-xs text-gray-400">
                               {artist.reviewCount} reviews
                             </p>
                           </div>
 
                           {/* Price */}
-                          <div className="flex justify-between items-end">
+                          <div className="flex items-end justify-between">
                             <div>
-                              <p className="text-xs text-gray-600">Hourly Rate</p>
-                              <p className="text-lg font-bold text-purple-600">
+                              <p className="text-xs text-gray-400">Hourly Rate</p>
+                              <p className="text-2xl font-bold text-blue-400">
                                 ${artist.hourlyRate}
                               </p>
                             </div>
-                            <button className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded text-sm font-semibold transition">
-                              View Details
-                            </button>
+                            <span className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-blue-500">
+                              View Profile
+                            </span>
                           </div>
                         </div>
-                      </div>
+                      </article>
                     </Link>
                   ))}
                 </div>
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="flex justify-center gap-2 mt-8">
+                  <div className="mt-8 flex flex-wrap justify-center gap-2">
                     <button
                       onClick={() => setPage(Math.max(1, page - 1))}
                       disabled={page === 1}
-                      className="px-4 py-2 border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 text-sm text-gray-200 transition hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Previous
                     </button>
@@ -380,10 +428,10 @@ export default function SearchArtists() {
                       <button
                         key={i + 1}
                         onClick={() => setPage(i + 1)}
-                        className={`px-4 py-2 rounded ${
+                        className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
                           page === i + 1
-                            ? "bg-purple-600 text-white"
-                            : "border hover:bg-gray-100"
+                            ? "bg-blue-600 text-white"
+                            : "border border-gray-600 bg-gray-800 text-gray-200 hover:bg-gray-700"
                         }`}
                       >
                         {i + 1}
@@ -392,7 +440,7 @@ export default function SearchArtists() {
                     <button
                       onClick={() => setPage(Math.min(totalPages, page + 1))}
                       disabled={page === totalPages}
-                      className="px-4 py-2 border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 text-sm text-gray-200 transition hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Next
                     </button>
@@ -400,13 +448,23 @@ export default function SearchArtists() {
                 )}
               </>
             ) : (
-              <div className="bg-white rounded-lg shadow p-12 text-center">
-                <p className="text-gray-600 text-lg">
-                  No artists found matching your criteria. Please try adjusting your filters.
+              <div className="rounded-2xl border border-gray-700 bg-gray-800/70 p-12 text-center">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-700 text-2xl">
+                  🎵
+                </div>
+                <h3 className="text-xl font-bold text-white">No Artists Found</h3>
+                <p className="mx-auto mt-2 max-w-md text-sm text-gray-300">
+                  We could not find artists matching your current filters. Try broadening your price range or removing one filter.
                 </p>
+                <button
+                  onClick={handleClearFilters}
+                  className="mt-6 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500"
+                >
+                  Reset Filters
+                </button>
               </div>
             )}
-          </div>
+          </section>
         </div>
       </div>
     </div>
