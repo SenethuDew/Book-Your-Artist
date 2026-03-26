@@ -4,7 +4,7 @@ const availabilitySchema = new mongoose.Schema(
   {
     artistId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "ArtistProfile",
+      ref: "User",
       required: true,
       index: true,
     },
@@ -21,11 +21,6 @@ const availabilitySchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    slotDuration: {
-      type: Number,
-      default: 30,
-    },
-    bookedSlots: [String],
     createdAt: {
       type: Date,
       default: Date.now,

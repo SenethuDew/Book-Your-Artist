@@ -4,6 +4,7 @@ const router = express.Router();
 // Import controllers
 const authController = require("../controllers/authController");
 const artistController = require("../controllers/artistController");
+const availabilityController = require("../controllers/availabilityController");
 const bookingController = require("../controllers/bookingController");
 const paymentController = require("../controllers/paymentController");
 const reviewController = require("../controllers/reviewController");
@@ -31,6 +32,11 @@ router.get("/artists/search", artistController.searchArtists);
 router.get("/artists/:id", artistController.getArtistDetail);
 router.put("/artists/profile", auth, artistController.updateProfile);
 router.get("/artists/me/stats", auth, artistController.getStats);
+
+// ===== AVAILABILITY ROUTES =====
+router.get("/availability/me", auth, availabilityController.getMyAvailability);
+router.post("/availability", auth, availabilityController.createAvailability);
+router.delete("/availability/:id", auth, availabilityController.deleteAvailability);
 
 // ===== BOOKING ROUTES =====
 router.post("/bookings", auth, bookingController.createBooking);

@@ -1,0 +1,240 @@
+const Availability = require("../models/Availability");
+const User = require("../models/User");
+const { z } = require("zod");
+
+/**
+ * Get availability slots for authenticated artist
+ * GET /api/availability/me
+ */
+const getMyAvailability = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    // Verify user is an artist
+    const user = await User.findById(userId);
+    if (!user || user.role !== "artist") {
+      return res.status(403).json({
+        success: false,
+        message: "Only artists can view availability",
+      });
+    }
+
+    const slots = await Availability.find({ artistId: userId })
+      .sort({ date: 1, startTime: 1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      availability: slots,
+    });
+  } catch (error) {
+    console.error("Get availability error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch availability slots",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+/**
+ * Create a new availability slot
+ * POST /api/availability
+ */
+const createAvailability = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    // Verify user is an artist
+    const user = await User.findById(userId);
+    if (!user || user.role !== "artist") {
+      return res.status(403).json({
+        success: false,
+        message: "Only artists can create availability slots",
+      });
+    }
+
+    const { date, startTime, endTime } = req.body;
+
+    // Basic validation
+    if (!date || !startTime || !endTime) {
+      return res.status(400).json({
+        success: false,
+        message: "Date, start time, and end time are required",
+      });
+    }
+
+    // Validate time format
+    const timeRegex = /^\d{2}:\d{2}$/;
+    if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid time format. Use HH:MM",
+      });
+    }
+
+    // Parse date and times
+    const slotDate = new Date(date);
+    slotDate.setHours(0, 0, 0, 0);
+
+    // Check if date is in the past
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (slotDate < today) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot create availability for past dates",
+      });
+    }
+
+    // Validate time order
+    const startParts = startTime.split(":").map(Number);
+    const endParts = endTime.split(":").map(Number);
+    const startMinutes = startParts[0] * 60 + startParts[1];
+    const endMinutes = endParts[0] * 60 + endParts[1];
+
+    if (endMinutes <= startMinutes) {
+      return res.status(400).json({
+        success: false,
+        message: "End time must be after start time",
+      });
+    }
+
+    // Check for overlapping slots
+    const existingSlots = await Availability.find({
+      artistId: userId,
+      date: {
+        $gte: slotDate,
+        $lt: new Date(slotDate.getTime() + 24 * 60 * 60 * 1000),
+      },
+    }).lean();
+
+    // Check for overlap or duplicate
+    const hasConflict = existingSlots.some((slot) => {
+      const existingStart = slot.startTime.split(":").map(Number);
+      const existingEnd = slot.endTime.split(":").map(Number);
+      const existingStartMinutes = existingStart[0] * 60 + existingStart[1];
+      const existingEndMinutes = existingEnd[0] * 60 + existingEnd[1];
+
+      // Check for exact duplicate
+      if (
+        slot.startTime === startTime &&
+        slot.endTime === endTime
+      ) {
+        return true;
+      }
+
+      // Check for overlap: new slot overlaps with existing slot
+      if (startMinutes < existingEndMinutes && endMinutes > existingStartMinutes) {
+        return true;
+      }
+
+      return false;
+    });
+
+    if (hasConflict) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This time slot overlaps with or duplicates an existing slot",
+      });
+    }
+
+    // Create new availability
+    const availability = new Availability({
+      artistId: userId,
+      date: slotDate,
+      startTime,
+      endTime,
+    });
+
+    await availability.save();
+
+    return res.status(201).json({
+      success: true,
+      message: "Availability slot created successfully",
+      availability,
+    });
+  } catch (error) {
+    console.error("Create availability error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create availability slot",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+/**
+ * Delete an availability slot
+ * DELETE /api/availability/:id
+ */
+const deleteAvailability = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Slot ID is required",
+      });
+    }
+
+    // Get the slot
+    const slot = await Availability.findById(id);
+    if (!slot) {
+      return res.status(404).json({
+        success: false,
+        message: "Availability slot not found",
+      });
+    }
+
+    // Check if user owns this slot
+    if (slot.artistId.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only delete your own availability slots",
+      });
+    }
+
+    // Delete the slot
+    await Availability.findByIdAndDelete(id);
+
+    return res.status(200).json({
+      success: true,
+      message: "Availability slot deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete availability error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete availability slot",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+module.exports = {
+  getMyAvailability,
+  createAvailability,
+  deleteAvailability,
+};
