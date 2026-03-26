@@ -34,7 +34,7 @@ function AdminHomeContent() {
       </nav>
 
       <div className="max-w-7xl mx-auto px-4 py-12">
-        <div className="bg-linear-to-r from-purple-600 to-purple-700 rounded-lg p-12 text-center mb-12">
+        <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-lg p-12 text-center mb-12">
           <h2 className="text-4xl font-bold mb-4">Welcome, {user?.name}! 👨‍💼</h2>
           <p className="text-lg">Platform Administration Center</p>
         </div>

@@ -38,8 +38,10 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      await signup(formData);
-      router.push("/home/client");
+      const result = await signup(formData);
+      // Redirect based on user role
+      const redirectPath = result.user.role === "artist" ? "/home/artist" : "/home/client";
+      router.push(redirectPath);
     } catch (err: any) {
       setError(err.message || "Registration failed. Please try again.");
     } finally {

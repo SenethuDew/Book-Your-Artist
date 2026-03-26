@@ -19,8 +19,10 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await login(email, password);
-      router.push("/home/client");
+      const result = await login(email, password);
+      // Redirect based on user role
+      const redirectPath = result.user.role === "artist" ? "/home/artist" : "/home/client";
+      router.push(redirectPath);
     } catch (err: any) {
       setError(err.message || "Login failed. Please try again.");
     } finally {
