@@ -44,7 +44,15 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white px-4 py-10 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-900 text-white px-4 py-5 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl">
+        <Link
+          href="/"
+          className="inline-flex mb-5 items-center gap-2 text-sm font-semibold text-blue-300 hover:text-blue-200 transition"
+        >
+          ← Back to Home
+        </Link>
+      </div>
       <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-6xl items-center justify-center">
         <div className="grid w-full max-w-5xl gap-6 lg:grid-cols-[1fr_440px]">
           <section className="hidden rounded-3xl border border-gray-800 bg-linear-to-b from-gray-800 to-gray-900 p-10 lg:block">

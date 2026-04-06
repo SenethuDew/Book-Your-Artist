@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts";
 
-/* ─── mock data for featured artists ─── */
+/* ─── Mock data for featured artists ─── */
 const featuredArtists = [
   {
     id: 1,
@@ -37,8 +37,70 @@ const featuredArtists = [
     color: "from-amber-500 to-pink-500",
     initials: "LO",
   },
+  {
+    id: 4,
+    name: "DJ Skyline",
+    genre: "Electronic/House",
+    rating: 4.7,
+    reviews: 156,
+    hourlyRate: 350,
+    color: "from-blue-500 to-cyan-500",
+    initials: "DS",
+  },
+  {
+    id: 5,
+    name: "The Echoes",
+    genre: "Rock Band",
+    rating: 4.8,
+    reviews: 89,
+    hourlyRate: 500,
+    color: "from-red-500 to-orange-500",
+    initials: "TE",
+  },
+  {
+    id: 6,
+    name: "Sophie Rousseau",
+    genre: "Acoustic/Singer",
+    rating: 4.9,
+    reviews: 203,
+    hourlyRate: 180,
+    color: "from-pink-500 to-rose-500",
+    initials: "SR",
+  },
 ];
 
+/* ─── Artist categories ─── */
+const artistCategories = [
+  {
+    id: 1,
+    name: "Singers",
+    description: "Vocalists & solo performers",
+    icon: "🎤",
+    count: "245+",
+    color: "from-violet-500/20 to-fuchsia-500/20",
+    borderColor: "border-violet-500/30 hover:border-violet-400/60",
+  },
+  {
+    id: 2,
+    name: "DJs",
+    description: "Electronic & turntable artists",
+    icon: "🎧",
+    count: "128+",
+    color: "from-cyan-500/20 to-blue-500/20",
+    borderColor: "border-cyan-500/30 hover:border-cyan-400/60",
+  },
+  {
+    id: 3,
+    name: "Bands",
+    description: "Full groups & ensembles",
+    icon: "🎸",
+    count: "87+",
+    color: "from-amber-500/20 to-orange-500/20",
+    borderColor: "border-amber-500/30 hover:border-amber-400/60",
+  },
+];
+
+/* ─── Testimonials ─── */
 const testimonials = [
   {
     name: "Sarah Mitchell",
@@ -60,7 +122,15 @@ const testimonials = [
   },
 ];
 
-/* ─── star component ─── */
+/* ─── Stats data ─── */
+const stats = [
+  { label: "Verified Artists", value: "500+", icon: "👥" },
+  { label: "Events Booked", value: "10,000+", icon: "🎉" },
+  { label: "Average Rating", value: "4.8★", icon: "⭐" },
+  { label: "Happy Clients", value: "15,000+", icon: "😊" },
+];
+
+/* ─── Star component ─── */
 function Stars({ rating }: { rating: number }) {
   return (
     <span className="inline-flex gap-0.5 text-amber-400">
@@ -78,53 +148,87 @@ function Stars({ rating }: { rating: number }) {
 }
 
 /* ════════════════════════════════════════
-   MAIN HOME / LANDING PAGE
+   MAIN LANDING PAGE - REDESIGNED
    ════════════════════════════════════════ */
 export default function Home() {
-  const { loading, isAuthenticated } = useAuth();
+  const { loading, isAuthenticated, user } = useAuth();
   const router = useRouter();
+  const [activeNavLink, setActiveNavLink] = useState<string>("");
 
   useEffect(() => {
-    if (!loading && isAuthenticated) {
-      router.push("/home/client");
+    if (!loading && isAuthenticated && user) {
+      if (user.role === 'artist') {
+        router.push("/home/artist");
+      } else if (user.role === 'admin') {
+        router.push("/home/admin");
+      } else if (user.role === 'client') {
+        router.push("/home/client");
+      }
     }
-  }, [loading, isAuthenticated, router]);
+  }, [loading, isAuthenticated, user, router]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0b0d17] flex items-center justify-center">
-        <div className="animate-pulse-glow rounded-full h-16 w-16 border-2 border-violet-500" />
+      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-purple-950 to-gray-950 flex items-center justify-center">
+        <div className="space-y-4 text-center">
+          <div className="animate-pulse-glow rounded-full h-16 w-16 border-2 border-violet-500 mx-auto" />
+          <p className="text-gray-400 text-sm">Loading...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#0b0d17] text-white overflow-x-hidden">
-      {/* ───────────── NAVBAR ───────────── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 glass">
+    <main className="min-h-screen bg-gradient-to-br from-gray-950 via-purple-950 to-gray-950 text-white overflow-x-hidden">
+      {/* ═══════════════ NAVBAR ═══════════════ */}
+      <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-gradient-to-b from-gray-950/80 via-purple-950/40 to-transparent border-b border-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Link href="/" className="text-xl font-bold tracking-tight">
-            <span className="text-gradient">Book</span>
-            <span className="text-white">Your</span>
-            <span className="text-gradient">Artist</span>
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center font-bold text-sm group-hover:shadow-lg group-hover:shadow-violet-500/50 transition-all">
+              ♪
+            </div>
+            <span className="text-lg font-bold tracking-tight hidden sm:inline">
+              <span className="text-gradient">Book</span>
+              <span className="text-white">Your</span>
+              <span className="text-gradient">Artist</span>
+            </span>
           </Link>
 
-          <div className="hidden md:flex items-center gap-8 text-sm text-gray-300">
-            <Link href="#featured" className="hover:text-white transition">Browse Artists</Link>
-            <Link href="#how-it-works" className="hover:text-white transition">How It Works</Link>
-            <Link href="#why-us" className="hover:text-white transition">Why Us</Link>
+          {/* Navigation Links */}
+          <div className="hidden md:flex items-center gap-1">
+            {[
+              { href: "#artists", label: "Artists" },
+              { href: "#how", label: "How It Works" },
+              { href: "#benefits", label: "Benefits" },
+              { href: "#testimonials", label: "Reviews" },
+            ].map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
+                  activeNavLink === link.href
+                    ? "bg-violet-500/20 text-violet-300 border border-violet-500/30"
+                    : "text-gray-300 hover:text-white hover:bg-white/5"
+                }`}
+                onClick={() => setActiveNavLink(link.href)}
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
 
+          {/* Auth Buttons */}
           <div className="flex items-center gap-3">
             <Link
               href="/sign-in"
-              className="text-sm text-gray-300 hover:text-white transition px-4 py-2"
+              className="hidden sm:inline-flex text-sm font-medium text-gray-300 hover:text-white px-4 py-2 rounded-lg transition-colors duration-300"
             >
-              Login
+              Sign In
             </Link>
             <Link
               href="/sign-up"
-              className="text-sm font-semibold bg-linear-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 px-5 py-2 rounded-full transition-all duration-300 shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40"
+              className="text-sm font-semibold bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white px-5 py-2 rounded-lg transition-all duration-300 shadow-lg shadow-violet-500/20 hover:shadow-violet-500/40 hover:scale-105"
             >
               Get Started
             </Link>
@@ -132,171 +236,235 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* ───────────── HERO ───────────── */}
-      <section className="relative min-h-screen flex items-center justify-center pt-16">
-        {/* Aurora blobs */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="animate-aurora-1 absolute top-1/4 left-1/4 w-125 h-125 rounded-full bg-violet-600/20 blur-[120px]" />
-          <div className="animate-aurora-2 absolute top-1/3 right-1/4 w-100 h-100 rounded-full bg-indigo-600/20 blur-[100px]" />
-          <div className="animate-aurora-3 absolute bottom-1/4 left-1/3 w-87.5 h-87.5 rounded-full bg-fuchsia-600/15 blur-[100px]" />
+      {/* ═══════════════ HERO SECTION ═══════════════ */}
+      <section className="relative pt-32 pb-20 px-4 sm:pt-40 sm:pb-24 lg:pt-48 lg:pb-28 overflow-hidden">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute top-20 left-1/4 w-96 h-96 rounded-full bg-violet-600/15 blur-3xl animate-pulse" />
+          <div className="absolute top-40 right-1/4 w-80 h-80 rounded-full bg-fuchsia-600/10 blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
+          <div className="absolute -bottom-20 left-1/3 w-72 h-72 rounded-full bg-indigo-600/10 blur-3xl animate-pulse" style={{ animationDelay: "2s" }} />
         </div>
 
-        {/* Subtle grid pattern */}
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
-            backgroundSize: "60px 60px",
-          }}
-        />
-
-        <div className="relative z-10 max-w-5xl mx-auto px-4 text-center">
-          <div className="animate-fade-in-up">
-            <span className="inline-block text-xs font-semibold tracking-[0.25em] uppercase text-violet-400 mb-6 px-4 py-1.5 rounded-full border border-violet-500/30 bg-violet-500/10">
-              🎵 The #1 Platform for Live Music Booking
-            </span>
+        <div className="relative z-10 max-w-5xl mx-auto text-center">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-violet-500/30 bg-violet-500/10 backdrop-blur-sm mb-6 animate-fade-in">
+            <span className="text-violet-300 text-sm">✨ Discover Premium Musicians</span>
           </div>
 
-          <h1 className="animate-fade-in-up-delay-1 text-5xl sm:text-6xl lg:text-7xl font-extrabold leading-[1.1] tracking-tight mb-6">
-            Discover & Book{" "}
-            <span className="text-gradient-warm">World-Class</span>
-            <br />
-            Musicians
+          {/* Headline */}
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold leading-tight tracking-tight mb-6 animate-fade-in-up">
+            <span className="block">Find & Book</span>
+            <span className="block bg-gradient-to-r from-violet-400 via-fuchsia-400 to-indigo-400 text-transparent bg-clip-text">
+              World-Class Artists
+            </span>
+            <span className="block text-gray-300">In Minutes</span>
           </h1>
 
-          <p className="animate-fade-in-up-delay-2 text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Connect with verified, talented artists for weddings, corporate events,
-            private parties, and studio sessions — all in one place.
+          {/* Subheading */}
+          <p className="text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto mb-8 leading-relaxed animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
+            Connect with verified musicians and bands for weddings, events, studios, and performances. Browse, book, and pay securely — all in one platform.
           </p>
 
-          <div className="animate-fade-in-up-delay-3 flex flex-col sm:flex-row items-center justify-center gap-4">
+          {/* CTA Buttons */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
             <Link
               href="/search"
-              className="group relative inline-flex items-center gap-2 bg-linear-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-semibold px-8 py-4 rounded-full transition-all duration-300 shadow-xl shadow-violet-600/30 hover:shadow-violet-500/50 hover:scale-[1.03]"
+              className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white font-semibold px-8 py-3.5 rounded-lg transition-all duration-300 shadow-xl shadow-violet-500/30 hover:shadow-violet-500/50 hover:scale-105"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-              Explore Artists
+              Browse Artists
             </Link>
             <Link
               href="/sign-up"
-              className="inline-flex items-center gap-2 text-gray-300 hover:text-white font-medium px-8 py-4 rounded-full border border-gray-700 hover:border-gray-500 transition-all duration-300 hover:scale-[1.03]"
+              className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 text-gray-200 hover:text-white font-semibold px-8 py-3.5 rounded-lg border border-gray-600 hover:border-violet-500/50 bg-white/5 hover:bg-white/10 transition-all duration-300"
             >
-              Join as an Artist
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              Join as Artist
+              <svg className="w-4 h-4 group-hover:translate-x-1 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </Link>
           </div>
 
-          {/* Trust badges */}
-          <div className="mt-16 flex flex-wrap items-center justify-center gap-8 text-gray-500 text-sm">
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              500+ Verified Artists
-            </div>
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              10,000+ Events Booked
-            </div>
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              4.8★ Average Rating
-            </div>
-          </div>
-        </div>
-
-        {/* Scroll indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-gray-500 text-xs">
-          <span>Scroll</span>
-          <div className="w-5 h-8 rounded-full border border-gray-600 flex items-start justify-center p-1">
-            <div className="w-1 h-2 rounded-full bg-gray-400 animate-bounce" />
+          {/* Trust Badges */}
+          <div className="inline-flex flex-col sm:flex-row flex-wrap items-center justify-center gap-6 sm:gap-8 text-sm animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
+            {stats.map((stat, i) => (
+              <div key={i} className="flex items-center gap-2 text-gray-300">
+                <span className="text-xl">{stat.icon}</span>
+                <span className="font-semibold">{stat.value}</span>
+                <span className="text-gray-500">{stat.label}</span>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ───────────── FEATURED ARTISTS ───────────── */}
-      <section id="featured" className="relative py-24 px-4">
+      {/* ═══════════════ ARTIST CATEGORIES ═══════════════ */}
+      <section className="relative py-16 px-4">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <span className="text-xs font-semibold tracking-[0.2em] uppercase text-violet-400">Top Performers</span>
-            <h2 className="text-4xl sm:text-5xl font-bold mt-3 mb-4">
-              Featured <span className="text-gradient">Artists</span>
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-3">
+              Browse by <span className="text-gradient">Artist Type</span>
             </h2>
-            <p className="text-gray-400 max-w-lg mx-auto">
-              Hand-picked musicians loved by thousands of clients worldwide
-            </p>
+            <p className="text-gray-400 text-lg">Find the perfect performer for any event</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {featuredArtists.map((artist, i) => (
-              <div
-                key={artist.id}
-                className={`group glass-strong rounded-2xl p-6 hover:scale-[1.03] transition-all duration-500 cursor-pointer ${
-                  i === 0 ? "animate-float" : i === 1 ? "animate-float-delay-1" : "animate-float-delay-2"
-                }`}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {artistCategories.map((cat) => (
+              <Link
+                key={cat.id}
+                href="/search"
+                className={`group relative overflow-hidden rounded-2xl p-8 border ${cat.borderColor} bg-gradient-to-br ${cat.color} backdrop-blur-sm transition-all duration-300 hover:scale-105 cursor-pointer`}
               >
-                {/* Avatar */}
-                <div className="flex items-center gap-4 mb-5">
-                  <div
-                    className={`w-14 h-14 rounded-full bg-linear-to-br ${artist.color} flex items-center justify-center text-lg font-bold shadow-lg`}
-                  >
-                    {artist.initials}
-                  </div>
+                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="relative z-10 flex flex-col h-full justify-between">
                   <div>
-                    <h3 className="font-bold text-lg group-hover:text-violet-300 transition">
-                      {artist.name}
-                    </h3>
-                    <p className="text-sm text-gray-400">{artist.genre}</p>
+                    <div className="text-5xl mb-4">{cat.icon}</div>
+                    <h3 className="text-2xl font-bold mb-2">{cat.name}</h3>
+                    <p className="text-gray-300 text-sm mb-4">{cat.description}</p>
                   </div>
-                </div>
-
-                {/* Rating */}
-                <div className="flex items-center gap-2 mb-4">
-                  <Stars rating={artist.rating} />
-                  <span className="text-sm text-gray-400">
-                    {artist.rating} ({artist.reviews} reviews)
-                  </span>
-                </div>
-
-                {/* Rate & CTA */}
-                <div className="flex items-center justify-between pt-4 border-t border-white/10">
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider">From</p>
-                    <p className="text-2xl font-bold text-white">
-                      ${artist.hourlyRate}
-                      <span className="text-sm font-normal text-gray-400">/hr</span>
-                    </p>
-                  </div>
-                  <Link
-                    href="/search"
-                    className="text-sm font-semibold text-violet-400 hover:text-violet-300 transition flex items-center gap-1"
-                  >
-                    View Profile
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="flex items-center justify-between pt-4 border-t border-white/10">
+                    <span className="font-semibold text-violet-300">{cat.count} artists</span>
+                    <svg className="w-5 h-5 text-white group-hover:translate-x-1 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
-                  </Link>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ HOW IT WORKS ═══════════════ */}
+      <section id="how" className="relative py-20 px-4">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute bottom-0 right-0 w-96 h-96 rounded-full bg-indigo-600/10 blur-3xl" />
+        </div>
+
+        <div className="relative max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-3">
+              How It <span className="text-gradient">Works</span>
+            </h2>
+            <p className="text-gray-400 text-lg">Book your favorite artist in three simple steps</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-6 relative">
+            {/* Connection line */}
+            <div className="hidden md:block absolute top-20 left-0 right-0 h-1 bg-gradient-to-r from-violet-600/30 via-fuchsia-600/30 to-indigo-600/30" />
+
+            {/* Steps */}
+            {[
+              {
+                num: "01",
+                icon: "🔍",
+                title: "Search & Discover",
+                desc: "Browse thousands of verified musicians by genre, price, availability, and ratings.",
+              },
+              {
+                num: "02",
+                icon: "📅",
+                title: "Book & Secure",
+                desc: "Choose your preferred date, send a booking request, and confirm with secure payment.",
+              },
+              {
+                num: "03",
+                icon: "🎵",
+                title: "Enjoy & Review",
+                desc: "Experience world-class performance and leave a review to help the community.",
+              },
+            ].map((step, i) => (
+              <div key={i} className="relative z-10">
+                <div className="text-center">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 border border-violet-500/30 mb-6 group hover:scale-110 transition-transform">
+                    <span className="text-3xl">{step.icon}</span>
+                  </div>
+                  <div className="text-sm font-bold text-violet-400 mb-2 tracking-widest">{step.num}</div>
+                  <h3 className="text-xl font-bold mb-3">{step.title}</h3>
+                  <p className="text-gray-400 leading-relaxed">{step.desc}</p>
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ FEATURED ARTISTS ═══════════════ */}
+      <section id="artists" className="relative py-20 px-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-3">
+              Featured <span className="text-gradient">Artists</span>
+            </h2>
+            <p className="text-gray-400 text-lg">Hand-picked performers trusted by thousands of clients</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {featuredArtists.map((artist) => (
+              <Link
+                key={artist.id}
+                href={`/artists/${artist.id}`}
+                className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm border border-white/10 hover:border-violet-500/30 p-6 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-violet-500/20"
+              >
+                {/* Gradient overlay on hover */}
+                <div className="absolute inset-0 bg-gradient-to-br from-violet-600/5 to-fuchsia-600/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                <div className="relative z-10">
+                  {/* Avatar */}
+                  <div className="flex items-center gap-4 mb-6">
+                    <div
+                      className={`w-16 h-16 rounded-xl bg-gradient-to-br ${artist.color} flex items-center justify-center text-xl font-bold shadow-lg shadow-violet-500/20 group-hover:shadow-xl group-hover:shadow-violet-500/40 transition-all`}
+                    >
+                      {artist.initials}
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-bold text-lg group-hover:text-violet-300 transition">
+                        {artist.name}
+                      </h3>
+                      <p className="text-sm text-gray-400">{artist.genre}</p>
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="border-t border-white/10 my-4" />
+
+                  {/* Rating */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <Stars rating={artist.rating} />
+                    <span className="text-xs text-gray-500">
+                      {artist.rating} • {artist.reviews} reviews
+                    </span>
+                  </div>
+
+                  {/* Rate and CTA */}
+                  <div className="flex items-center justify-between pt-4 border-t border-white/10">
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wider">From</p>
+                      <p className="text-xl font-bold">
+                        ${artist.hourlyRate}
+                        <span className="text-xs font-normal text-gray-400">/hr</span>
+                      </p>
+                    </div>
+                    <div className="w-10 h-10 rounded-lg bg-violet-500/20 border border-violet-500/30 flex items-center justify-center group-hover:bg-violet-500/40 transition">
+                      <svg className="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </Link>
             ))}
           </div>
 
           <div className="text-center mt-12">
             <Link
               href="/search"
-              className="inline-flex items-center gap-2 text-violet-400 hover:text-violet-300 font-semibold transition"
+              className="inline-flex items-center gap-2 text-violet-400 hover:text-violet-300 font-semibold transition group"
             >
               View All Artists
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 group-hover:translate-x-1 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
             </Link>
@@ -304,173 +472,89 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ───────────── HOW IT WORKS ───────────── */}
-      <section id="how-it-works" className="relative py-24 px-4">
-        {/* Subtle background accent */}
+      {/* ═══════════════ WHY CHOOSE US ═══════════════ */}
+      <section id="benefits" className="relative py-20 px-4">
         <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-150 h-150 rounded-full bg-indigo-600/5 blur-[150px]" />
-        </div>
-
-        <div className="relative max-w-5xl mx-auto">
-          <div className="text-center mb-16">
-            <span className="text-xs font-semibold tracking-[0.2em] uppercase text-indigo-400">Simple Process</span>
-            <h2 className="text-4xl sm:text-5xl font-bold mt-3 mb-4">
-              How It <span className="text-gradient">Works</span>
-            </h2>
-            <p className="text-gray-400 max-w-lg mx-auto">
-              Book your perfect artist in three easy steps
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
-            {/* Connecting line (desktop) */}
-            <div className="hidden md:block absolute top-16 left-[16.67%] right-[16.67%] h-0.5 bg-linear-to-r from-violet-600/50 via-indigo-600/50 to-fuchsia-600/50" />
-
-            {/* Step 1 */}
-            <div className="text-center relative">
-              <div className="relative z-10 w-32 h-32 mx-auto mb-6 rounded-2xl glass-strong flex items-center justify-center group hover:scale-110 transition-transform duration-500">
-                <div className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-linear-to-br from-violet-500 to-indigo-500 flex items-center justify-center text-sm font-bold shadow-lg">
-                  1
-                </div>
-                <svg className="w-12 h-12 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold mb-2">Search & Discover</h3>
-              <p className="text-gray-400 text-sm leading-relaxed">
-                Browse musicians by genre, price range, availability, and ratings to find your ideal match
-              </p>
-            </div>
-
-            {/* Step 2 */}
-            <div className="text-center relative">
-              <div className="relative z-10 w-32 h-32 mx-auto mb-6 rounded-2xl glass-strong flex items-center justify-center group hover:scale-110 transition-transform duration-500">
-                <div className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-linear-to-br from-indigo-500 to-blue-500 flex items-center justify-center text-sm font-bold shadow-lg">
-                  2
-                </div>
-                <svg className="w-12 h-12 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold mb-2">Book Securely</h3>
-              <p className="text-gray-400 text-sm leading-relaxed">
-                Select a date, send your booking request, and pay securely through our Stripe-powered checkout
-              </p>
-            </div>
-
-            {/* Step 3 */}
-            <div className="text-center relative">
-              <div className="relative z-10 w-32 h-32 mx-auto mb-6 rounded-2xl glass-strong flex items-center justify-center group hover:scale-110 transition-transform duration-500">
-                <div className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-linear-to-br from-fuchsia-500 to-pink-500 flex items-center justify-center text-sm font-bold shadow-lg">
-                  3
-                </div>
-                <svg className="w-12 h-12 text-fuchsia-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold mb-2">Enjoy the Show</h3>
-              <p className="text-gray-400 text-sm leading-relaxed">
-                Sit back and enjoy a world-class performance, then leave a review to help the community
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ───────────── WHY CHOOSE US ───────────── */}
-      <section id="why-us" className="relative py-24 px-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <span className="text-xs font-semibold tracking-[0.2em] uppercase text-fuchsia-400">Our Promise</span>
-            <h2 className="text-4xl sm:text-5xl font-bold mt-3 mb-4">
-              Why Choose <span className="text-gradient-warm">Book Your Artist</span>
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Card 1 */}
-            <div className="group glass rounded-2xl p-6 hover:border-violet-500/30 transition-all duration-500">
-              <div className="w-12 h-12 rounded-xl bg-linear-to-br from-violet-500/20 to-violet-600/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <svg className="w-6 h-6 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              </div>
-              <h3 className="font-bold text-lg mb-2">Verified Artists</h3>
-              <p className="text-sm text-gray-400 leading-relaxed">
-                Every musician is background-checked and portfolio-reviewed before joining our platform
-              </p>
-            </div>
-
-            {/* Card 2 */}
-            <div className="group glass rounded-2xl p-6 hover:border-indigo-500/30 transition-all duration-500">
-              <div className="w-12 h-12 rounded-xl bg-linear-to-br from-indigo-500/20 to-blue-600/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <svg className="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-              </div>
-              <h3 className="font-bold text-lg mb-2">Secure Payments</h3>
-              <p className="text-sm text-gray-400 leading-relaxed">
-                All transactions are encrypted and processed safely through Stripe with buyer protection
-              </p>
-            </div>
-
-            {/* Card 3 */}
-            <div className="group glass rounded-2xl p-6 hover:border-cyan-500/30 transition-all duration-500">
-              <div className="w-12 h-12 rounded-xl bg-linear-to-br from-cyan-500/20 to-teal-600/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                </svg>
-              </div>
-              <h3 className="font-bold text-lg mb-2">Real Reviews</h3>
-              <p className="text-sm text-gray-400 leading-relaxed">
-                Authentic ratings from real clients who have attended events with our booked artists
-              </p>
-            </div>
-
-            {/* Card 4 */}
-            <div className="group glass rounded-2xl p-6 hover:border-fuchsia-500/30 transition-all duration-500">
-              <div className="w-12 h-12 rounded-xl bg-linear-to-br from-fuchsia-500/20 to-pink-600/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <svg className="w-6 h-6 text-fuchsia-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-              </div>
-              <h3 className="font-bold text-lg mb-2">Direct Messaging</h3>
-              <p className="text-sm text-gray-400 leading-relaxed">
-                Chat directly with artists to discuss your event details, preferences, and special requests
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ───────────── TESTIMONIALS ───────────── */}
-      <section className="relative py-24 px-4">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute bottom-0 left-1/4 w-125 h-125 rounded-full bg-fuchsia-600/5 blur-[150px]" />
+          <div className="absolute top-0 left-0 w-96 h-96 rounded-full bg-violet-600/10 blur-3xl" />
         </div>
 
         <div className="relative max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <span className="text-xs font-semibold tracking-[0.2em] uppercase text-amber-400">Testimonials</span>
-            <h2 className="text-4xl sm:text-5xl font-bold mt-3 mb-4">
-              Loved by <span className="text-gradient-warm">Clients</span>
+            <h2 className="text-3xl sm:text-4xl font-bold mb-3">
+              Why Choose <span className="text-gradient">Book Your Artist</span>
             </h2>
+            <p className="text-gray-400 text-lg">The most trusted platform for booking live music</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonials.map((t, i) => (
-              <div key={i} className="glass rounded-2xl p-8 flex flex-col">
-                <Stars rating={t.rating} />
-                <p className="text-gray-300 mt-4 mb-6 flex-1 leading-relaxed italic">
-                  &ldquo;{t.text}&rdquo;
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              {
+                icon: "✓",
+                title: "Verified Artists",
+                desc: "Every musician is background-checked and portfolio-reviewed.",
+                color: "from-violet-500/20",
+              },
+              {
+                icon: "🔒",
+                title: "Secure Payments",
+                desc: "All transactions encrypted with Stripe for total protection.",
+                color: "from-indigo-500/20",
+              },
+              {
+                icon: "⭐",
+                title: "Real Reviews",
+                desc: "Authentic ratings from verified clients who attended events.",
+                color: "from-cyan-500/20",
+              },
+              {
+                icon: "💬",
+                title: "Direct Messaging",
+                desc: "Chat with artists to discuss your event's unique details.",
+                color: "from-fuchsia-500/20",
+              },
+            ].map((benefit, i) => (
+              <div
+                key={i}
+                className={`group bg-gradient-to-br ${benefit.color} to-transparent backdrop-blur-sm border border-white/10 hover:border-white/20 rounded-xl p-6 transition-all duration-300 hover:scale-105`}
+              >
+                <div className="text-3xl mb-4 group-hover:scale-110 transition-transform">{benefit.icon}</div>
+                <h3 className="font-bold text-lg mb-2">{benefit.title}</h3>
+                <p className="text-gray-400 text-sm leading-relaxed">{benefit.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ TESTIMONIALS ═══════════════ */}
+      <section id="testimonials" className="relative py-20 px-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-3">
+              Loved by <span className="text-gradient">Our Community</span>
+            </h2>
+            <p className="text-gray-400 text-lg">Real stories from satisfied clients</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {testimonials.map((testimonial, i) => (
+              <div
+                key={i}
+                className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm border border-white/10 hover:border-white/20 rounded-xl p-8 flex flex-col hover:scale-105 transition-all duration-300"
+              >
+                <div className="flex gap-1 mb-4">
+                  <Stars rating={testimonial.rating} />
+                </div>
+                <p className="text-gray-300 flex-1 leading-relaxed mb-6 text-sm">
+                  "{testimonial.text}"
                 </p>
-                <div className="flex items-center gap-3 pt-4 border-t border-white/10">
-                  <div className="w-10 h-10 rounded-full bg-linear-to-br from-violet-500 to-indigo-500 flex items-center justify-center text-sm font-bold">
-                    {t.name[0]}
+                <div className="flex items-center gap-3 pt-6 border-t border-white/10">
+                  <div className={`w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center font-bold text-sm`}>
+                    {testimonial.name[0]}
                   </div>
                   <div>
-                    <p className="font-semibold text-sm">{t.name}</p>
-                    <p className="text-xs text-gray-500">{t.role}</p>
+                    <p className="font-semibold text-sm">{testimonial.name}</p>
+                    <p className="text-xs text-gray-500">{testimonial.role}</p>
                   </div>
                 </div>
               </div>
@@ -479,75 +563,85 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ───────────── CTA BANNER ───────────── */}
-      <section className="py-24 px-4">
-        <div className="max-w-4xl mx-auto relative overflow-hidden rounded-3xl">
-          {/* Gradient background */}
-          <div className="absolute inset-0 bg-linear-to-br from-violet-600 via-indigo-600 to-fuchsia-600 opacity-90" />
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiLz48L3N2Zz4=')] opacity-50" />
+      {/* ═══════════════ FINAL CTA ═══════════════ */}
+      <section className="relative py-20 px-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="relative overflow-hidden rounded-3xl">
+            {/* Animated gradient background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-violet-600 via-fuchsia-600 to-indigo-600 opacity-90" />
+            <div className="absolute inset-0 bg-gradient-to-tl from-violet-600/50 to-fuchsia-600/50 opacity-50" />
 
-          <div className="relative z-10 text-center py-16 px-8">
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-4">
-              Ready to Find Your Perfect Artist?
-            </h2>
-            <p className="text-lg text-violet-100 mb-8 max-w-xl mx-auto">
-              Join thousands of happy clients who found amazing musicians through our platform
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link
-                href="/sign-up"
-                className="bg-white text-indigo-700 font-bold px-8 py-4 rounded-full hover:bg-gray-100 transition-all duration-300 shadow-xl hover:scale-105"
-              >
-                Create Free Account
-              </Link>
-              <Link
-                href="/search"
-                className="text-white font-medium px-8 py-4 rounded-full border border-white/30 hover:bg-white/10 transition-all duration-300"
-              >
-                Browse Artists →
-              </Link>
+            <div className="relative z-10 text-center py-16 px-8 sm:py-20 sm:px-12">
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-4 leading-tight">
+                Ready to Book Your Next Performance?
+              </h2>
+              <p className="text-lg text-violet-100 mb-8 max-w-2xl mx-auto leading-relaxed">
+                Join thousands of satisfied clients and artists on the platform trusted for premium live music bookings.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <Link
+                  href="/search"
+                  className="w-full sm:w-auto bg-white text-indigo-700 font-semibold px-8 py-3.5 rounded-lg hover:bg-gray-50 transition-all duration-300 shadow-xl hover:scale-105"
+                >
+                  Browse Artists Now
+                </Link>
+                <Link
+                  href="/sign-up"
+                  className="w-full sm:w-auto text-white font-semibold px-8 py-3.5 rounded-lg border-2 border-white hover:bg-white/10 transition-all duration-300"
+                >
+                  Join for Free
+                </Link>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ───────────── FOOTER ───────────── */}
-      <footer className="border-t border-white/5 pt-16 pb-8 px-4">
+      {/* ═══════════════ FOOTER ═══════════════ */}
+      <footer className="border-t border-white/5 py-16 px-4">
         <div className="max-w-7xl mx-auto">
+          {/* Footer grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
             {/* Brand */}
             <div className="col-span-2 md:col-span-1">
-              <h3 className="text-xl font-bold mb-4">
-                <span className="text-gradient">Book</span>Your<span className="text-gradient">Artist</span>
-              </h3>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center font-bold text-sm">
+                  ♪
+                </div>
+                <span className="text-lg font-bold">
+                  <span className="text-gradient">Book</span>
+                  <span className="text-white">Your</span>
+                  <span className="text-gradient">Artist</span>
+                </span>
+              </div>
               <p className="text-sm text-gray-500 leading-relaxed">
-                The premier platform for discovering and booking world-class musicians for any occasion.
+                The premier platform for discovering and booking world-class musicians for any event.
               </p>
             </div>
 
-            {/* For Clients */}
+            {/* Quick Links */}
             <div>
-              <h4 className="font-semibold text-sm uppercase tracking-wider text-gray-400 mb-4">For Clients</h4>
+              <h4 className="font-semibold text-sm uppercase tracking-wide text-gray-300 mb-4">Platform</h4>
               <ul className="space-y-2 text-sm text-gray-500">
                 <li><Link href="/search" className="hover:text-white transition">Browse Artists</Link></li>
                 <li><Link href="/sign-up" className="hover:text-white transition">Create Account</Link></li>
-                <li><Link href="#how-it-works" className="hover:text-white transition">How It Works</Link></li>
+                <li><Link href="#how" className="hover:text-white transition">How It Works</Link></li>
               </ul>
             </div>
 
             {/* For Artists */}
             <div>
-              <h4 className="font-semibold text-sm uppercase tracking-wider text-gray-400 mb-4">For Artists</h4>
+              <h4 className="font-semibold text-sm uppercase tracking-wide text-gray-300 mb-4">For Artists</h4>
               <ul className="space-y-2 text-sm text-gray-500">
                 <li><Link href="/sign-up" className="hover:text-white transition">Join as Artist</Link></li>
                 <li><Link href="/sign-in" className="hover:text-white transition">Artist Login</Link></li>
-                <li><Link href="#why-us" className="hover:text-white transition">Why Join Us</Link></li>
+                <li><Link href="#benefits" className="hover:text-white transition">Why Join Us</Link></li>
               </ul>
             </div>
 
             {/* Company */}
             <div>
-              <h4 className="font-semibold text-sm uppercase tracking-wider text-gray-400 mb-4">Company</h4>
+              <h4 className="font-semibold text-sm uppercase tracking-wide text-gray-300 mb-4">Company</h4>
               <ul className="space-y-2 text-sm text-gray-500">
                 <li><a href="#" className="hover:text-white transition">About Us</a></li>
                 <li><a href="#" className="hover:text-white transition">Privacy Policy</a></li>
@@ -556,27 +650,25 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Footer bottom */}
           <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-sm text-gray-600">
               © 2026 Book Your Artist. All rights reserved.
             </p>
-            <div className="flex items-center gap-4">
-              {/* Social icons */}
-              <a href="#" className="text-gray-600 hover:text-white transition" aria-label="Twitter">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />
-                </svg>
-              </a>
-              <a href="#" className="text-gray-600 hover:text-white transition" aria-label="Instagram">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.047-1.024-.06-1.379-.06-3.808v-.63c0-2.43.013-2.784.06-3.808.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 015.45 2.525c.636-.247 1.363-.416 2.427-.465C8.901 2.013 9.256 2 11.685 2h.63zm-.081 1.802h-.468c-2.456 0-2.784.011-3.807.058-.975.045-1.504.207-1.857.344-.467.182-.8.398-1.15.748-.35.35-.566.683-.748 1.15-.137.353-.3.882-.344 1.857-.047 1.023-.058 1.351-.058 3.807v.468c0 2.456.011 2.784.058 3.807.045.975.207 1.504.344 1.857.182.466.399.8.748 1.15.35.35.683.566 1.15.748.353.137.882.3 1.857.344 1.054.048 1.37.058 4.041.058h.08c2.597 0 2.917-.01 3.96-.058.976-.045 1.505-.207 1.858-.344.466-.182.8-.398 1.15-.748.35-.35.566-.683.748-1.15.137-.353.3-.882.344-1.857.048-1.055.058-1.37.058-4.041v-.08c0-2.597-.01-2.917-.058-3.96-.045-.976-.207-1.505-.344-1.858a3.097 3.097 0 00-.748-1.15 3.098 3.098 0 00-1.15-.748c-.353-.137-.882-.3-1.857-.344-1.023-.047-1.351-.058-3.807-.058zM12 6.865a5.135 5.135 0 110 10.27 5.135 5.135 0 010-10.27zm0 1.802a3.333 3.333 0 100 6.666 3.333 3.333 0 000-6.666zm5.338-3.205a1.2 1.2 0 110 2.4 1.2 1.2 0 010-2.4z" />
-                </svg>
-              </a>
-              <a href="#" className="text-gray-600 hover:text-white transition" aria-label="YouTube">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                </svg>
-              </a>
+            <div className="flex items-center gap-6">
+              {[
+                { label: "Twitter", href: "#" },
+                { label: "Instagram", href: "#" },
+                { label: "YouTube", href: "#" },
+              ].map((social) => (
+                <a
+                  key={social.label}
+                  href={social.href}
+                  className="text-gray-600 hover:text-violet-400 transition-colors duration-300 text-sm font-medium"
+                >
+                  {social.label}
+                </a>
+              ))}
             </div>
           </div>
         </div>

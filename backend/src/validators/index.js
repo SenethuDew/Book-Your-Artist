@@ -36,11 +36,11 @@ const artistProfileSchema = z.object({
 // Search filters validation
 const searchFiltersSchema = z.object({
   genres: z.array(z.string()).optional(),
-  minPrice: z.number().min(0).optional(),
-  maxPrice: z.number().min(0).optional(),
-  minRating: z.number().min(0).max(5).optional(),
-  page: z.number().min(1).default(1),
-  limit: z.number().min(1).max(100).default(10),
+  minPrice: z.coerce.number().min(0).optional(),
+  maxPrice: z.coerce.number().min(0).optional(),
+  minRating: z.coerce.number().min(0).max(5).optional(),
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(100).default(10),
   sort: z.string().optional(),
 });
 

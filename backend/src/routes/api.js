@@ -50,7 +50,7 @@ router.post("/payments/intent", auth, paymentController.createPaymentIntent);
 router.post("/payments/confirm", auth, paymentController.confirmPayment);
 router.get("/payments/:paymentIntentId", auth, paymentController.getPaymentStatus);
 router.post("/payments/:paymentIntentId/refund", auth, paymentController.refundPayment);
-router.post("/payments/webhook", paymentController.handleWebhook); // No auth for webhook
+// /payments/webhook is registered in server.js to use raw express body
 
 // ===== REVIEW ROUTES =====
 router.post("/reviews", auth, reviewController.createReview);

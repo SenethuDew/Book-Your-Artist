@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { API_BASE_URL } from "@/lib/api";
 
 interface Booking {
   _id: string;
@@ -99,7 +100,7 @@ function ClientHomeContent() {
       setLoadingStats(true);
       try {
         const statsResponse = await fetch(
-          "http://localhost:5000/api/bookings/stats",
+          `${API_BASE_URL}/api/bookings/stats`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -119,7 +120,7 @@ function ClientHomeContent() {
       setLoadingBookings(true);
       try {
         const bookingsResponse = await fetch(
-          "http://localhost:5000/api/bookings/my?limit=3&sort=-eventDate",
+          `${API_BASE_URL}/api/bookings/my?limit=3&sort=-eventDate`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }

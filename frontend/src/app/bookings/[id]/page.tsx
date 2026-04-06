@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/contexts";
+import { API_BASE_URL } from "@/lib/api";
 
 interface Booking {
   _id: string;
@@ -68,7 +69,7 @@ export default function BookingDetail() {
       try {
         const token = localStorage.getItem("token");
         const response = await fetch(
-          `http://localhost:5000/api/bookings/${bookingId}`,
+          `${API_BASE_URL}/api/bookings/${bookingId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -104,7 +105,7 @@ export default function BookingDetail() {
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        `http://localhost:5000/api/bookings/${booking._id}/status`,
+        `${API_BASE_URL}/api/bookings/${booking._id}/status`,
         {
           method: "PATCH",
           headers: {
@@ -319,9 +320,17 @@ export default function BookingDetail() {
                     )}
                   </p>
                   {isClient && booking.paymentStatus === "pending" && (
-                    <p className="text-xs text-gray-600 mt-2">
-                      Payment will be processed when you confirm the booking.
-                    </p>
+                    <div className="mt-4">
+                      <p className="text-xs text-gray-600 mb-3">
+                        Payment will be processed when you confirm the booking.
+                      </p>
+                      <button
+                        onClick={() => router.push(`/checkout?bookingId=${booking._id}`)}
+                        className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded transition"
+                      >
+                        Pay Now
+                      </button>
+                    </div>
                   )}
                 </div>
 

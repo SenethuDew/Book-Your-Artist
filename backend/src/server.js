@@ -4,9 +4,14 @@ require("dotenv").config();
 
 const connectDB = require("./config/db");
 const apiRoutes = require("./routes/api"); // Consolidated API routes
+const paymentController = require("./controllers/paymentController"); // Move webhook here
 
 const app = express();
 app.use(cors());
+
+// Webhook route must be before express.json()
+app.post("/api/payments/webhook", express.raw({ type: "application/json" }), (req, res) => paymentController.handleWebhook(req, res));
+
 app.use(express.json());
 
 app.get("/", (req, res) => {

@@ -18,7 +18,9 @@ function AdminHomeContent() {
     <div className="min-h-screen bg-gray-900 text-white">
       <nav className="border-b border-gray-700 bg-gray-800 py-4">
         <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+          <Link href="/" className="text-2xl font-bold hover:text-blue-400 transition">
+            Admin Dashboard
+          </Link>
           <div className="space-x-4">
             <Link href="/admin/users" className="text-gray-400 hover:text-white">Users</Link>
             <Link href="/admin/artists" className="text-gray-400 hover:text-white">Artists</Link>

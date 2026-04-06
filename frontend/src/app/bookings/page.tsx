@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/contexts";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { API_BASE_URL } from "@/lib/api";
 
 interface Booking {
   _id: string;
@@ -86,7 +87,7 @@ export default function BookingsPage() {
         params.append("sort", sortBy);
 
         const response = await fetch(
-          `http://localhost:5000/api/bookings/my?${params}`,
+          `${API_BASE_URL}/api/bookings/my?${params}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -117,7 +118,7 @@ export default function BookingsPage() {
 
       try {
         const token = localStorage.getItem("token");
-        const response = await fetch("http://localhost:5000/api/bookings/stats", {
+        const response = await fetch(`${API_BASE_URL}/api/bookings/stats`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -140,7 +141,7 @@ export default function BookingsPage() {
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        `http://localhost:5000/api/bookings/${bookingId}/status`,
+        `${API_BASE_URL}/api/bookings/${bookingId}/status`,
         {
           method: "PATCH",
           headers: {
@@ -195,7 +196,7 @@ export default function BookingsPage() {
         {/* Header */}
         <header className="bg-white shadow-sm sticky top-0 z-10">
           <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <Link href="/" className="text-2xl font-bold text-purple-600">
+            <Link href={isClient ? "/home/client" : isArtist ? "/home/artist" : "/"} className="text-2xl font-bold text-purple-600">
               Book-Your-Artist
             </Link>
             <nav className="flex gap-6">

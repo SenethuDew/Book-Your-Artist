@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/contexts";
+import { API_BASE_URL } from "@/lib/api";
 
 interface ArtistDetail {
   _id: string;
@@ -68,7 +69,7 @@ export default function ArtistDetail() {
     const fetchArtistDetail = async () => {
       try {
         const response = await fetch(
-          `http://localhost:5000/api/artists/${artistId}`
+          `${API_BASE_URL}/api/artists/${artistId}`
         );
         const data = await response.json();
 
@@ -100,7 +101,7 @@ export default function ArtistDetail() {
 
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:5000/api/bookings", {
+      const response = await fetch(`${API_BASE_URL}/api/bookings`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -164,7 +165,7 @@ export default function ArtistDetail() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <Link href="/" className="text-2xl font-bold text-purple-600">
+          <Link href={user?.role === "client" ? "/home/client" : user?.role === "artist" ? "/home/artist" : "/"} className="text-2xl font-bold text-purple-600">
             Book-Your-Artist
           </Link>
           <nav className="flex gap-4">

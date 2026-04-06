@@ -18,10 +18,12 @@ const stripePromise = loadStripe(
 interface Booking {
   _id: string;
   eventDate: string;
-  budget: number;
+  totalPrice: number;
   eventType: string;
-  eventDescription: string;
-  artistName: string;
+  eventDetails: string;
+  artistId: {
+    name: string;
+  };
 }
 
 export default function CheckoutPage() {
@@ -69,7 +71,7 @@ export default function CheckoutPage() {
         }
 
         const bookingData = await bookingResponse.json();
-        setBooking(bookingData.data);
+        setBooking(bookingData.booking);
 
         // Create payment intent
         const intentResponse = await fetch(`${API_BASE_URL}/api/payments/intent`, {
@@ -80,7 +82,7 @@ export default function CheckoutPage() {
           },
           body: JSON.stringify({
             bookingId,
-            amount: bookingData.data.budget,
+            amount: bookingData.booking.totalPrice,
           }),
         });
 
@@ -162,7 +164,7 @@ export default function CheckoutPage() {
               <div className="space-y-4 mb-6 pb-6 border-b border-gray-200">
                 <div>
                   <p className="text-sm text-gray-600">Artist</p>
-                  <p className="text-lg font-semibold text-gray-900">{booking.artistName}</p>
+                  <p className="text-lg font-semibold text-gray-900">{booking.artistId?.name || "Unknown Artist"}</p>
                 </div>
 
                 <div>
@@ -179,28 +181,16 @@ export default function CheckoutPage() {
 
                 <div>
                   <p className="text-sm text-gray-600">Description</p>
-                  <p className="text-gray-700 text-sm">{booking.eventDescription}</p>
+                  <p className="text-gray-700 text-sm">{booking.eventDetails}</p>
                 </div>
               </div>
 
               <div className="bg-gray-50 rounded-lg p-4">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-gray-700">Subtotal</span>
-                  <span className="text-gray-900 font-semibold">${booking.budget.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-gray-700">Service Fee</span>
-                  <span className="text-gray-900 font-semibold">
-                    ${(booking.budget * 0.05).toFixed(2)}
+                  <span className="text-xl font-bold text-gray-900">Total</span>
+                  <span className="text-2xl font-bold text-purple-600">
+                    ${booking.totalPrice.toFixed(2)}
                   </span>
-                </div>
-                <div className="border-t border-gray-200 pt-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-bold text-gray-900">Total</span>
-                    <span className="text-2xl font-bold text-indigo-600">
-                      ${(booking.budget * 1.05).toFixed(2)}
-                    </span>
-                  </div>
                 </div>
               </div>
 
@@ -225,7 +215,7 @@ export default function CheckoutPage() {
                 <StripeCheckout
                   clientSecret={clientSecret}
                   bookingId={bookingId || ""}
-                  amount={booking.budget * 1.05}
+                  amount={booking.totalPrice}
                   onSuccess={handlePaymentSuccess}
                   onError={handlePaymentError}
                 />
