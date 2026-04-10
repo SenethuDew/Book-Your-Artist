@@ -292,6 +292,18 @@ function ArtistHomeContent() {
         setLoading(true);
         setError(null);
         const token = localStorage.getItem("authToken");
+
+        // First check if the artist profile actually exists
+        const profileRes = await fetch(`${API_BASE_URL}/api/artists/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        if (profileRes.status === 404) {
+          // If no profile is found, redirect them to the setup wizard
+          router.push('/artist/setup');
+          return;
+        }
+
         const response = await fetch(`${API_BASE_URL}/api/artists/me/stats`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -371,6 +383,11 @@ function ArtistHomeContent() {
             <div className="hidden md:flex items-center space-x-8">
               <NavLink href="/bookings" label="My Bookings" active={pathname === "/bookings"} />
               <NavLink
+                href="/artist/setup"
+                label="Make your profile"
+                active={pathname === "/artist/setup"}
+              />
+              <NavLink
                 href="/artist/profile"
                 label="My Profile"
                 active={pathname === "/artist/profile"}
@@ -391,6 +408,12 @@ function ArtistHomeContent() {
 
             {/* Mobile Menu */}
             <div className="md:hidden flex items-center gap-4">
+              <Link
+                href="/artist/setup"
+                className={`text-sm ${pathname === "/artist/setup" ? "text-blue-400 font-bold" : "text-gray-300 hover:text-white"}`}
+              >
+                Make Profile
+              </Link>
               <button
                 onClick={handleLogout}
                 className="text-red-400 hover:text-red-300 transition-colors"

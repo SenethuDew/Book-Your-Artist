@@ -4,75 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts";
-
-/* ─── Mock data for featured artists ─── */
-const featuredArtists = [
-  {
-    id: 1,
-    name: "Aria Velasquez",
-    genre: "Jazz & Soul",
-    rating: 4.9,
-    reviews: 127,
-    hourlyRate: 250,
-    color: "from-violet-500 to-fuchsia-500",
-    initials: "AV",
-  },
-  {
-    id: 2,
-    name: "Marcus Chen",
-    genre: "Classical Piano",
-    rating: 4.8,
-    reviews: 94,
-    hourlyRate: 300,
-    color: "from-cyan-500 to-blue-500",
-    initials: "MC",
-  },
-  {
-    id: 3,
-    name: "Luna Okafor",
-    genre: "R&B / Pop",
-    rating: 4.9,
-    reviews: 213,
-    hourlyRate: 200,
-    color: "from-amber-500 to-pink-500",
-    initials: "LO",
-  },
-  {
-    id: 4,
-    name: "DJ Skyline",
-    genre: "Electronic/House",
-    rating: 4.7,
-    reviews: 156,
-    hourlyRate: 350,
-    color: "from-blue-500 to-cyan-500",
-    initials: "DS",
-  },
-  {
-    id: 5,
-    name: "The Echoes",
-    genre: "Rock Band",
-    rating: 4.8,
-    reviews: 89,
-    hourlyRate: 500,
-    color: "from-red-500 to-orange-500",
-    initials: "TE",
-  },
-  {
-    id: 6,
-    name: "Sophie Rousseau",
-    genre: "Acoustic/Singer",
-    rating: 4.9,
-    reviews: 203,
-    hourlyRate: 180,
-    color: "from-pink-500 to-rose-500",
-    initials: "SR",
-  },
-];
+import { apiCall } from "@/lib/api";
 
 /* ─── Artist categories ─── */
 const artistCategories = [
   {
-    id: 1,
+    id: 'singers',
     name: "Singers",
     description: "Vocalists & solo performers",
     icon: "🎤",
@@ -81,7 +18,7 @@ const artistCategories = [
     borderColor: "border-violet-500/30 hover:border-violet-400/60",
   },
   {
-    id: 2,
+    id: 'djs',
     name: "DJs",
     description: "Electronic & turntable artists",
     icon: "🎧",
@@ -90,7 +27,7 @@ const artistCategories = [
     borderColor: "border-cyan-500/30 hover:border-cyan-400/60",
   },
   {
-    id: 3,
+    id: 'bands',
     name: "Bands",
     description: "Full groups & ensembles",
     icon: "🎸",
@@ -154,6 +91,42 @@ export default function Home() {
   const { loading, isAuthenticated, user } = useAuth();
   const router = useRouter();
   const [activeNavLink, setActiveNavLink] = useState<string>("");
+  const [featuredArtists, setFeaturedArtists] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function fetchFeatured() {
+      try {
+        const data: any = await apiCall("/api/artists/featured");
+        if (data.success && data.artists) {
+          const colors = [
+            "from-violet-500 to-fuchsia-500",
+            "from-cyan-500 to-blue-500",
+            "from-amber-500 to-pink-500",
+            "from-blue-500 to-cyan-500",
+            "from-red-500 to-orange-500",
+            "from-pink-500 to-rose-500"
+          ];
+          setFeaturedArtists(data.artists.map((a: any, i: number) => {
+            const name = a.user?.name || "Unknown";
+            const init = name.split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase();
+            return {
+              id: a._id,
+              name,
+              genre: (a.genres && a.genres[0]) ? a.genres[0] : "Artist",
+              rating: a.rating || 0,
+              reviews: a.reviewStats?.totalReviews || 0,
+              hourlyRate: a.hourlyRate || 0,
+              color: colors[i % colors.length],
+              initials: init,
+            };
+          }));
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    fetchFeatured();
+  }, []);
 
   useEffect(() => {
     if (!loading && isAuthenticated && user) {
@@ -314,7 +287,7 @@ export default function Home() {
             {artistCategories.map((cat) => (
               <Link
                 key={cat.id}
-                href="/search"
+                href={`/search?category=${cat.id}`}
                 className={`group relative overflow-hidden rounded-2xl p-8 border ${cat.borderColor} bg-gradient-to-br ${cat.color} backdrop-blur-sm transition-all duration-300 hover:scale-105 cursor-pointer`}
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />

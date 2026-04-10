@@ -24,33 +24,7 @@ interface Stats {
   totalRevenue: number;
 }
 
-// Mock recommended artists data
-const RECOMMENDED_ARTISTS = [
-  {
-    _id: "1",
-    name: "Sarah Johnson",
-    genre: "Jazz Piano",
-    hourlyRate: 150,
-    rating: 4.9,
-    reviews: 48,
-  },
-  {
-    _id: "2",
-    name: "Marcus Smith",
-    genre: "Soul Singer",
-    hourlyRate: 120,
-    rating: 4.8,
-    reviews: 35,
-  },
-  {
-    _id: "3",
-    name: "Elena Rodriguez",
-    genre: "Classical Violin",
-    hourlyRate: 180,
-    rating: 5.0,
-    reviews: 52,
-  },
-];
+// Dynamic recommended artists data used below
 
 const BOOKING_TIPS = [
   {
@@ -90,6 +64,7 @@ function ClientHomeContent() {
   const [loadingBookings, setLoadingBookings] = useState(true);
   const [errorStats, setErrorStats] = useState("");
   const [errorBookings, setErrorBookings] = useState("");
+  const [recommendedArtists, setRecommendedArtists] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -134,6 +109,33 @@ function ClientHomeContent() {
         console.error("Bookings error:", error);
       } finally {
         setLoadingBookings(false);
+      }
+
+      // Fetch recommended artists
+      try {
+          const artistsResponse = await fetch(`${API_BASE_URL}/api/artists/featured?limit=6`);
+        const artistsData = await artistsResponse.json();
+        if (artistsData.success && artistsData.artists) {
+          setRecommendedArtists(artistsData.artists.map((a: any) => {
+            const defaultImage = a.genres && a.genres[0] === 'DJ' 
+              ? `https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&h=500&fit=crop`
+              : (a.genres && a.genres[0] === 'Singer/Vocalist'
+                 ? `https://images.unsplash.com/photo-1493225457124-a1a2a5f01222?w=500&h=500&fit=crop`
+                 : `https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&h=500&fit=crop`);
+            
+            return {
+              _id: a._id,
+              name: a.user?.name || "Unknown Artist",
+              genre: (a.genres && a.genres[0]) ? a.genres[0] : "Artist",
+              hourlyRate: a.hourlyRate || 0,
+              rating: a.rating || 0,
+              reviews: a.reviewStats?.totalReviews || 0,
+              profileImage: a.user?.profileImage || a.profileImage || defaultImage
+            };
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to load recommended artists", err);
       }
     };
 
@@ -493,14 +495,21 @@ function ClientHomeContent() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {RECOMMENDED_ARTISTS.map((artist) => (
+            {recommendedArtists.length > 0 ? recommendedArtists.map((artist) => (
               <div
                 key={artist._id}
                 className="group bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700/50 rounded-xl overflow-hidden hover:border-yellow-600/50 transition-all duration-300 hover:shadow-xl hover:shadow-yellow-600/10"
               >
-                <div className="bg-gradient-to-r from-yellow-600/20 to-orange-600/20 h-24 flex items-end justify-end p-4">
-                  <span className="text-3xl">🎵</span>
-                </div>
+                {artist.profileImage ? (
+                  <div 
+                    className="h-32 sm:h-40 w-full bg-cover bg-center"
+                    style={{ backgroundImage: `url(${artist.profileImage})` }}
+                  />
+                ) : (
+                  <div className="bg-gradient-to-r from-yellow-600/20 to-orange-600/20 h-32 sm:h-40 flex items-center justify-center p-4">
+                    <span className="text-4xl">🎵</span>
+                  </div>
+                )}
                 <div className="p-5 sm:p-6">
                   <h4 className="text-lg font-bold mb-1">{artist.name}</h4>
                   <p className="text-yellow-400 text-sm font-medium mb-3">
@@ -530,14 +539,18 @@ function ClientHomeContent() {
                   </p>
 
                   <Link
-                    href="/search"
+                    href={`/artists/${artist._id}`}
                     className="w-full inline-block text-center bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 text-white font-bold py-2.5 rounded-lg transition-all duration-200 group-hover:shadow-lg"
                   >
-                    View Profile
+                    View Profile & Book
                   </Link>
                 </div>
               </div>
-            ))}
+            )) : (
+              <div className="col-span-full py-8 text-center text-gray-500">
+                No recommended artists found yet. Start by exploring the directory!
+              </div>
+            )}
           </div>
         </div>
 
