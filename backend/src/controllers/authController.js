@@ -78,22 +78,27 @@ class AuthController {
    */
   async login(req, res) {
     try {
-      const { email, password } = req.body;
+      // Frontend might send 'email' for the identifier field
+      const identifier = req.body.identifier || req.body.email;
+      const { password } = req.body;
 
       // Validate input
-      if (!email || !password) {
+      if (!identifier || !password) {
         return res.status(400).json({
           success: false,
-          message: "Please provide email and password",
+          message: "Please provide your email/phone and password",
         });
       }
 
-      // Find user
-      const user = await User.findOne({ email });
+      // Find user (allow phone OR email login)
+      const user = await User.findOne({
+        $or: [{ email: identifier.toLowerCase() }, { phone: identifier }]
+      });
+      
       if (!user) {
         return res.status(401).json({
           success: false,
-          message: "Invalid email or password",
+          message: "Invalid credentials",
         });
       }
 

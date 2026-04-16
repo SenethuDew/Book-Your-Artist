@@ -1,21 +1,26 @@
 import React, { useState } from 'react';
 import { createFirestoreBooking } from '@/lib/firebaseBookingAPI';
 import toast from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
 
 interface BookingFormProps {
   artistId: string;
   artistName: string;
+  hourlyRate?: number;
   onClose: () => void;
   clientId?: string;
 }
 
-export function FirebaseBookingForm({ artistId, artistName, onClose, clientId }: BookingFormProps) {
+export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, onClose, clientId }: BookingFormProps) {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     clientName: '',
     clientEmail: '',
     eventDate: '',
-    eventTime: '',
+    startTime: '',
+    endTime: '',
     eventType: 'party',
+    eventTitle: '',
     location: '',
     specialRequest: ''
   });
@@ -27,23 +32,44 @@ export function FirebaseBookingForm({ artistId, artistName, onClose, clientId }:
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  const calculateDurationHours = (start: string, end: string) => {
+    const [startH, startM] = start.split(':').map(Number);
+    const [endH, endM] = end.split(':').map(Number);
+    let diff = (endH + endM / 60) - (startH + startM / 60);
+    return diff > 0 ? diff : 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (formData.startTime >= formData.endTime) {
+      setError('End time must be after the start time.');
+      return;
+    }
+
     setLoading(true);
     setError('');
+
+    const hours = calculateDurationHours(formData.startTime, formData.endTime);
+    const totalPrice = Math.max(hours * hourlyRate, hourlyRate); // Min 1 hour
+    const advanceAmount = totalPrice * 0.5; // 50% advance
 
     const res = await createFirestoreBooking({
       ...formData,
       artistId,
       artistName,
+      totalPrice,
+      advanceAmount,
       status: 'pending',
+      paymentStatus: 'pending',
       clientId: clientId || 'guest'
     });
 
     setLoading(false);
-    if (res.success) {
-      toast.success('🎉 Booking successfully created!');
+    if (res.success && res.bookingId) {
+      toast.success('Slot secured! Redirecting to secure payment...');
       onClose(); // Close modal upon success
+      router.push(`/checkout/advance?bookingId=${res.bookingId}`);
     } else {
       setError(res.error || 'Failed to create booking.');
       toast.error(res.error || 'Booking failed.');
@@ -105,33 +131,61 @@ export function FirebaseBookingForm({ artistId, artistName, onClose, clientId }:
                 min={new Date().toISOString().split('T')[0]} // prevent past bookings
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Event Time *</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Start Time *</label>
               <input 
                 required 
                 type="time" 
-                name="eventTime" 
-                value={formData.eventTime} 
+                name="startTime" 
+                value={formData.startTime} 
+                onChange={handleChange}
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white outline-none focus:border-yellow-500 transition-colors color-scheme-dark"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">End Time *</label>
+              <input 
+                required 
+                type="time" 
+                name="endTime" 
+                value={formData.endTime} 
                 onChange={handleChange}
                 className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white outline-none focus:border-yellow-500 transition-colors color-scheme-dark"
               />
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Event Type *</label>
-            <select 
-              name="eventType" 
-              value={formData.eventType} 
-              onChange={handleChange}
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white outline-none focus:border-yellow-500 transition-colors"
-            >
-              <option value="wedding">Wedding</option>
-              <option value="party">Private Party</option>
-              <option value="corporate">Corporate Event</option>
-              <option value="concert">Concert/Festival</option>
-              <option value="other">Other</option>
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Event Title *</label>
+              <input 
+                required 
+                type="text" 
+                name="eventTitle" 
+                value={formData.eventTitle} 
+                onChange={handleChange}
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white outline-none focus:border-yellow-500 transition-colors"
+                placeholder="e.g. Wedding Reception"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Event Type *</label>
+              <select 
+                name="eventType" 
+                value={formData.eventType} 
+                onChange={handleChange}
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white outline-none focus:border-yellow-500 transition-colors"
+              >
+                <option value="wedding">Wedding</option>
+                <option value="party">Private Party</option>
+                <option value="corporate">Corporate Event</option>
+                <option value="concert">Concert/Festival</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
           </div>
 
           <div>

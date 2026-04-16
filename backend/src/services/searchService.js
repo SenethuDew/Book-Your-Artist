@@ -180,7 +180,7 @@ class SearchService {
     try {
       const artists = await ArtistProfile.find({ verified: true })
         .populate("userId", "name email profileImage phone")
-        .sort("-rating")
+        .sort("-createdAt")
         .limit(limit)
         .lean();
 

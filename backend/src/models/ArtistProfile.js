@@ -58,7 +58,7 @@ const artistProfileSchema = new mongoose.Schema(
     },
     verified: {
       type: Boolean,
-      default: false,
+      default: true,
     },
     createdAt: {
       type: Date,
