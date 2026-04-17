@@ -32,6 +32,10 @@ export interface BookingData {
 }
 
 export const getArtistFromFirestore = async (artistId: string) => {
+  if (artistId.startsWith('intl-')) {
+    return INTERNATIONAL_ARTISTS.find(a => a.id === artistId) || null;
+  }
+
   // Bypass if Firebase is not properly configured in .env.local
   if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID === 'YOUR_PROJECT_ID_HERE') {
     return SAMPLE_ARTISTS.find(a => a.id === artistId) || null;
@@ -44,6 +48,69 @@ export const getArtistFromFirestore = async (artistId: string) => {
   }
   return null;
 };
+
+export const INTERNATIONAL_ARTISTS = [
+  {
+    id: 'intl-1',
+    name: 'Dua Lipa',
+    stageName: 'Dua Lipa',
+    category: 'singers',
+    location: 'London, UK',
+    hourlyRate: 50000,
+    basePrice: 50000,
+    rating: 4.9,
+    reviews: 1240,
+    availability: 'limited',
+    genres: ['Pop', 'Disco', 'Dance'],
+    profileImage: 'https://images.unsplash.com/photo-1516280440502-86927d6d9e03?auto=format&fit=crop&w=400&q=80',
+    coverImage: 'https://images.unsplash.com/photo-1493225457124-a1a2a5f5f928?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    id: 'intl-2',
+    name: 'Calvin Harris',
+    stageName: 'Calvin Harris',
+    category: 'djs',
+    location: 'Las Vegas, USA',
+    hourlyRate: 80000,
+    basePrice: 80000,
+    rating: 4.8,
+    reviews: 950,
+    availability: 'available',
+    genres: ['EDM', 'House', 'Dance'],
+    profileImage: 'https://images.unsplash.com/photo-1571266028243-3716f02d2d2e?auto=format&fit=crop&w=400&q=80',
+    coverImage: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    id: 'intl-3',
+    name: 'Coldplay',
+    stageName: 'Coldplay',
+    category: 'bands',
+    location: 'London, UK',
+    hourlyRate: 150000,
+    basePrice: 150000,
+    rating: 5.0,
+    reviews: 3200,
+    availability: 'unavailable',
+    genres: ['Pop Rock', 'Alternative Rock'],
+    profileImage: 'https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?auto=format&fit=crop&w=400&q=80',
+    coverImage: 'https://images.unsplash.com/photo-1470229722913-7c090be5faa3?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    id: 'intl-4',
+    name: 'Adele',
+    stageName: 'Adele',
+    category: 'singers',
+    location: 'Los Angeles, USA',
+    hourlyRate: 100000,
+    basePrice: 100000,
+    rating: 4.9,
+    reviews: 2100,
+    availability: 'available',
+    genres: ['Pop', 'Soul', 'R&B'],
+    profileImage: 'https://images.unsplash.com/photo-1415201364774-f6f0bb35f28f?auto=format&fit=crop&w=400&q=80',
+    coverImage: 'https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=800&q=80',
+  }
+];
 
 export const SAMPLE_ARTISTS = [
   // Singers

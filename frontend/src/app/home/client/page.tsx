@@ -207,7 +207,7 @@ function ClientHomeContent() {
                 href="/search"
                 className="text-gray-400 hover:text-blue-400 transition font-medium"
               >
-                Search Musicians
+                Search Artists
               </Link>
               <Link
                 href="/bookings"
@@ -365,7 +365,7 @@ function ClientHomeContent() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-            {/* Search Musicians Card */}
+            {/* Search Artists Card */}
             <Link
               href="/search"
               className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-blue-600/10 to-blue-600/5 border border-blue-600/30 hover:border-blue-500 p-6 sm:p-8 transition-all duration-300 hover:shadow-xl hover:shadow-blue-600/20"
@@ -375,7 +375,7 @@ function ClientHomeContent() {
                 <div>
                   <div className="text-3xl mb-3">🔍</div>
                   <h4 className="text-lg sm:text-xl font-bold mb-2 group-hover:text-blue-300 transition">
-                    Search Musicians
+                    Search Artists
                   </h4>
                   <p className="text-gray-400 text-sm sm:text-base">
                     Browse and filter by genre, price, rating, and availability
@@ -481,7 +481,7 @@ function ClientHomeContent() {
                 href="/search"
                 className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2.5 rounded-lg transition"
               >
-                Search Musicians
+                Search Artists
               </Link>
             </div>
           )}
