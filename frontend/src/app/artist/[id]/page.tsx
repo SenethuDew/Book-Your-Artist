@@ -17,6 +17,7 @@ export default function ArtistProfilePage() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showBookingForm, setShowBookingForm] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<{date: string, start: string, end: string} | null>(null);
 
   useEffect(() => {
     async function loadArtist() {
@@ -70,28 +71,55 @@ export default function ArtistProfilePage() {
     reviewCount: Math.floor(Math.random() * 100) + 15
   };
 
+  const openInteractiveModal = (dateStr?: string, start?: string, end?: string) => {
+    if (dateStr && start && end) {
+      setSelectedSlot({ date: dateStr, start, end });
+    } else {
+      setSelectedSlot(null);
+    }
+    setShowBookingForm(true);
+  };
+
+  // Generate dynamic slots for the next 7 days
+  const TIME_SLOTS = [
+    { label: "4:00 PM - 6:00 PM", start: "16:00", end: "18:00" },
+    { label: "6:30 PM - 8:30 PM", start: "18:30", end: "20:30" },
+    { label: "9:00 PM - 11:00 PM", start: "21:00", end: "23:00" },
+    { label: "11:30 PM - 1:00 AM", start: "23:30", end: "01:00" }
+  ];
+
   const today = new Date();
-  const getWeekDates = () => {
+  const getUpcomingDates = () => {
     const dates = [];
     const curr = new Date(today);
-    // Align to start of week (Sunday)
-    curr.setDate(curr.getDate() - curr.getDay());
+    // Next 7 days from today
     for (let i = 0; i < 7; i++) {
        dates.push(new Date(curr));
        curr.setDate(curr.getDate() + 1);
     }
     return dates;
   };
-  const weekDates = getWeekDates();
+  const upcomingDates = getUpcomingDates();
   const formatYYYYMMDD = (d: Date) => d.toISOString().split('T')[0];
 
-  const getBookingsForDate = (dateString: string) => {
-    return bookings.filter(b => b.eventDate === dateString && b.status !== 'cancelled')
-      .sort((a, b) => a.startTime.localeCompare(b.startTime));
-  };
+  const getBookingForSlot = (dateStr: string, start: string, end: string) => {
+    return bookings.find(b => {
+      if (b.eventDate !== dateStr || b.status === "cancelled" || b.paymentStatus === "refunded") return false;
+      
+      const bStart = b.startTime;
+      let bEnd = b.endTime === "00:00" ? "24:00" : b.endTime;
+      let bEndVal = parseFloat(bEnd.replace(':', '.'));
+      if (bEndVal < parseFloat(bStart.replace(':', '.'))) bEndVal += 24;
 
-  const openInteractiveModal = () => {
-    setShowBookingForm(true);
+      const slotStart = parseFloat(start.replace(':', '.'));
+      let slotEndVal = parseFloat(end.replace(':', '.'));
+      // if end is earlier, it extends into next day
+      if (slotEndVal < slotStart) slotEndVal += 24;
+
+      const compStart = parseFloat(bStart.replace(':', '.'));
+
+      return (compStart < slotEndVal && bEndVal > slotStart);
+    });
   };
 
   return (
@@ -121,7 +149,7 @@ export default function ArtistProfilePage() {
               <div>
                 <h1 className="text-3xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-400 mb-2 flex items-center gap-3">
                   {artist.stageName || artist.name}
-                  <ShieldCheck className="text-blue-400 w-6 h-6 sm:w-8 sm:h-8" title="Verified Artist" />
+                  <ShieldCheck className="text-blue-400 w-6 h-6 sm:w-8 sm:h-8" />
                 </h1>
                 
                 <div className="flex flex-wrap items-center gap-3 text-sm text-gray-300 font-medium mt-3">
@@ -243,68 +271,103 @@ export default function ArtistProfilePage() {
                 </div>
               </div>
             </section>
+
+            {/* Live Availability Engine MOVED to Main Column */}
+            <section className="bg-gray-900 border border-gray-800 rounded-3xl p-6 sm:p-8 shadow-xl overflow-hidden">
+              <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
+                <CalendarCheck className="text-violet-400 w-6 h-6" /> Booking Calendar
+              </h2>
+              <p className="text-sm font-medium text-gray-500 mb-6">Upcoming slots available to book.</p>
+              
+              <div className="flex flex-col gap-2 pb-2">
+                <table className="w-full text-left border-collapse table-fixed">
+                  <thead>
+                    <tr>
+                      <th className="p-1 sm:p-2 bg-gray-800/80 border-b border-gray-700/50 text-gray-400 font-semibold uppercase text-[9px] sm:text-[10px] w-14 sm:w-20 lg:w-24">Date</th>
+                      {TIME_SLOTS.map((slot, i) => (
+                        <th key={i} className="p-1 sm:p-2 bg-gray-800/80 border-b border-gray-700/50 text-gray-400 font-semibold uppercase text-[9px] sm:text-[10px] text-center border-l border-gray-700/30 w-[18%] sm:w-1/4">
+                          {slot.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-gray-900/40 divide-y divide-gray-800/60">
+                    {upcomingDates.map((date, idx) => {
+                      const dateString = formatYYYYMMDD(date);
+                      const isToday = dateString === formatYYYYMMDD(today);
+                      
+                      return (
+                        <tr key={idx} className={isToday ? "bg-gray-800/40" : "hover:bg-gray-800/20 transition-colors"}>
+                          <td className="p-1 sm:p-2 border-r border-gray-700/30">
+                            <div className="flex flex-col">
+                              <span className={`font-bold text-[10px] sm:text-xs leading-tight ${isToday ? 'text-yellow-400' : 'text-gray-200'}`}>
+                                {date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' })}
+                              </span>
+                              {isToday && <span className="text-[8px] sm:text-[9px] text-yellow-500/70 font-semibold tracking-wider uppercase mt-0.5">Today</span>}
+                            </div>
+                          </td>
+                          {TIME_SLOTS.map((slot, sIdx) => {
+                            const booking = getBookingForSlot(dateString, slot.start, slot.end);
+                            const isBooked = !!booking;
+                            
+                            return (
+                              <td key={sIdx} className="p-1 sm:p-2 border-r border-gray-700/30 align-top overflow-hidden">
+                                {isBooked ? (
+                                  <div className="flex flex-col items-center justify-center p-1 sm:p-2 rounded bg-red-500/5 border border-red-500/10 h-full text-center">
+                                    <span className="inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-bold text-red-400 uppercase tracking-wider mb-0.5 sm:mb-1">
+                                      <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-red-500" /> Booked
+                                    </span>
+                                    <span className="text-[9px] sm:text-[11px] text-gray-400 font-medium truncate w-full px-0.5" title={`${booking.eventTitle} ${booking.location ? `- ${booking.location}` : ''}`}>
+                                      {booking.eventTitle}
+                                    </span>
+                                    {booking.location && (
+                                      <span className="text-[8px] sm:text-[10px] text-gray-500 truncate w-full flex items-center justify-center gap-0.5 mt-0.5 px-0.5">
+                                        <MapPin size={10} className="w-2 h-2 sm:w-2.5 sm:h-2.5" /> {booking.location.split(',')[0]}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col items-center justify-center p-1 sm:p-2 rounded bg-emerald-500/5 border border-emerald-500/10 h-full hover:bg-emerald-500/10 transition-colors group cursor-pointer" onClick={() => openInteractiveModal(dateString, slot.start, slot.end)}>
+                                    <span className="inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-bold text-emerald-400 uppercase tracking-wider mb-0.5 sm:mb-1">
+                                      <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" /> Free
+                                    </span>
+                                    <button 
+                                      className="mt-0.5 sm:mt-1 px-1 sm:px-2 py-1 sm:py-1.5 bg-emerald-600/80 hover:bg-emerald-500 rounded text-[9px] sm:text-[11px] text-white font-bold transition-all shadow-sm w-full opacity-80 group-hover:opacity-100"
+                                    >
+                                      Book Now
+                                    </button>
+                                  </div>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
           </div>
 
           {/* Right Column - Schedule & Socials */}
           <div className="space-y-6">
-            {/* Live Availability Engine */}
             <section className="bg-gray-900 border border-gray-800 rounded-3xl p-6 shadow-xl sticky top-6">
               <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                <CalendarCheck className="text-violet-400" /> Booking Calendar
+                <CalendarCheck className="text-violet-400" /> Quick Booking
               </h2>
-              <p className="text-sm font-medium text-gray-500 mb-6">Check real-time availability below.</p>
+              <p className="text-sm font-medium text-gray-500 mb-6">Select a custom schedule for your event.</p>
               
-              <div className="flex flex-col gap-3">
-                {weekDates.map((date, idx) => {
-                  const dateString = formatYYYYMMDD(date);
-                  const isToday = dateString === formatYYYYMMDD(today);
-                  const dailyBookings = getBookingsForDate(dateString);
-                  
-                  return (
-                    <div key={idx} className={`p-4 rounded-xl border ${isToday ? 'border-yellow-500/50 bg-gray-900/80 shadow-sm shadow-yellow-500/10' : 'border-gray-700 bg-gray-900/40'}`}>
-                      <div className="flex justify-between items-center mb-3">
-                        <h3 className={`font-bold ${isToday ? 'text-yellow-400' : 'text-white'}`}>
-                          {date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-                          {isToday && " (Today)"}
-                        </h3>
-                        <span className="text-xs font-bold px-2 py-1 rounded bg-gray-800 text-gray-300">
-                          {dailyBookings.length} Bookings
-                        </span>
-                      </div>
-                      
-                      {dailyBookings.length > 0 ? (
-                        <div className="flex flex-col gap-2">
-                          {dailyBookings.map((b) => (
-                            <div key={b.id} className="flex flex-col sm:flex-row sm:items-center justify-between text-sm px-3 py-2 bg-gray-800/80 rounded border border-gray-700">
-                               <div className="flex items-center gap-2 text-gray-200">
-                                 <Clock size={14} className="text-yellow-500"/> 
-                                 <span className="font-mono">{b.startTime} - {b.endTime}</span>
-                               </div>
-                               <div className="text-gray-400 flex flex-col sm:items-end mt-1 sm:mt-0">
-                                 <span className="font-semibold text-gray-300 block">{b.eventTitle || 'Performance'}</span>
-                                 <span className="flex items-center gap-1 mt-0.5"><MapPin size={12}/> {b.location}</span>
-                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                         <p className="text-sm text-gray-500 italic">Completely free. Available all day!</p>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-
-              <div className="mt-8 border-t border-gray-800 pt-6">
+              <div className="border-t border-gray-800 pt-6 mt-2">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-gray-400 font-medium">Standard Rate</span>
                   <span className="text-2xl font-black text-white">$ {artist.hourlyRate || 250}<span className="text-sm font-normal text-gray-500">/hr</span></span>
                 </div>
                 <button
-                  onClick={openInteractiveModal}
+                  onClick={() => openInteractiveModal()}
                   className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-bold text-lg hover:from-violet-500 hover:to-fuchsia-500 transition-all shadow-[0_0_40px_-10px_rgba(168,85,247,0.5)] hover:shadow-[0_0_60px_-10px_rgba(168,85,247,0.7)] group transform hover:-translate-y-1"
                 >
-                  <Calendar className="w-5 h-5 group-hover:animate-pulse" /> Check Live Dates
+                  <Calendar className="w-5 h-5 group-hover:animate-pulse" /> Custom Request Details
                 </button>
                 <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-500">
                   <ShieldCheck className="w-4 h-4 text-emerald-500" /> Safe & Secure Payments via Stripe
@@ -346,6 +409,7 @@ export default function ArtistProfilePage() {
           hourlyRate={artist.hourlyRate || 250}
           onClose={() => setShowBookingForm(false)} 
           clientId={user?._id || (user as any)?.uid} 
+          prefilledSlot={selectedSlot || undefined}
         />
       )}
     </div>
