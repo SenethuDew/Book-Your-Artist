@@ -125,27 +125,60 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
     const totalPrice = Math.max(hours * hourlyRate, hourlyRate); // Min 1 hour
     const advanceAmount = totalPrice * 0.5; // 50% advance
 
-    const res = await createFirestoreBooking({
-      ...formData,
-      artistId,
-      artistName,
-      totalPrice,
-      advanceAmount,
-      status: 'pending',
-      paymentStatus: 'pending',
-      clientId: clientId || 'guest'
-    });
+    try {
+      console.log('Initiating checkout for artist:', artistId, 'amount:', advanceAmount);
+      
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formData: {
+            ...formData,
+            artistId,
+            artistName,
+            totalPrice,
+            advanceAmount,
+            clientId: clientId || 'guest'
+          },
+          amount: advanceAmount,
+          successUrl: `${window.location.origin}/booking-success`,
+          cancelUrl: window.location.href, // Stay on the same page
+        }),
+      });
 
-    setLoading(false);
-    if (res.success && res.bookingId) {
-      toast.success('Slot secured! Redirecting to secure payment...');
-      onClose(); // Close modal upon success
-      router.push(`/checkout/advance?bookingId=${res.bookingId}`);
-    } else {
-      setError(res.error || 'Failed to create booking.');
-      toast.error(res.error || 'Booking failed.');
+      // Verify the response is JSON before parsing
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        console.error("API returned non-JSON response:", await response.text());
+        throw new Error("API route not found or returned an invalid response format.");
+      }
+
+      const data = await response.json();
+      console.log('Received response from checkout session API:', data);
+
+      if (!response.ok) {
+        throw new Error(data.details || data.error || 'Failed to create checkout session');
+      }
+
+      if (!data.url) {
+        throw new Error('API returned success but no redirect URL was found in the response.');
+      }
+
+      toast.success('Redirecting to secure checkout...');
+      window.location.href = data.url;
+      
+    } catch (err: any) {
+      console.error('Frontend Checkout Error:', err);
+      setError(err.message || 'Payment initialization failed. Please try again.');
+      toast.error(err.message || 'Payment initialization failed.');
+      setLoading(false);
     }
   };
+
+  // Calculate live values for summary
+  const hours = formData.startTime && formData.endTime ? calculateDurationHours(formData.startTime, formData.endTime) : 0;
+  const totalPrice = Math.max(hours * hourlyRate, formData.startTime ? hourlyRate : 0);
+  const advanceAmount = totalPrice * 0.5;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -303,24 +336,47 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4">
+          <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 mt-2 mb-4">
+            <h3 className="text-white font-medium text-sm mb-3">Booking Summary</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between items-center text-gray-400">
+                <span>Duration</span>
+                <span className="text-white">{hours} Hour(s)</span>
+              </div>
+              <div className="flex justify-between items-center text-gray-400">
+                <span>Hourly Rate</span>
+                <span className="text-white">${hourlyRate.toFixed(2)}/hr</span>
+              </div>
+              <div className="flex justify-between items-center text-gray-400 pb-2 border-b border-gray-800">
+                <span>Total Fee</span>
+                <span className="text-white font-medium">${totalPrice.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center pt-2">
+                <span className="text-gray-300 font-medium">Advance Payment Required (50%)</span>
+                <span className="text-yellow-400 font-bold text-lg">${advanceAmount.toFixed(2)}</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-2 text-right">Remaining balance due on event day</p>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-800">
             <button 
               type="button" 
               onClick={onClose}
               disabled={loading}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium"
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium border border-gray-600"
             >
               Cancel
             </button>
             <button 
               type="submit"
-              disabled={loading}
-              className="px-6 py-2 bg-yellow-600 hover:bg-yellow-500 disabled:bg-yellow-800 disabled:opacity-50 text-white rounded-lg transition-colors font-bold shadow-lg shadow-yellow-600/30 flex items-center justify-center min-w-[120px]"
+              disabled={loading || totalPrice === 0}
+              className="px-6 py-2 bg-gradient-to-r from-yellow-600 to-amber-500 hover:from-yellow-500 hover:to-amber-400 disabled:opacity-50 text-white rounded-lg transition-colors font-bold shadow-[0_0_15px_rgba(217,119,6,0.3)] hover:shadow-[0_0_20px_rgba(217,119,6,0.5)] flex items-center justify-center min-w-[200px]"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               ) : (
-                'Confirm Booking'
+                `Pay Advance & Reserve`
               )}
             </button>
           </div>
