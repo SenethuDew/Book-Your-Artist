@@ -62,8 +62,12 @@ export const INTERNATIONAL_ARTISTS = [
     reviews: 1240,
     availability: 'limited',
     genres: ['Pop', 'Disco', 'Dance'],
-    profileImage: 'https://images.unsplash.com/photo-1516280440502-86927d6d9e03?auto=format&fit=crop&w=400&q=80',
+    profileImage: '/dualipa.png',
     coverImage: 'https://images.unsplash.com/photo-1493225457124-a1a2a5f5f928?auto=format&fit=crop&w=800&q=80',
+    biography: 'Dua Lipa is an internationally famous pop singer known for her hit songs and powerful performances. She is one of the leading global artists in the modern music industry.',
+    socialLinks: {
+      instagram: 'https://www.instagram.com/dualipa/?hl=en'
+    }
   },
   {
     id: 'intl-2',
@@ -77,8 +81,12 @@ export const INTERNATIONAL_ARTISTS = [
     reviews: 950,
     availability: 'available',
     genres: ['EDM', 'House', 'Dance'],
-    profileImage: 'https://images.unsplash.com/photo-1571266028243-3716f02d2d2e?auto=format&fit=crop&w=400&q=80',
+    profileImage: '/CalvinHarris.png',
     coverImage: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=800&q=80',
+    biography: 'Calvin Harris is a globally recognized DJ and music producer known for his hit songs and high-energy performances. He is one of the leading figures in the EDM music industry.',
+    socialLinks: {
+      instagram: 'https://www.instagram.com/calvinharris/?hl=en'
+    }
   },
   {
     id: 'intl-3',
@@ -92,13 +100,17 @@ export const INTERNATIONAL_ARTISTS = [
     reviews: 3200,
     availability: 'unavailable',
     genres: ['Pop Rock', 'Alternative Rock'],
-    profileImage: 'https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?auto=format&fit=crop&w=400&q=80',
+    profileImage: '/coldplay.png',
     coverImage: 'https://images.unsplash.com/photo-1470229722913-7c090be5faa3?auto=format&fit=crop&w=800&q=80',
+    biography: 'Coldplay is a globally popular British band known for emotional songs and unforgettable live performances. They are one of the most successful music bands in the world.',
+    socialLinks: {
+      instagram: 'https://www.instagram.com/coldplay/'
+    }
   },
   {
     id: 'intl-4',
-    name: 'Adele',
-    stageName: 'Adele',
+    name: 'Ne-Yo',
+    stageName: 'Ne-Yo',
     category: 'singers',
     location: 'Los Angeles, USA',
     hourlyRate: 100000,
@@ -107,8 +119,12 @@ export const INTERNATIONAL_ARTISTS = [
     reviews: 2100,
     availability: 'available',
     genres: ['Pop', 'Soul', 'R&B'],
-    profileImage: 'https://images.unsplash.com/photo-1415201364774-f6f0bb35f28f?auto=format&fit=crop&w=400&q=80',
+    profileImage: '/Ne-Yo.png',
     coverImage: 'https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=800&q=80',
+    biography: 'Ne-Yo is an international R&B and pop artist known for his hit songs and smooth vocals. He is one of the most successful and influential singers in modern music.',
+    socialLinks: {
+      instagram: 'https://www.instagram.com/neyo/'
+    }
   }
 ];
 
@@ -117,45 +133,54 @@ export const SAMPLE_ARTISTS = [
   {
     id: 'sample-1',
     name: 'Yohani De Silva',
-    stageName: 'Yohani',
+    stageName: 'Yohani De Silva',
     category: 'Singers',
     genres: ['Singer', 'Pop', 'Rap'],
     location: 'Colombo, Sri Lanka',
     hourlyRate: 350,
-    profileImage: 'https://images.unsplash.com/photo-1516280440502-a2f00a52416b?w=500&h=500&fit=crop',
+    profileImage: '/yohanidesilva.png',
     coverImage: 'https://images.unsplash.com/photo-1493225457124-a1a2a2951113?w=1200&h=400&fit=crop',
     rating: 4.9,
-    biography: 'Yohani is a trending Sri Lankan singer, songwriter, and rapper with global hits.',
+    biography: 'Yohani De Silva is a Sri Lankan singer and rapper who became globally famous through her viral song “Manike Mage Hithe.” She started as a YouTuber and is now one of the most popular young music artists in Sri Lanka.',
+    socialLinks: {
+      instagram: 'https://www.instagram.com/yohanimusic/'
+    },
     availability: true,
     experience: '5+ Years'
   },
   {
     id: 'sample-2',
     name: 'Umaria Sinhawansa',
-    stageName: 'Umaria',
+    stageName: 'Umaria Sinhawansa',
     category: 'Singers',
     genres: ['Singer', 'Soul', 'Pop'],
     location: 'Colombo, Sri Lanka',
     hourlyRate: 300,
-    profileImage: 'https://images.unsplash.com/photo-1524250502761-1ac6f2e30d43?w=500&h=500&fit=crop',
+    profileImage: '/umaria.png',
     coverImage: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=1200&h=400&fit=crop',
     rating: 5.0,
-    biography: 'Umaria is a versatile award-winning vocalist known for her soulful performances.',
+    biography: 'Umaria Sinhawansa is a famous Sri Lankan singer known for her beautiful voice, live performances, and popular songs. She is one of the leading young female artists in Sri Lanka and is admired for her talent, style, and stage presence.',
+    socialLinks: {
+      instagram: 'https://www.instagram.com/umariaofficial/'
+    },
     availability: true,
     experience: '10+ Years'
   },
   {
     id: 'sample-3',
     name: 'Sanuka Wickramasinghe',
-    stageName: 'Sanuka',
+    stageName: 'Sanuka Wickramasinghe',
     category: 'Singers',
     genres: ['Singer', 'Pop', 'R&B'],
     location: 'Kandy, Sri Lanka',
     hourlyRate: 250,
-    profileImage: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=500&h=500&fit=crop',
+    profileImage: '/sanukawik.png',
     coverImage: 'https://images.unsplash.com/photo-1470229722913-7c090be5f5ae?w=1200&h=400&fit=crop',
     rating: 4.8,
-    biography: 'Sanuka is a popular youth icon and singer-songwriter with massive chart-toppers.',
+    biography: 'Sanuka Wickramasinghe is a talented Sri Lankan music artist known for his creative songs and modern style. He is one of the leading young musicians in Sri Lanka and continues to inspire audiences with his music.',
+    socialLinks: {
+      instagram: 'https://www.instagram.com/sanuka.musick/'
+    },
     availability: true,
     experience: '8+ Years'
   },
@@ -167,10 +192,13 @@ export const SAMPLE_ARTISTS = [
     genres: ['Singer', 'Pop', 'Vocals'],
     location: 'Galle, Sri Lanka',
     hourlyRate: 200,
-    profileImage: 'https://images.unsplash.com/photo-1480455624313-e29b44bbfde1?w=500&h=500&fit=crop',
+    profileImage: '/dineshgamage.png',
     coverImage: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=1200&h=400&fit=crop',
     rating: 4.7,
-    biography: 'Dinesh Gamage captures audiences with his emotional melodies and unique voice.',
+    biography: 'Dinesh Gamage is a talented Sri Lankan singer and music producer known for his modern songs and emotional style. He is a popular young artist who continues to grow in the music industry.',
+    socialLinks: {
+      instagram: 'https://www.instagram.com/dinesh_gamage_/'
+    },
     availability: true,
     experience: '6+ Years'
   },
@@ -184,40 +212,49 @@ export const SAMPLE_ARTISTS = [
     genres: ['DJ', 'EDM', 'House'],
     location: 'Colombo, Sri Lanka',
     hourlyRate: 150,
-    profileImage: 'https://images.unsplash.com/photo-1571266028243-cb40fce75242?w=500&h=500&fit=crop',
+    profileImage: '/djmass.png',
     coverImage: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=1200&h=400&fit=crop',
     rating: 4.9,
-    biography: 'DJ Mass is a premier producer and DJ, heavily influencing the local EDM scene.',
+    biography: 'DJ Mass is a dynamic Sri Lankan DJ known for high-energy performances and modern music mixes. He is a popular choice for events and parties, delivering unforgettable entertainment experiences.',
+    socialLinks: {
+      instagram: 'https://www.instagram.com/officialdjmass/'
+    },
     availability: true,
     experience: '12+ Years'
   },
   {
     id: 'sample-6',
-    name: 'DJ Smokey',
-    stageName: 'DJ Smokey',
+    name: 'Iman cader (DJ)',
+    stageName: 'Iman cader (DJ)',
     category: 'DJs',
     genres: ['DJ', 'Electronic', 'Techno'],
     location: 'Galle, Sri Lanka',
     hourlyRate: 120,
-    profileImage: 'https://images.unsplash.com/photo-1542382257-80ddfc7f89ea?w=500&h=500&fit=crop',
+    profileImage: '/imancarder.png',
     coverImage: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=1200&h=400&fit=crop',
     rating: 4.6,
-    biography: 'Setting the dance floors on fire with unique techno and beach club mixes.',
+    biography: 'DJ Mass is a dynamic Sri Lankan DJ known for high-energy performances and modern music mixes. He is a popular choice for events and parties, delivering unforgettable entertainment experiences.',
+    socialLinks: {
+      instagram: 'https://www.instagram.com/iman.cader/'
+    },
     availability: true,
     experience: '5+ Years'
   },
   {
     id: 'sample-7',
-    name: 'DJ Black',
-    stageName: 'DJ Black',
+    name: 'DJ Imalka',
+    stageName: 'DJ Imalka',
     category: 'DJs',
     genres: ['DJ', 'Mixing', 'EDM'],
     location: 'Colombo, Sri Lanka',
     hourlyRate: 100,
-    profileImage: 'https://images.unsplash.com/photo-1520625340656-74fc21017415?w=500&h=500&fit=crop',
+    profileImage: '/djimalka.png',
     coverImage: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=1200&h=400&fit=crop',
     rating: 4.8,
-    biography: 'DJ Black consistently delivers high-energy sets for corporate and private events.',
+    biography: 'DJ Imalka is a dynamic Sri Lankan DJ known for high-energy performances and crowd-pleasing music. She is a popular choice for events, delivering fun and unforgettable experiences.',
+    socialLinks: {
+      instagram: 'https://www.instagram.com/dj_imalka/'
+    },
     availability: true,
     experience: '7+ Years'
   },
@@ -231,55 +268,67 @@ export const SAMPLE_ARTISTS = [
     genres: ['Band', 'Pop', 'Rock'],
     location: 'Colombo, Sri Lanka',
     hourlyRate: 800,
-    profileImage: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=500&h=500&fit=crop',
+    profileImage: '/infinityband.png',
     coverImage: 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=1200&h=400&fit=crop',
     rating: 5.0,
-    biography: 'Infinity is one of the most trending live bands pulling massive crowds everywhere.',
+    biography: 'Infinity Band is a well-known Sri Lankan band that delivers exciting live performances for events. They are loved for their versatility, energy, and ability to entertain any crowd.',
+    socialLinks: {
+      instagram: 'https://www.instagram.com/infinitysl/'
+    },
     availability: true,
     experience: '8+ Years'
   },
   {
     id: 'sample-9',
-    name: 'Doctor',
-    stageName: 'Doctor',
+    name: 'WePlse',
+    stageName: 'WePlse',
     category: 'Bands',
     genres: ['Band', 'Baila', 'Pop'],
     location: 'Kandy, Sri Lanka',
     hourlyRate: 750,
-    profileImage: 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=500&h=500&fit=crop',
+    profileImage: '/wepluse.png',
     coverImage: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=1200&h=400&fit=crop',
     rating: 4.9,
-    biography: 'Doctor band specializes in keeping the Sri Lankan festive spirit alive with Baila and Pop energy.',
+    biography: 'WePlus Band is a talented Sri Lankan live band known for their captivating performances and dynamic energy on stage. With a wide repertoire covering popular local hits, international favorites, baila, and contemporary music, they are a sought-after choice for weddings, outdoor concerts, and corporate events across the country.',
+    socialLinks: {
+      instagram: 'https://www.instagram.com/weplussl/'
+    },
     availability: true,
     experience: '15+ Years'
   },
   {
     id: 'sample-10',
-    name: 'Misty',
-    stageName: 'Misty',
+    name: 'Mid Lane',
+    stageName: 'Mid Lane',
     category: 'Bands',
     genres: ['Band', 'Jazz', 'Pop'],
     location: 'Colombo, Sri Lanka',
     hourlyRate: 900,
-    profileImage: 'https://images.unsplash.com/photo-1415201364774-f6f0bb35f28f?w=500&h=500&fit=crop',
+    profileImage: '/midlaneband.png',
     coverImage: 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=1200&h=400&fit=crop',
     rating: 5.0,
-    biography: 'Misty has been the top tier choice for elite events offering a mix of Jazz, Pop, and Classics.',
+    biography: 'Midlane is a talented Sri Lankan band known for energetic performances and versatile music. They are a popular choice for events, delivering high-quality entertainment and engaging live shows.',
+    socialLinks: {
+      instagram: 'https://www.instagram.com/midlanesl/'
+    },
     availability: true,
     experience: '20+ Years'
   },
   {
     id: 'sample-11',
-    name: 'Freeze',
-    stageName: 'Freeze',
+    name: 'News Sarith & Surith',
+    stageName: 'News Sarith & Surith',
     category: 'Bands',
     genres: ['Band', 'Rock', 'Pop'],
     location: 'Galle, Sri Lanka',
     hourlyRate: 600,
-    profileImage: 'https://images.unsplash.com/photo-1493225457124-a1a2a2951113?w=500&h=500&fit=crop',
+    profileImage: '/newsband.png',
     coverImage: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=1200&h=400&fit=crop',
     rating: 4.7,
-    biography: 'A highly energetic band known for covering a vast range of genres from classic rock to modern pop.',
+    biography: 'News Sarith & Surith is a well-known Sri Lankan band famous for energetic performances and fun party music. They are a top choice for events, delivering exciting and memorable entertainment.',
+    socialLinks: {
+      instagram: 'https://www.instagram.com/sarithsurithandthenews/'
+    },
     availability: true,
     experience: '7+ Years'
   }

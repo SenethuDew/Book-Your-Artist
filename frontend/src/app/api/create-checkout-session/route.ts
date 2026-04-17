@@ -50,7 +50,9 @@ export async function POST(req: Request) {
             currency: 'usd',
             product_data: {
               name: "Advance Payment to reserve " + (formData.artistName || 'Artist'),
-              description: "Booking on " + (formData.eventDate || 'TBD') + " (" + (formData.startTime || 'TBD') + " - " + (formData.endTime || 'TBD') + ") - Event: " + (formData.eventTitle || 'TBD'),
+              description: String(formData.artistId || '').startsWith('intl-') 
+                ? "International Travel & Reservation - " + (formData.eventDate || 'TBD') + " - Event: " + (formData.eventTitle || 'TBD')
+                : "Booking on " + (formData.eventDate || 'TBD') + " (" + (formData.startTime || 'TBD') + " - " + (formData.endTime || 'TBD') + ") - Event: " + (formData.eventTitle || 'TBD'),
             },
             unit_amount: Math.max(50, Math.round(amount * 100)), // Stripe requires amount in cents. $0.50 minimum.
           },

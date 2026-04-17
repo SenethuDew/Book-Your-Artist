@@ -7,6 +7,7 @@ import { FirebaseBookingForm } from '@/components/FirebaseBookingForm';
 import { useAuth } from '@/contexts';
 import { MapPin, Star, Clock, Globe, Mic2, Tag, Calendar, Music2, Share2, ArrowLeft, CalendarCheck, CheckCircle2, Zap, Image as ImageIcon, Video, UserCheck, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
+import { FaInstagram } from 'react-icons/fa';
 
 export default function ArtistProfilePage() {
   const params = useParams();
@@ -219,9 +220,25 @@ export default function ArtistProfilePage() {
               <h2 className="text-2xl font-bold text-white mb-5 flex items-center gap-3">
                 <Music2 className="text-fuchsia-400 w-6 h-6" /> About {artist.stageName || artist.name}
               </h2>
-              <p className="text-gray-300 leading-relaxed max-w-prose whitespace-pre-wrap text-[15px] sm:text-base font-light">
+              
+              <p className="text-gray-300 leading-relaxed max-w-prose whitespace-pre-wrap text-[15px] sm:text-base font-light mb-6">
                 {artist.biography || "No biography provided yet. But this artist's talent speaks for itself! Get ready to be amazed by the ultimate performance. Let the music take control and connect with the vibe."}
               </p>
+              
+              <div className="mt-4 bg-gray-800/30 border border-gray-700/50 p-4 rounded-xl inline-block min-w-[200px]">
+                <p className="text-sm font-medium text-gray-400 mb-2 uppercase tracking-wide">Instagram</p>
+                <a
+                  href={artist.socialLinks?.instagram || "https://instagram.com/yohanimusic"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2.5 text-pink-500 hover:text-pink-400 hover:underline transition-all"
+                >
+                  <FaInstagram className="w-6 h-6" />
+                  <span className="font-semibold text-[17px]">
+                    @{artist.socialLinks?.instagram ? artist.socialLinks.instagram.split('/').filter((p: string) => p).pop() : "yohanimusic"}
+                  </span>
+                </a>
+              </div>
 
               <div className="mt-8">
                 <h3 className="text-sm uppercase tracking-wider font-bold text-gray-500 mb-3">Musical DNA</h3>
@@ -272,7 +289,63 @@ export default function ArtistProfilePage() {
               </div>
             </section>
 
-            {/* Live Availability Engine MOVED to Main Column */}
+            {/* Live Availability Engine MOVED to Main Column Conditionally */}
+            {id.startsWith('intl-') ? (
+              <section className="bg-gray-900 border border-gray-800 rounded-3xl p-6 sm:p-8 shadow-xl overflow-hidden relative">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-indigo-500/10 to-blue-500/5 rounded-bl-full pointer-events-none"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-12 h-12 rounded-xl bg-indigo-500/20 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold text-white">Travel & Reservation Plan</h2>
+                      <p className="text-gray-400">International Performance Booking</p>
+                    </div>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-6 mb-8">
+                    <div className="bg-gray-800/50 rounded-2xl p-4 border border-gray-800">
+                      <h3 className="text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                        Destination
+                      </h3>
+                      <p className="text-lg font-semibold text-white">Sri Lanka</p>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-2xl p-4 border border-gray-800">
+                      <h3 className="text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        Performance Type
+                      </h3>
+                      <p className="text-lg font-semibold text-white truncate">{artist.category || 'Special Event'}</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-5">
+                    <h3 className="text-amber-400 font-semibold mb-3 flex items-center gap-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      Important Notice for Clients
+                    </h3>
+                    <ul className="space-y-2 text-amber-200/80 text-sm">
+                      <li className="flex items-start gap-2">
+                        <span className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                        Reservations require coordinating travel dates strictly with the artist's management.
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                        Flight, luxury accommodation, and local transport must be verified.
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                        A 50% advance secures your booking slot once travel is confirmed.
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </section>
+            ) : (
             <section className="bg-gray-900 border border-gray-800 rounded-3xl p-6 sm:p-8 shadow-xl overflow-hidden">
               <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
                 <CalendarCheck className="text-violet-400 w-6 h-6" /> Booking Calendar
@@ -348,26 +421,27 @@ export default function ArtistProfilePage() {
                 </table>
               </div>
             </section>
+            )}
           </div>
 
           {/* Right Column - Schedule & Socials */}
           <div className="space-y-6">
             <section className="bg-gray-900 border border-gray-800 rounded-3xl p-6 shadow-xl sticky top-6">
               <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                <CalendarCheck className="text-violet-400" /> Quick Booking
+                <CalendarCheck className="text-violet-400" /> {id.startsWith('intl-') ? 'Reserve Travel Plan' : 'Quick Booking'}
               </h2>
-              <p className="text-sm font-medium text-gray-500 mb-6">Select a custom schedule for your event.</p>
+              <p className="text-sm font-medium text-gray-500 mb-6">{id.startsWith('intl-') ? 'Start your international booking process.' : 'Select a custom schedule for your event.'}</p>
               
               <div className="border-t border-gray-800 pt-6 mt-2">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-gray-400 font-medium">Standard Rate</span>
-                  <span className="text-2xl font-black text-white">$ {artist.hourlyRate || 250}<span className="text-sm font-normal text-gray-500">/hr</span></span>
+                  <span className="text-gray-400 font-medium">{id.startsWith('intl-') ? 'Starting Rate' : 'Standard Rate'}</span>
+                  <span className="text-2xl font-black text-white">$ {artist.hourlyRate || 250}{!id.startsWith('intl-') && <span className="text-sm font-normal text-gray-500">/hr</span>}</span>
                 </div>
                 <button
                   onClick={() => openInteractiveModal()}
                   className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-bold text-lg hover:from-violet-500 hover:to-fuchsia-500 transition-all shadow-[0_0_40px_-10px_rgba(168,85,247,0.5)] hover:shadow-[0_0_60px_-10px_rgba(168,85,247,0.7)] group transform hover:-translate-y-1"
                 >
-                  <Calendar className="w-5 h-5 group-hover:animate-pulse" /> Custom Request Details
+                  <Calendar className="w-5 h-5 group-hover:animate-pulse" /> {id.startsWith('intl-') ? 'Request Travel Itinerary' : 'Custom Request Details'}
                 </button>
                 <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-500">
                   <ShieldCheck className="w-4 h-4 text-emerald-500" /> Safe & Secure Payments via Stripe

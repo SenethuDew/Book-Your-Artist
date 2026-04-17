@@ -14,6 +14,7 @@ interface BookingFormProps {
 
 export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, onClose, clientId, prefilledSlot }: BookingFormProps) {
   const router = useRouter();
+  const isIntl = artistId?.startsWith('intl-');
   const [formData, setFormData] = useState({
     clientName: '',
     clientEmail: '',
@@ -104,26 +105,28 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.startTime || !formData.endTime) {
-      setError('Please select an available time slot.');
-      return;
-    }
+    if (!isIntl) {
+      if (!formData.startTime || !formData.endTime) {
+        setError('Please select an available time slot.');
+        return;
+      }
 
-    const startVal = parseFloat(formData.startTime.replace(':', '.'));
-    let endVal = parseFloat(formData.endTime.replace(':', '.'));
-    if (endVal < startVal) endVal += 24;
+      const startVal = parseFloat(formData.startTime.replace(':', '.'));
+      let endVal = parseFloat(formData.endTime.replace(':', '.'));
+      if (endVal < startVal) endVal += 24;
 
-    if (startVal >= endVal) {
-      setError('End time must be after the start time.');
-      return;
+      if (startVal >= endVal) {
+        setError('End time must be after the start time.');
+        return;
+      }
     }
 
     setLoading(true);
     setError('');
 
-    const hours = calculateDurationHours(formData.startTime, formData.endTime);
-    const totalPrice = Math.max(hours * hourlyRate, hourlyRate); // Min 1 hour
-    const advanceAmount = totalPrice * 0.5; // 50% advance
+    const calcHours = (isIntl || (!formData.startTime || !formData.endTime)) ? 0 : calculateDurationHours(formData.startTime, formData.endTime);
+    const finalTotalPrice = isIntl ? hourlyRate : Math.max(calcHours * hourlyRate, hourlyRate);
+    const advanceAmount = finalTotalPrice * 0.5;
 
     try {
       console.log('Initiating checkout for artist:', artistId, 'amount:', advanceAmount);
@@ -136,7 +139,7 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
             ...formData,
             artistId,
             artistName,
-            totalPrice,
+            totalPrice: finalTotalPrice,
             advanceAmount,
             clientId: clientId || 'guest'
           },
@@ -176,15 +179,15 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
   };
 
   // Calculate live values for summary
-  const hours = formData.startTime && formData.endTime ? calculateDurationHours(formData.startTime, formData.endTime) : 0;
-  const totalPrice = Math.max(hours * hourlyRate, formData.startTime ? hourlyRate : 0);
+  const hours = (!isIntl && formData.startTime && formData.endTime) ? calculateDurationHours(formData.startTime, formData.endTime) : 0;
+  const totalPrice = isIntl ? hourlyRate : Math.max(hours * hourlyRate, (formData.startTime && formData.endTime) ? hourlyRate : 0);
   const advanceAmount = totalPrice * 0.5;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-lg shadow-2xl overflow-y-auto max-h-[90vh]">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-white">Book {artistName}</h2>
+          <h2 className="text-2xl font-bold text-white">{isIntl ? 'Reserve' : 'Book'} {artistName}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
         </div>
 
@@ -223,7 +226,7 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Select Event Date *</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{isIntl ? 'Travel Arrival Date *' : 'Event Date *'}</label>
             <input 
               required 
               type="date" 
@@ -237,7 +240,7 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
               min={new Date().toISOString().split('T')[0]} // prevent past bookings
             />
 
-            {formData.eventDate && (
+            {formData.eventDate && !isIntl && (
               <div className="bg-gray-800 border border-gray-700 rounded-xl p-4">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="text-white font-medium text-sm">Available Slots (2-Hour Blocks)</h3>
@@ -313,7 +316,7 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Event Location *</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{isIntl ? 'Sri Lanka Event Location *' : 'Event Location *'}</label>
             <input 
               required 
               type="text" 
@@ -326,13 +329,13 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Special Requests (Optional)</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{isIntl ? 'Travel & Special Requirements (Optional)' : 'Special Requests (Optional)'}</label>
             <textarea 
               name="specialRequest" 
               value={formData.specialRequest} 
               onChange={handleChange}
               className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white outline-none focus:border-yellow-500 transition-colors min-h-[80px]"
-              placeholder="Any specific songs, themes, or gear requirements?"
+              placeholder={isIntl ? "Specify flight tiers, VIP security needs, hotel requirements, etc." : "Any specific songs, themes, or gear requirements?"}
             />
           </div>
 
@@ -340,15 +343,15 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
             <h3 className="text-white font-medium text-sm mb-3">Booking Summary</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between items-center text-gray-400">
-                <span>Duration</span>
-                <span className="text-white">{hours} Hour(s)</span>
+                <span>{isIntl ? 'International Guarantee' : 'Duration'}</span>
+                <span className="text-white">{isIntl ? 'Fixed Booking Rate' : `${hours} Hour(s)`}</span>
               </div>
               <div className="flex justify-between items-center text-gray-400">
-                <span>Hourly Rate</span>
-                <span className="text-white">${hourlyRate.toFixed(2)}/hr</span>
+                <span>{isIntl ? 'Starting Rate' : 'Hourly Rate'}</span>
+                <span className="text-white">{isIntl ? `$${hourlyRate.toFixed(2)} based` : `$${hourlyRate.toFixed(2)}/hr`}</span>
               </div>
               <div className="flex justify-between items-center text-gray-400 pb-2 border-b border-gray-800">
-                <span>Total Fee</span>
+                <span>{isIntl ? 'Estimated Booking Fee' : 'Total Fee'}</span>
                 <span className="text-white font-medium">${totalPrice.toFixed(2)}</span>
               </div>
               <div className="flex justify-between items-center pt-2">
