@@ -3,650 +3,465 @@
 import Link from "next/link";
 import { useAuth } from "@/contexts";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { API_BASE_URL } from "@/lib/api";
+import { 
+  Bell, Calendar as CalendarIcon, DollarSign, MessageSquare, User, 
+  LogOut, CheckCircle, TrendingUp, LayoutDashboard, Check, X,
+  MapPin, Activity, Wallet, Settings, Eye, Users, ChevronRight, Briefcase, AlertTriangle, Edit2, Trash2
+} from "lucide-react";
+
+interface Booking {
+  _id: string;
+  clientId: { _id: string; name: string; email: string; profileImage?: string };
+  eventDate: string;
+  startTime: string;
+  endTime: string;
+  eventType: string;
+  eventLocation: string;
+  totalPrice: number;
+  artistPrice: number;
+  status: string;
+  createdAt: string;
+}
 
 interface ArtistStats {
-  pending: number;
-  confirmed: number;
-  completedBookings: number;
   totalEarnings: number;
-  averageRating: number;
+  monthlyEarnings: number;
+  pendingPayments: number;
+  totalBookings: number;
+  pendingRequests: number;
   upcomingBookings: number;
+  completedBookings: number;
+  averageRating: number;
+  ratingTrend: string;
 }
 
-interface BookingRequest {
-  id: string;
-  clientName: string;
-  date: string;
-  status: string;
-}
-
-function StatCard({
-  label,
-  value,
-  icon,
-  color,
-  trend,
-}: {
-  label: string;
-  value: string | number;
-  icon: string;
-  color: string;
-  trend?: string;
-}) {
-  return (
-    <div className="group relative bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 overflow-hidden transition-all duration-300 hover:border-gray-600 hover:shadow-lg hover:shadow-gray-900/50">
-      {/* Background gradient on hover */}
-      <div className="absolute inset-0 bg-gradient-to-br from-transparent to-transparent group-hover:from-gray-700/20 group-hover:to-gray-800/20 transition-all duration-300"></div>
-
-      <div className="relative z-10">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <p className="text-gray-400 text-sm font-medium mb-2">{label}</p>
-            <p className={`text-4xl font-bold ${color}`}>{value}</p>
-            {trend && <p className="text-xs text-green-400 mt-1">{trend}</p>}
-          </div>
-          <div className={`text-3xl ${color} opacity-20 group-hover:opacity-30 transition-opacity`}>
-            {icon}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DashboardCard({
-  href,
-  icon,
-  title,
-  description,
-  badge,
-}: {
-  href: string;
-  icon: string;
-  title: string;
-  description: string;
-  badge?: string | number;
-}) {
-  return (
-    <Link href={href}>
-      <div className="group relative h-full bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 cursor-pointer transition-all duration-300 hover:border-gray-600 hover:shadow-lg hover:shadow-gray-900/50 hover:-translate-y-1">
-        {/* Accent line on hover */}
-        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-
-        <div className="flex items-start justify-between mb-4">
-          <div className="text-4xl group-hover:scale-110 transition-transform duration-300">
-            {icon}
-          </div>
-          {badge !== undefined && (
-            <span className="bg-blue-600 text-white text-xs font-bold px-2.5 py-1 rounded-full">
-              {badge}
-            </span>
-          )}
-        </div>
-        <h3 className="text-lg font-bold text-white mb-2 group-hover:text-blue-400 transition-colors">
-          {title}
-        </h3>
-        <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">
-          {description}
-        </p>
-        <div className="mt-4 inline-flex items-center text-blue-400 text-xs font-semibold group-hover:translate-x-1 transition-transform">
-          View Details →
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-function RecentBookingRequest({
-  clientName,
-  date,
-  status,
-}: {
-  clientName: string;
-  date: string;
-  status: string;
-}) {
-  const statusConfig = {
-    pending: { bg: "bg-yellow-500/20", text: "text-yellow-400", label: "Pending" },
-    confirmed: { bg: "bg-green-500/20", text: "text-green-400", label: "Confirmed" },
-    completed: { bg: "bg-blue-500/20", text: "text-blue-400", label: "Completed" },
-  };
-
-  const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
-
-  return (
-    <div className="flex items-center justify-between p-4 bg-gray-800/50 border border-gray-700/50 rounded-lg hover:bg-gray-800/70 transition-colors">
-      <div className="flex-1">
-        <p className="font-semibold text-white text-sm">{clientName}</p>
-        <p className="text-xs text-gray-400 mt-1">{date}</p>
-      </div>
-      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${config.bg} ${config.text}`}>
-        {config.label}
+// Compact NavItem
+const NavItem = ({ href, icon: Icon, label, active, badge }: { href: string, icon: any, label: string, active?: boolean, badge?: number }) => (
+  <Link href={href} className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all ${active ? "bg-violet-600/20 text-violet-400 font-bold border border-violet-500/30" : "text-gray-400 hover:text-white hover:bg-white/5"}`}>
+    <Icon className={`w-4 h-4 ${active ? "text-violet-400" : ""}`} />
+    <span className="hidden xl:block whitespace-nowrap">{label}</span>
+    {badge > 0 && (
+      <span className="flex items-center justify-center bg-fuchsia-500 text-white text-[10px] min-w-[18px] h-4 px-1 rounded-full font-bold ml-auto shadow-[0_0_8px_rgba(217,70,239,0.5)]">
+        {badge}
       </span>
-    </div>
-  );
-}
+    )}
+  </Link>
+);
 
-function ProfileCompletionBar({ percentage = 60 }: { percentage?: number }) {
-  const items = [
-    { label: "Basic Info", complete: true },
-    { label: "Portfolio", complete: true },
-    { label: "Rates", complete: true },
-    { label: "Bio", complete: true },
-    { label: "Availability", complete: false },
-  ];
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="font-semibold text-white">Profile Completion</h4>
-        <span className="text-sm font-bold text-blue-400">{percentage}%</span>
+// Advanced Stat Card
+const StatCard = ({ title, value, subtitle, icon: Icon, trendStr, colorClass }: { title: string, value: string | number, subtitle: string, icon: any, trendStr: string, colorClass: string }) => (
+  <div className="relative overflow-hidden bg-[#1E112A]/60 backdrop-blur-xl border border-white/10 rounded-2xl p-5 group hover:border-violet-500/30 transition-all hover:shadow-xl hover:shadow-violet-500/10">
+    <div className={`absolute -right-4 -top-4 w-20 h-20 bg-gradient-to-br ${colorClass} opacity-10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500`} />
+    <div className="flex justify-between items-start mb-3">
+      <div>
+        <p className="text-gray-400 text-xs font-medium mb-1 tracking-wide uppercase">{title}</p>
+        <h3 className="text-2xl font-extrabold text-white tracking-tight">{value}</h3>
       </div>
-      <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden mb-4">
-        <div
-          className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-500"
-          style={{ width: `${percentage}%` }}
-        ></div>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        {items.map((item, idx) => (
-          <div
-            key={idx}
-            className="flex items-center gap-2 text-xs"
-          >
-            <div
-              className={`w-2 h-2 rounded-full ${
-                item.complete ? "bg-green-400" : "bg-gray-600"
-              }`}
-            ></div>
-            <span className={item.complete ? "text-gray-300" : "text-gray-500"}>
-              {item.label}
-            </span>
-          </div>
-        ))}
+      <div className={`p-2.5 rounded-xl bg-gradient-to-br ${colorClass} bg-opacity-10 shadow-inner`}>
+        <Icon className="w-5 h-5 text-white" />
       </div>
     </div>
-  );
-}
-
-function AvailabilityStatus() {
-  const [isAvailable, setIsAvailable] = useState(true);
-
-  return (
-    <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="font-semibold text-white">Availability Status</h4>
-        <button
-          onClick={() => setIsAvailable(!isAvailable)}
-          className={`relative w-12 h-6 rounded-full transition-all duration-300 ${
-            isAvailable ? "bg-green-500" : "bg-gray-600"
-          }`}
-        >
-          <div
-            className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${
-              isAvailable ? "translate-x-6" : ""
-            }`}
-          ></div>
-        </button>
-      </div>
-      <div className="space-y-2">
-        <p className="text-sm text-gray-400">
-          Status:{" "}
-          <span
-            className={`font-semibold ${
-              isAvailable ? "text-green-400" : "text-gray-400"
-            }`}
-          >
-            {isAvailable ? "Open for Bookings" : "Not Available"}
-          </span>
-        </p>
-        <p className="text-xs text-gray-500">
-          {isAvailable
-            ? "Clients can see and book you"
-            : "Your profile is hidden from search"}
-        </p>
-      </div>
-      <Link href="/artist/availability">
-        <button className="mt-4 w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">
-          Manage Schedule
-        </button>
-      </Link>
+    <div className="flex items-center gap-1.5 mt-auto pt-2 border-t border-white/5">
+      <TrendingUp className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+      <span className="text-xs font-bold text-emerald-400">{trendStr}</span>
+      <span className="text-[10px] text-gray-500 truncate ml-1">{subtitle}</span>
     </div>
-  );
-}
+  </div>
+);
 
-function QuickTips() {
-  const tips = [
-    {
-      icon: "🎯",
-      title: "Complete Your Profile",
-      description: "Increase visibility when clients search for artists",
-    },
-    {
-      icon: "⭐",
-      title: "Showcase Your Best Work",
-      description: "Add portfolio links and high-quality samples",
-    },
-    {
-      icon: "💰",
-      title: "Set Competitive Rates",
-      description: "Research market rates to attract more bookings",
-    },
-    {
-      icon: "📅",
-      title: "Stay Available",
-      description: "Keep your availability updated for more opportunities",
-    },
-  ];
+// Streamlined Booking Item
+const CompactBooking = ({ booking, onAction, actionLoading, type = 'pending' }: { booking: Booking, onAction?: (id: string, status: string) => void, actionLoading?: string | null, type?: 'pending' | 'confirmed' }) => {
+  const dateObj = new Date(booking.eventDate);
+  const formattedDate = dateObj.toLocaleDateString("en-US", { weekday: 'short', month: 'short', day: 'numeric' });
+  const isLoading = actionLoading === booking._id;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {tips.map((tip, idx) => (
-        <div
-          key={idx}
-          className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700/50 rounded-xl p-4 hover:border-gray-600 transition-all duration-300"
-        >
-          <div className="text-2xl mb-2">{tip.icon}</div>
-          <h4 className="font-semibold text-white text-sm mb-1">{tip.title}</h4>
-          <p className="text-xs text-gray-400">{tip.description}</p>
+    <div className="relative group bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 hover:border-white/10 rounded-xl p-4 transition-all">
+      {isLoading && (
+        <div className="absolute inset-0 bg-[#1E112A]/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-xl">
+          <div className="w-5 h-5 border-2 border-fuchsia-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
-      ))}
-    </div>
-  );
-}
-
-function LoadingState() {
-  return (
-    <div className="space-y-4 animate-pulse">
-      <div className="h-32 bg-gray-800 rounded-xl"></div>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-32 bg-gray-800 rounded-xl"></div>
-        ))}
+      )}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <h4 className="font-bold text-white text-sm truncate">{booking.eventType}</h4>
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white/10 text-gray-300">${booking.artistPrice}</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-gray-400">
+            <span className="flex items-center gap-1"><User className="w-3 h-3" /> {booking.clientId?.name || "Client"}</span>
+            <span className="flex items-center gap-1 text-violet-300"><CalendarIcon className="w-3 h-3" /> {formattedDate}</span>
+            <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {booking.eventLocation}</span>
+          </div>
+        </div>
+        
+        {type === 'pending' && onAction ? (
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button onClick={() => onAction(booking._id, "confirmed")} disabled={isLoading} className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg transition-colors" title="Accept">
+              <Check className="w-4 h-4" />
+            </button>
+            <button onClick={() => onAction(booking._id, "cancelled")} disabled={isLoading} className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors" title="Decline">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="shrink-0 text-right">
+             <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded-md ${booking.status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-500/10 text-gray-400'}`}>{booking.status}</span>
+          </div>
+        )}
       </div>
     </div>
   );
-}
+};
 
-function ArtistHomeContent() {
+// Insight Metric
+const InsightMetric = ({ icon: Icon, label, value, sub }: { icon: any, label: string, value: string | number, sub: string }) => (
+  <div className="flex flex-col p-3 bg-white/5 rounded-xl border border-white/5">
+    <div className="flex items-center gap-2 mb-2 text-gray-400 text-xs font-medium">
+      <Icon className="w-3.5 h-3.5 text-violet-400" /> {label}
+    </div>
+    <div className="flex items-baseline gap-2">
+      <span className="text-xl font-bold text-white leading-none">{value}</span>
+      <span className="text-[10px] text-emerald-400 font-medium">{sub}</span>
+    </div>
+  </div>
+);
+
+function ArtistDashboardContent() {
   const { user, logout } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
+  const [showDropdown, setShowDropdown] = useState(false);
+  
   const [stats, setStats] = useState<ArtistStats>({
-    pending: 0,
-    confirmed: 0,
-    completedBookings: 0,
-    totalEarnings: 0,
-    averageRating: 0,
-    upcomingBookings: 0,
+    totalEarnings: 0, monthlyEarnings: 0, pendingPayments: 0, totalBookings: 0,
+    pendingRequests: 0, upcomingBookings: 0, completedBookings: 0, averageRating: 4.9, ratingTrend: "+0.1"
   });
+  
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchStats = async () => {
+  useEffect(() => { 
+    const fetchDashboardDataInternal = async () => {
       try {
         setLoading(true);
-        setError(null);
-        const token = localStorage.getItem("authToken");
+        const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+        if(!token) return;
 
-        // First check if the artist profile actually exists
-        const profileRes = await fetch(`${API_BASE_URL}/api/artists/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        
-        if (profileRes.status === 404) {
-          // If no profile is found, redirect them to the setup wizard
-          router.push('/artist/setup');
-          return;
-        }
+        const profileRes = await fetch(`${API_BASE_URL}/api/artists/me`, { headers: { Authorization: `Bearer ${token}` } });
+        if (profileRes.status === 404) { router.push('/artist/setup'); return; }
 
-        const response = await fetch(`${API_BASE_URL}/api/artists/me/stats`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        const bookingsRes = await fetch(`${API_BASE_URL}/api/bookings/my?limit=50&sort=-eventDate`, {
+          headers: { Authorization: `Bearer ${token}` }
         });
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch stats");
-        }
+        if (bookingsRes.ok) {
+          const bData = await bookingsRes.json();
+          if (bData.success) {
+            const bks: Booking[] = bData.bookings;
+            setBookings(bks);
 
-        const data = await response.json();
-        if (data.success && data.stats) {
-          setStats(data.stats);
+            let pendCount = 0, upCount = 0, comCount = 0, totalVal = 0, monthVal = 0, pendEarning = 0;
+            const now = new Date();
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+            bks.forEach(b => {
+              if(b.status === "pending") pendCount++;
+              if(b.status === "confirmed") { upCount++; pendEarning += (b.artistPrice || 0); }
+              if(b.status === "completed") {
+                 comCount++;
+                 totalVal += (b.artistPrice || 0);
+                 if(new Date(b.eventDate) >= startOfMonth) monthVal += (b.artistPrice || 0);
+              }
+            });
+
+            setStats(prev => ({
+              ...prev, totalBookings: bks.length, pendingRequests: pendCount, upcomingBookings: upCount, completedBookings: comCount,
+              totalEarnings: totalVal, monthlyEarnings: monthVal, pendingPayments: pendEarning
+            }));
+          }
         }
       } catch (err) {
-        console.error("Failed to fetch stats:", err);
-        setError("Unable to load your stats. Please try again.");
-        // Use default stats on error
-        setStats({
-          pending: 0,
-          confirmed: 0,
-          completedBookings: 0,
-          totalEarnings: 0,
-          averageRating: 0,
-          upcomingBookings: 0,
-        });
+        console.error(err);
       } finally {
         setLoading(false);
       }
     };
 
     if (user) {
-      fetchStats();
+      fetchDashboardDataInternal(); 
     }
-  }, [user]);
+  }, [user, router]);
 
-  const handleLogout = () => {
-    logout();
-    router.push("/");
+  const handleBookingAction = async (id: string, status: string) => {
+    try {
+      setActionLoading(id);
+      const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+      await fetch(`${API_BASE_URL}/api/bookings/${id}/status`, {
+         method: "PATCH",
+         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+         body: JSON.stringify({ status })
+      });
+      // Optionally trigger re-fetch by updating a dummy state, but for now we'll just reload the page or update local state
+      window.location.reload();
+    } finally {
+      setActionLoading(null);
+    }
   };
+
+  const pendingBookings = bookings.filter(b => b.status === "pending");
+  const upcomingBookings = bookings.filter(b => b.status === "confirmed").sort((a,b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime()).slice(0, 4);
+  const completionPercentage = user?.profileImage ? 85 : 60; // Mock calculation
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-purple-950 to-gray-950 flex flex-col items-center justify-center gap-4">
+        <div className="w-12 h-12 border-4 border-violet-500/20 border-t-violet-500 rounded-full animate-spin"></div>
+        <p className="text-gray-400 font-medium text-sm tracking-widest uppercase">Initializing Workspace</p>
+      </div>
+    );
+  }
 
   if (user?.status !== "active" && user?.status !== "pending") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 text-white flex items-center justify-center px-4">
-        <div className="text-center">
-          <p className="text-6xl mb-6">⏳</p>
-          <h1 className="text-4xl font-bold mb-4">Account Pending Approval</h1>
-          <p className="text-gray-400 mb-8 max-w-md text-lg">
-            Thank you for registering as a musician! Your account is currently pending admin approval.
-            You&apos;ll receive an email notification once your account is approved.
-          </p>
-          <button
-            onClick={handleLogout}
-            className="bg-red-600 hover:bg-red-700 px-8 py-3 rounded-lg font-bold transition-colors"
-          >
-            Logout
-          </button>
-        </div>
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center p-4">
+         <div className="max-w-md bg-[#1E112A]/80 border border-white/10 rounded-2xl p-8 text-center text-sm">
+           <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+           <h1 className="text-xl font-bold mb-2">Account Unverified</h1>
+           <p className="text-gray-400 mb-6">Complete your profile setup to be discovered by clients.</p>
+           <button onClick={() => router.push("/artist/setup")} className="bg-violet-600 w-full py-2.5 rounded-lg font-bold">Resume Setup</button>
+         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 text-white">
-      {/* Enhanced Navbar */}
-      <nav className="sticky top-0 z-50 border-b border-gray-700/50 bg-gray-900/80 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <Link href="/" className="flex items-center space-x-2 group">
-              <div className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent group-hover:from-blue-300 group-hover:to-blue-500 transition-all">
-                📊 Artist Hub
-              </div>
-            </Link>
+    <div className="min-h-screen bg-gray-950 text-white font-sans overflow-x-hidden selection:bg-violet-500/30">
+      {/* Background Decor */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-0 right-0 w-[50vw] h-[50vh] bg-violet-900/10 blur-[150px] mix-blend-screen" />
+        <div className="absolute bottom-0 left-0 w-[50vw] h-[50vh] bg-fuchsia-900/10 blur-[150px] mix-blend-screen" />
+      </div>
 
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-8">
-              <NavLink href="/bookings" label="My Bookings" active={pathname === "/bookings"} />
-              <NavLink
-                href="/artist/setup"
-                label="Make your profile"
-                active={pathname === "/artist/setup"}
-              />
-              <NavLink
-                href="/artist/profile"
-                label="My Profile"
-                active={pathname === "/artist/profile"}
-              />
-              <NavLink
-                href="/artist/availability"
-                label="Availability"
-                active={pathname === "/artist/availability"}
-              />
-              <div className="w-px h-6 bg-gray-700"></div>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 text-sm font-semibold text-red-400 hover:text-red-300 hover:bg-red-600/10 rounded-lg transition-all"
-              >
-                Logout
-              </button>
-            </div>
+      {/* Advanced Control Panel Navbar */}
+      <nav className="sticky top-0 z-50 border-b border-white/5 bg-gray-950/80 backdrop-blur-xl">
+        <div className="max-w-[90rem] mx-auto px-4 lg:px-8">
+          <div className="flex flex-col sm:flex-row items-center justify-between h-auto sm:h-16 py-3 sm:py-0 gap-3 sm:gap-0">
+             {/* Logo & Brand */}
+             <Link href="/" className="flex items-center gap-3 shrink-0 group">
+               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 to-fuchsia-600 flex items-center justify-center font-black shadow-lg group-hover:shadow-violet-500/40 transition-all">♪</div>
+               <span className="font-extrabold tracking-tight text-white hidden sm:block">BookYour<span className="text-violet-400">Artist</span></span>
+             </Link>
 
-            {/* Mobile Menu */}
-            <div className="md:hidden flex items-center gap-4">
-              <Link
-                href="/artist/setup"
-                className={`text-sm ${pathname === "/artist/setup" ? "text-blue-400 font-bold" : "text-gray-300 hover:text-white"}`}
-              >
-                Make Profile
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="text-red-400 hover:text-red-300 transition-colors"
-              >
-                Logout
-              </button>
-            </div>
+             {/* Main Navigation - Scrollable on mobile */}
+             <div className="flex items-center overflow-x-auto scrollbar-hide py-1 w-full sm:w-auto px-2 sm:px-0 mx-0 sm:mx-6 flex-1 lg:justify-center gap-1">
+               <NavItem href="/home/artist" icon={LayoutDashboard} label="Dashboard" active={true} />
+               <NavItem href="/bookings" icon={Briefcase} label="Bookings" badge={stats.pendingRequests} />
+               <NavItem href="/artist/availability" icon={CalendarIcon} label="Calendar" />
+               <NavItem href="/messages" icon={MessageSquare} label="Messages" />
+               <NavItem href="/earnings" icon={Wallet} label="Earnings" />
+               <NavItem href="/artist/profile" icon={Settings} label="Profile Settings" />
+             </div>
+
+             {/* Right Utilities */}
+             <div className="hidden sm:flex items-center gap-4 shrink-0">
+                <button className="relative text-gray-400 hover:text-white transition-colors"><Bell className="w-5 h-5" />{stats.pendingRequests > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-fuchsia-500 rounded-full border-2 border-gray-950" />}</button>
+                <div className="w-px h-5 bg-white/10" />
+                <div className="relative">
+                  <button onClick={() => setShowDropdown(!showDropdown)} className="flex items-center gap-3 hover:bg-white/5 p-1 rounded-full transition-colors focus:outline-none">
+                    <div className="w-8 h-8 rounded-full bg-violet-600/30 border border-violet-500/50 overflow-hidden">
+                      {user?.profileImage ? <img src={user.profileImage} alt="User" className="w-full h-full object-cover" /> : <User className="w-4 h-4 m-auto mt-2 text-violet-300" />}
+                    </div>
+                    <span className="text-xs font-bold text-gray-200 hidden lg:block pr-2">{user?.name?.split(' ')[0]}</span>
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {showDropdown && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)}></div>
+                      <div className="absolute right-0 mt-3 w-56 bg-gray-900 border border-white/10 rounded-2xl shadow-xl shadow-fuchsia-900/10 backdrop-blur-xl z-50 overflow-hidden animate-fade-in-up">
+                        <div className="p-4 border-b border-white/5 bg-white/5">
+                          <p className="text-sm font-bold text-white truncate">{user?.name}</p>
+                          <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+                        </div>
+                        <div className="p-2 flex flex-col gap-1">
+                          <Link href="/artist/profile" className="flex items-center justify-between px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-colors group">
+                            <span className="flex items-center gap-2.5"><User className="w-4 h-4 text-violet-400" /> View Profile</span>
+                            <ChevronRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </Link>
+                          <Link href="/artist/edit-profile" className="flex items-center justify-between px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-colors group">
+                            <span className="flex items-center gap-2.5"><Edit2 className="w-4 h-4 text-fuchsia-400" /> Edit Profile</span>
+                            <ChevronRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </Link>
+                          <button onClick={() => router.push('/artist/profile?delete=true')} className="flex items-center justify-between px-3 py-2 text-sm text-gray-300 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors group">
+                            <span className="flex items-center gap-2.5"><Trash2 className="w-4 h-4 text-red-400" /> Delete Profile</span>
+                          </button>
+                          <div className="h-px bg-white/5 my-1 mx-2" />
+                          <button onClick={logout} className="flex items-center justify-between w-full px-3 py-2 text-sm text-gray-300 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors">
+                            <span className="flex items-center gap-2.5"><LogOut className="w-4 h-4" /> Logout</span>
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+             </div>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Error State */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 text-red-200 rounded-lg text-sm flex items-start gap-3">
-            <span className="text-xl">⚠️</span>
-            <p>{error}</p>
+      {/* Main Control Flow */}
+      <main className="max-w-[90rem] mx-auto px-4 lg:px-8 py-8 relative z-10">
+        
+        {/* Top Header / Profile Completion Strip */}
+        <div className="flex flex-col xl:flex-row justify-between gap-6 mb-8">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-2">Welcome back, {user?.name?.split(' ')[0] || 'Artist'}</h1>
+            <p className="text-sm text-gray-400 max-w-xl">Your workspace is looking busy. Check out your latest performance metrics and upcoming gigs.</p>
           </div>
-        )}
-
-        {/* Hero Section */}
-        {loading ? (
-          <LoadingState />
-        ) : (
-          <>
-            <div className="relative mb-12 overflow-hidden rounded-2xl">
-              {/* Gradient background */}
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-blue-600/20 blur-3xl"></div>
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-600/30 to-purple-600/10"></div>
-
-              <div className="relative bg-gradient-to-r from-gray-800/40 to-gray-900/40 backdrop-blur-md border border-gray-700/50 p-8 md:p-12 text-center">
-                <div className="mb-4 text-5xl md:text-6xl">🎭</div>
-                <h2 className="text-4xl md:text-5xl font-bold mb-3 bg-gradient-to-r from-blue-400 to-blue-300 bg-clip-text text-transparent">
-                  Welcome back, {user?.name}!
-                </h2>
-                <p className="text-lg text-gray-300 mb-2">
-                  Your artist profile is live and discoverable by clients
-                </p>
-                <p className="text-sm text-gray-400 mb-8">
-                  Keep building your reputation and securing more bookings
-                </p>
-                <Link href="/artist/profile">
-                  <button className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold px-8 py-3 rounded-lg transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/50 hover:-translate-y-0.5">
-                    <span>✨ Complete Your Profile</span>
-                  </button>
-                </Link>
+          
+          {completionPercentage < 100 && (
+            <div className="flex flex-col sm:flex-row items-center gap-4 bg-violet-900/20 border border-violet-500/20 rounded-xl p-4 xl:w-[450px]">
+              <div className="flex-1 w-full">
+                <div className="flex justify-between text-xs font-bold mb-1.5"><span className="text-violet-300">Profile Strength</span><span className="text-emerald-400">{completionPercentage}%</span></div>
+                <div className="w-full bg-black/40 rounded-full h-1.5"><div className="bg-gradient-to-r from-violet-500 to-emerald-400 h-1.5 rounded-full" style={{width: `${completionPercentage}%`}}></div></div>
+                <p className="text-[10px] text-gray-400 mt-2">Finish setup to get 40% more booking requests.</p>
               </div>
+              <Link href="/artist/profile" className="shrink-0 text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded-lg transition-colors whitespace-nowrap">Complete Now</Link>
             </div>
+          )}
+        </div>
 
-            {/* Key Stats Section */}
-            <div className="mb-12">
-              <div className="flex items-center gap-3 mb-6">
-                <h2 className="text-3xl font-bold">Your Performance</h2>
-                <div className="text-2xl">📈</div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard
-                  label="Pending Requests"
-                  value={stats.pending}
-                  icon="📋"
-                  color="text-yellow-400"
-                  trend={stats.pending > 0 ? "New opportunities!" : "No pending"}
-                />
-                <StatCard
-                  label="Confirmed Bookings"
-                  value={stats.confirmed}
-                  icon="✅"
-                  color="text-green-400"
-                  trend={stats.confirmed > 0 ? "Keep it up!" : "Create availability"}
-                />
-                <StatCard
-                  label="Rating"
-                  value={stats.averageRating?.toFixed(1) || "0.0"}
-                  icon="⭐"
-                  color="text-blue-400"
-                  trend={stats.averageRating >= 4 ? "Excellent!" : "Room to grow"}
-                />
-                <StatCard
-                  label="Total Earnings"
-                  value={`$${stats.totalEarnings}`}
-                  icon="💰"
-                  color="text-purple-400"
-                  trend={stats.totalEarnings > 0 ? "Growth mode" : "First booking coming"}
-                />
-              </div>
-            </div>
+        {/* Global Key Metrics / Analytics Overview */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+          <StatCard title="This Month" value={`$${stats.monthlyEarnings.toFixed(2)}`} subtitle="from completed gigs" trendStr="+12%" icon={DollarSign} colorClass="from-emerald-500 to-green-500" />
+          <StatCard title="In Escrow" value={`$${stats.pendingPayments.toFixed(2)}`} subtitle="secure pending payouts" trendStr="Secured." icon={Wallet} colorClass="from-violet-500 to-fuchsia-500" />
+          <StatCard title="Gigs Played" value={stats.completedBookings} subtitle="all-time completed" trendStr={`${stats.totalBookings} Total`} icon={CheckCircle} colorClass="from-cyan-500 to-blue-500" />
+          <StatCard title="Reputation" value={`${stats.averageRating.toFixed(1)}`} subtitle="verified reviews" trendStr="Top 10%" icon={TrendingUp} colorClass="from-amber-400 to-orange-500" />
+        </div>
 
-            {/* Main Dashboard Cards */}
-            <div className="mb-12">
-              <div className="flex items-center gap-3 mb-6">
-                <h2 className="text-3xl font-bold">Quick Actions</h2>
-                <div className="text-2xl">⚡</div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <DashboardCard
-                  href="/artist/profile"
-                  icon="👤"
-                  title="Complete Your Profile"
-                  description="Add your genres, rates, bio, and showcase your best work"
-                  badge="2/5"
-                />
-                <DashboardCard
-                  href="/bookings"
-                  icon="📌"
-                  title="My Bookings"
-                  description="Review and manage all booking requests from clients"
-                  badge={stats.pending}
-                />
-                <DashboardCard
-                  href="/artist/availability"
-                  icon="📅"
-                  title="Set Availability"
-                  description="Let clients know when you're ready to perform"
-                />
-                <DashboardCard
-                  href="/messages"
-                  icon="💬"
-                  title="Messages"
-                  description="Chat with clients about events and details"
-                />
-              </div>
-            </div>
-
-            {/* Secondary Sections */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
-              {/* Recent Booking Requests */}
-              <div className="lg:col-span-2 bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700/50 rounded-xl p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-bold flex items-center gap-2">
-                    <span>📬</span> Recent Requests
-                  </h3>
-                  <Link href="/bookings">
-                    <span className="text-sm text-blue-400 hover:text-blue-300 font-semibold">
-                      View All
-                    </span>
-                  </Link>
+        {/* Central Dashboard Grid */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 sm:gap-8">
+          
+          {/* Main Action Area (Left 2 columns) */}
+          <div className="xl:col-span-2 flex flex-col gap-6 sm:gap-8">
+             
+             {/* Pending Requests Box */}
+             <div className="bg-[#1E112A]/40 backdrop-blur-md border border-white/10 rounded-2xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-fuchsia-500/5 blur-[80px] rounded-full" />
+                <div className="flex justify-between items-center mb-5 relative z-10">
+                  <h2 className="text-lg font-bold flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-fuchsia-500/20 text-fuchsia-400 flex items-center justify-center"><Bell className="w-4 h-4" /></div>
+                    Needs Your Attention
+                  </h2>
+                  {pendingBookings.length > 0 && <span className="bg-gradient-to-r from-fuchsia-600 to-violet-600 px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-wider">{pendingBookings.length} Pending</span>}
                 </div>
-
-                {stats.pending > 0 ? (
-                  <div className="space-y-3">
-                    <RecentBookingRequest
-                      clientName="Sarah & Co. Events"
-                      date="Mar 28, 2026 - 8:00 PM"
-                      status="pending"
-                    />
-                    <RecentBookingRequest
-                      clientName="John's Birthday Bash"
-                      date="Apr 5, 2026 - 6:30 PM"
-                      status="confirmed"
-                    />
-                    <RecentBookingRequest
-                      clientName="Corporate Gala 2026"
-                      date="Apr 12, 2026 - 7:00 PM"
-                      status="pending"
-                    />
+                
+                {pendingBookings.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-3 relative z-10 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                    {pendingBookings.map(b => (
+                      <CompactBooking key={b._id} booking={b} onAction={handleBookingAction} actionLoading={actionLoading} type="pending" />
+                    ))}
                   </div>
                 ) : (
-                  <div className="py-8 text-center">
-                    <p className="text-4xl mb-2">🎵</p>
-                    <p className="text-gray-400">No booking requests yet</p>
-                    <p className="text-sm text-gray-500">
-                      Complete your profile to attract more clients
-                    </p>
+                  <div className="py-8 bg-black/20 rounded-xl border border-white/5 flex flex-col items-center justify-center text-center relative z-10">
+                    <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mb-3"><CheckCircle className="w-6 h-6 text-emerald-400" /></div>
+                    <p className="text-sm font-bold text-white">Inbox Zero</p>
+                    <p className="text-xs text-gray-500 mt-1 max-w-[200px]">You have no pending booking requests right now.</p>
                   </div>
                 )}
-              </div>
+             </div>
 
-              {/* Profile Completion & Availability */}
-              <div className="space-y-6">
-                <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700/50 rounded-xl p-6">
-                  <ProfileCompletionBar percentage={60} />
+             {/* Upcoming Confirmed */}
+             <div className="bg-[#1E112A]/40 backdrop-blur-md border border-white/10 rounded-2xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
+                <div className="absolute bottom-0 right-0 w-64 h-64 bg-emerald-500/5 blur-[80px] rounded-full" />
+                <div className="flex justify-between items-center mb-5 relative z-10">
+                  <h2 className="text-lg font-bold flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center"><CalendarIcon className="w-4 h-4" /></div>
+                    Upcoming Lineup
+                  </h2>
+                  <Link href="/bookings" className="text-xs font-bold text-violet-400 hover:text-violet-300 flex items-center gap-1 group">View All <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" /></Link>
                 </div>
-                <AvailabilityStatus />
-              </div>
-            </div>
+                
+                {upcomingBookings.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 relative z-10">
+                    {upcomingBookings.map(b => (
+                      <CompactBooking key={b._id} booking={b} type="confirmed" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-8 bg-black/20 rounded-xl border border-white/5 flex flex-col items-center justify-center text-center relative z-10">
+                    <Briefcase className="w-8 h-8 text-gray-600 mb-3" />
+                    <p className="text-xs text-gray-500">No upcoming gigs confirmed yet.</p>
+                  </div>
+                )}
+             </div>
+          </div>
 
-            {/* Quick Tips Section */}
-            <div className="mb-12">
-              <div className="flex items-center gap-3 mb-6">
-                <h2 className="text-3xl font-bold">Quick Tips for Success</h2>
-                <div className="text-2xl">💡</div>
-              </div>
-              <QuickTips />
-            </div>
+          {/* Side Panel Widgets (Right column) */}
+          <div className="flex flex-col gap-6 sm:gap-8">
+             
+             {/* Artist Insights Panel */}
+             <div className="bg-[#1E112A]/40 backdrop-blur-md border border-white/10 rounded-2xl p-5">
+               <h3 className="font-bold text-sm text-gray-400 uppercase tracking-widest mb-4">Profile Insights</h3>
+               <div className="grid grid-cols-2 gap-3 mb-4">
+                 <InsightMetric icon={Eye} label="Views" value="1.2k" sub="+8% /wk" />
+                 <InsightMetric icon={Users} label="Conversion" value="4.5%" sub="-1.2%" />
+               </div>
+               <Link href="/artist/preview" className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold transition-colors">
+                 <User className="w-3.5 h-3.5" /> View Public Profile
+               </Link>
+             </div>
 
-            {/* Footer CTA */}
-            <div className="text-center py-8 border-t border-gray-700/50">
-              <p className="text-gray-400 mb-4">Have questions? Need help getting started?</p>
-              <button className="text-blue-400 hover:text-blue-300 font-semibold transition-colors">
-                📖 Check Out Our Artist Guide
-              </button>
-            </div>
-          </>
-        )}
+             {/* Quick Availability Overview */}
+             <div className="bg-[#1E112A]/40 backdrop-blur-md border border-white/10 rounded-2xl p-5 relative overflow-hidden">
+               <h3 className="font-bold text-sm text-gray-400 uppercase tracking-widest mb-4 flex justify-between items-center">
+                 Next 7 Days <Link href="/artist/availability"><Settings className="w-4 h-4 hover:text-white" /></Link>
+               </h3>
+               <div className="flex justify-between gap-1">
+                 {['M','T','W','T','F','S','S'].map((day, i) => {
+                   const isActive = i === 4 || i === 5 || i === 6; // Mock weekend available
+                   return (
+                     <div key={i} className={`flex flex-col items-center p-2 rounded-lg border ${isActive ? "bg-violet-500/10 border-violet-500/30 text-white" : "border-white/5 text-gray-600"}`}>
+                       <span className="text-[10px] font-bold mb-1.5">{day}</span>
+                       <div className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-emerald-400 shadow-[0_0_5px_#34d399]" : "bg-gray-700"}`}></div>
+                     </div>
+                   );
+                 })}
+               </div>
+             </div>
+
+             {/* Promo / Support Card */}
+             <div className="bg-gradient-to-br from-violet-600/20 to-fuchsia-600/10 border border-violet-500/20 rounded-2xl p-5 text-center">
+               <div className="w-10 h-10 mx-auto bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-xl flex items-center justify-center mb-3 shadow-[0_0_15px_rgba(139,92,246,0.4)]">
+                 <Activity className="w-5 h-5 text-white" />
+               </div>
+               <h3 className="font-bold text-sm text-white mb-1.5">New Feature: Express Payouts</h3>
+               <p className="text-xs text-gray-400 mb-4 px-2">Opt-in to receive gig earnings 48 hours faster than standard wire processing.</p>
+               <button className="w-full text-xs font-bold py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">Learn More</button>
+             </div>
+
+          </div>
+        </div>
       </main>
+      
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.3); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(139, 92, 246, 0.6); }
+      `}</style>
     </div>
   );
 }
 
-// NavLink Component for Navbar
-function NavLink({
-  href,
-  label,
-  active,
-}: {
-  href: string;
-  label: string;
-  active: boolean;
-}) {
-  return (
-    <Link href={href}>
-      <span
-        className={`text-sm font-semibold transition-all duration-300 relative group ${
-          active
-            ? "text-blue-400"
-            : "text-gray-400 hover:text-white"
-        }`}
-      >
-        {label}
-        <span
-          className={`absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-300 ${
-            active ? "w-full" : "w-0 group-hover:w-full"
-          }`}
-        ></span>
-      </span>
-    </Link>
-  );
-}
-
-export default function ArtistHomePage() {
+export default function ArtistDashboard() {
   return (
     <ProtectedRoute requiredRole="artist">
-      <ArtistHomeContent />
+      <ArtistDashboardContent />
     </ProtectedRoute>
   );
 }

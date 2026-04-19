@@ -11,10 +11,11 @@ import { Search, Music2, MapPin, Tag, Mic2, Globe, Home } from 'lucide-react';
 interface CategoryOption {
   id: string;
   name: string;
-  icon: string;
+  icon: React.ReactNode | string;
   color: string;
   borderColor: string;
   genres: string[];
+  subtitle?: string;
 }
 
 const ARTIST_CATEGORIES: CategoryOption[] = [
@@ -41,6 +42,15 @@ const ARTIST_CATEGORIES: CategoryOption[] = [
     color: 'from-amber-500/20 to-orange-500/20',
     borderColor: 'border-amber-500/30 hover:border-amber-400/60',
     genres: ['Band', 'Rock', 'Ensemble', 'Group', 'Live Band'],
+  },
+  {
+    id: 'rappers',
+    name: 'Rappers',
+    icon: <Mic2 className="w-6 h-6 text-rose-400" />,
+    color: 'from-rose-500/20 to-red-500/20',
+    borderColor: 'border-rose-500/30 hover:border-rose-400/60',
+    genres: ['Rapper', 'Rap', 'Hip-hop', 'Trap', 'Hip Hop'],
+    subtitle: 'Hip-hop, Rap, Trap',
   },
 ];
 
@@ -189,30 +199,28 @@ function SearchArtistsContent() {
         </div>
 
         {/* Category Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12 max-w-4xl mx-auto relative z-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12 max-w-5xl mx-auto relative z-10">
           {ARTIST_CATEGORIES.map((category) => (
             <button
               key={category.id}
               onClick={() => handleCategoryChange(category.id)}
-              className={`flex items-center gap-4 p-5 rounded-2xl border transition-all duration-300 transform-gpu ${
+              className={`flex flex-col items-center justify-center p-5 rounded-2xl border transition-all duration-300 transform-gpu backdrop-blur-sm ${
                 selectedCategory === category.id
                   ? `bg-gradient-to-r ${category.color} ${category.borderColor} shadow-xl shadow-violet-500/20 scale-105 z-20 outline-none ring-2 ring-violet-500/50`
                   : 'bg-gray-900/60 border-gray-800/80 hover:bg-gray-800/90 hover:-translate-y-1 hover:shadow-lg hover:shadow-black/50'
-              } backdrop-blur-sm`}
+              }`}
             >
-              <div className={`p-3 rounded-xl transition-colors duration-300 ${
-                selectedCategory === category.id ? 'bg-white/10' : 'bg-gray-800'
-              }`}>
-                <span className="text-3xl">{category.icon}</span>
+              <div className="flex items-center gap-3 w-full justify-center">
+                {typeof category.icon === 'string' ? (
+                  <span className="text-2xl">{category.icon}</span>
+                ) : (
+                  <div className="flex items-center justify-center p-1">{category.icon}</div>
+                )}
+                <span className="font-bold text-lg tracking-wide">{category.name}</span>
               </div>
-              <div className="text-left">
-                <div className={`text-lg font-bold ${
-                  selectedCategory === category.id ? 'text-white' : 'text-gray-300'
-                }`}>{category.name}</div>
-                <div className="text-sm font-medium text-gray-500 line-clamp-1 mt-0.5">
-                  {category.genres.slice(0, 3).join(', ')}...
-                </div>
-              </div>
+              {category.subtitle && (
+                <span className="text-xs text-gray-400 mt-2 font-medium bg-black/40 px-2.5 py-1 rounded-full">{category.subtitle}</span>
+              )}
             </button>
           ))}
         </div>

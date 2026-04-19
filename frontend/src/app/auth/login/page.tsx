@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts";
 import Link from "next/link";
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -19,15 +20,14 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isFormInvalid) return;
     setError("");
     setLoading(true);
 
     try {
       const result = await login(email, password);
-      // Redirect based on user role
       const redirectPath = result.user.role === "artist" ? "/home/artist" : "/home/client";
 
-      // Keep a lightweight marker for future UX customization without changing auth flow.
       if (rememberMe) {
         localStorage.setItem("bya_remember_user", "true");
       } else {
@@ -36,7 +36,7 @@ export default function LoginPage() {
 
       router.push(redirectPath);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Login failed. Please try again.";
+      const message = err instanceof Error ? err.message : "Login failed. Please check your credentials.";
       setError(message);
     } finally {
       setLoading(false);
@@ -44,138 +44,172 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white px-4 py-5 sm:px-6 lg:px-8">
-      <div className="mx-auto w-full max-w-6xl">
-        <Link
-          href="/"
-          className="inline-flex mb-5 items-center gap-2 text-sm font-semibold text-blue-300 hover:text-blue-200 transition"
-        >
-          ← Back to Home
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-purple-950 to-gray-950 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans overflow-hidden relative">
+      {/* Background Orbs */}
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-violet-600/20 rounded-full blur-[100px] -z-10 mix-blend-screen" />
+      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-fuchsia-600/20 rounded-full blur-[100px] -z-10 mix-blend-screen" />
+
+      {/* Logo & Back Link */}
+      <div className="mx-auto w-full max-w-md flex justify-between items-center mb-8">
+        <Link href="/" className="flex items-center gap-2 group">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center font-bold text-sm shadow-lg shadow-violet-500/20 group-hover:shadow-violet-500/40 transition-all text-white">
+            ♪
+          </div>
+          <span className="text-lg font-bold tracking-tight text-white">
+            <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">Book</span>YourArtist
+          </span>
+        </Link>
+        <Link href="/" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">
+          Back to Home
         </Link>
       </div>
-      <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-6xl items-center justify-center">
-        <div className="grid w-full max-w-5xl gap-6 lg:grid-cols-[1fr_440px]">
-          <section className="hidden rounded-3xl border border-gray-800 bg-linear-to-b from-gray-800 to-gray-900 p-10 lg:block">
-            <p className="mb-4 inline-flex rounded-full border border-blue-500/40 bg-blue-500/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-blue-300">
-              Book My Artist
-            </p>
-            <h1 className="text-4xl font-bold leading-tight text-white xl:text-5xl">
-              Book My Artist
-            </h1>
-            <p className="mt-5 max-w-md text-base leading-relaxed text-gray-300">
-              Sign in to continue.
-            </p>
-          </section>
 
-          <section className="w-full rounded-3xl border border-gray-700 bg-gray-800/90 p-6 shadow-2xl shadow-black/30 backdrop-blur sm:p-8">
-            <div className="mb-8 text-center sm:text-left">
-              <h2 className="text-3xl font-bold tracking-tight text-white">Welcome back</h2>
-              <p className="mt-2 text-sm text-gray-400">
-                Sign in to continue to your Book Your Artist account.
-              </p>
+      <div className="mx-auto w-full max-w-md">
+        <div className="bg-[#1E112A]/60 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl p-8 sm:p-10 relative overflow-hidden">
+          {/* Subtle top glare */}
+          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-extrabold text-white mb-2 tracking-tight">Welcome Back</h2>
+            <p className="text-sm text-gray-400">
+              Sign in to continue your musical journey.
+            </p>
+          </div>
+
+          {error && (
+            <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 flex items-center gap-3 animate-fade-in-up" role="alert">
+              <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+              <p className="text-sm text-red-200">{error}</p>
             </div>
+          )}
 
-            {error && (
-              <div className="mb-6 rounded-xl border border-red-600/40 bg-red-900/25 px-4 py-3" role="alert" aria-live="polite">
-                <p className="text-sm text-red-200">{error}</p>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label htmlFor="email" className="mb-2 block text-sm font-medium text-gray-200">
-                  Email address or Phone Number
-                </label>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Email Field */}
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1.5 ml-1">
+                Email Address
+              </label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500 group-focus-within:text-violet-400 transition-colors">
+                  <Mail className="h-5 w-5" />
+                </div>
                 <input
                   id="email"
                   type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your@email.com or +1234567890"
+                  placeholder="your@email.com"
                   required
                   autoComplete="username"
-                  className="w-full rounded-xl border border-gray-600 bg-gray-700/70 px-4 py-3 text-white placeholder:text-gray-400 transition duration-200 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 pl-11 text-white placeholder:text-gray-500 transition-all duration-300 focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20 hover:bg-white/10"
                 />
               </div>
+            </div>
 
-              <div>
-                <label htmlFor="password" className="mb-2 block text-sm font-medium text-gray-200">
+            {/* Password Field */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5 ml-1">
+                <label htmlFor="password" className="block text-sm font-medium text-gray-300">
                   Password
                 </label>
-                <div className="relative">
-                  <input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    required
-                    autoComplete="current-password"
-                    className="w-full rounded-xl border border-gray-600 bg-gray-700/70 px-4 py-3 pr-20 text-white placeholder:text-gray-400 transition duration-200 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-blue-300 transition hover:bg-blue-500/10 hover:text-blue-200"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? "Hide" : "Show"}
-                  </button>
-                </div>
+                <Link href="#" className="text-xs font-medium text-violet-400 hover:text-violet-300 transition-colors">
+                  Forgot password?
+                </Link>
               </div>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500 group-focus-within:text-violet-400 transition-colors">
+                  <Lock className="h-5 w-5" />
+                </div>
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  autoComplete="current-password"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 pl-11 pr-12 text-white placeholder:text-gray-500 transition-all duration-300 focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20 hover:bg-white/10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 hover:text-white transition-colors focus:outline-none"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
 
-              <div className="flex items-center justify-between gap-4">
-                <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-gray-300">
+            {/* Remember Me */}
+            <div className="flex items-center">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <div className="relative flex items-center justify-center">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-blue-500 focus:ring-2 focus:ring-blue-500/40"
+                    className="peer sr-only"
                   />
-                  Remember me
-                </label>
-                <p className="text-xs text-gray-400">Press Enter to sign in quickly.</p>
-              </div>
+                  <div className="w-5 h-5 rounded border border-gray-600 bg-white/5 peer-checked:bg-violet-500 peer-checked:border-violet-500 transition-all flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                </div>
+                <span className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">Remember me</span>
+              </label>
+            </div>
 
-              <button
-                type="submit"
-                disabled={loading || isFormInvalid}
-                className="w-full rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition duration-200 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 disabled:cursor-not-allowed disabled:bg-blue-600/50 disabled:text-gray-200"
-              >
-                {loading ? "Signing in..." : "Sign In to Dashboard"}
-              </button>
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading || isFormInvalid}
+              className="group relative w-full flex justify-center py-3.5 px-4 border border-transparent rounded-xl text-sm font-bold text-white bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-violet-500/25 transition-all outline-none overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out disabled:hidden" />
+              <span className="relative flex items-center gap-2">
+                {loading ? "Signing in..." : "Sign In"}
+                {!loading && <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
+              </span>
+            </button>
+          </form>
 
-              <p className="text-xs text-gray-400">
-                Use your registered credentials. Demo accounts are listed below for quick testing.
-              </p>
-            </form>
+          {/* Divider */}
+          <div className="mt-8 flex items-center">
+            <div className="flex-1 border-t border-white/10"></div>
+            <span className="px-3 text-xs text-gray-500 uppercase tracking-wider font-semibold">Or continue with</span>
+            <div className="flex-1 border-t border-white/10"></div>
+          </div>
 
-            <div className="mt-7 border-t border-gray-700 pt-6">
-              <p className="mb-3 text-sm text-gray-400">New to the platform?</p>
-              <Link
-                href="/auth/register"
-                className="inline-flex w-full items-center justify-center rounded-xl border border-green-500/60 bg-green-500/10 px-5 py-3 text-sm font-semibold text-green-200 transition hover:border-green-400 hover:bg-green-500/20"
-              >
+          {/* Demo Accounts */}
+          <div className="mt-6 grid grid-cols-2 gap-3">
+             <button
+               type="button"
+               onClick={() => { setEmail("client@test.com"); setPassword("Client123!@"); }}
+               className="flex items-center justify-center p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-violet-500/30 transition-all text-sm font-medium text-gray-300 gap-2"
+             >
+               <span className="text-violet-400">👤</span>
+               Fill Client Demo
+             </button>
+             <button
+               type="button"
+               onClick={() => { setEmail("artist@test.com"); setPassword("Artist123!@"); }}
+               className="flex items-center justify-center p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-fuchsia-500/30 transition-all text-sm font-medium text-gray-300 gap-2"
+             >
+               <span className="text-fuchsia-400">🎸</span>
+               Fill Artist Demo
+             </button>
+          </div>
+
+          {/* Sign Up Link */}
+          <div className="mt-8 text-center">
+            <p className="text-sm text-gray-400">
+              Don't have an account?{" "}
+              <Link href="/auth/register" className="font-bold text-violet-400 hover:text-violet-300 transition-colors">
                 Create Account
               </Link>
-            </div>
-
-            <div className="mt-7 rounded-2xl border border-gray-700 bg-gray-900/70 p-4">
-              <p className="mb-3 text-sm font-semibold text-yellow-300">Demo Accounts</p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-gray-700 bg-gray-800/80 p-3">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-blue-300">Client</p>
-                  <p className="text-xs text-gray-300">Email: client@test.com</p>
-                  <p className="text-xs text-gray-300">Password: Client123!@</p>
-                </div>
-                <div className="rounded-xl border border-gray-700 bg-gray-800/80 p-3">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-emerald-300">Artist</p>
-                  <p className="text-xs text-gray-300">Email: artist@test.com</p>
-                  <p className="text-xs text-gray-300">Password: Artist123!@</p>
-                </div>
-              </div>
-            </div>
-          </section>
+            </p>
+          </div>
         </div>
       </div>
     </div>

@@ -6,6 +6,8 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { API_BASE_URL } from "@/lib/api";
+import { getAllArtistsFromFirestore } from "@/lib/firebaseBookingAPI";
+import { FirebaseArtistCard } from "@/components/FirebaseArtistCard";
 
 interface Booking {
   _id: string;
@@ -113,29 +115,13 @@ function ClientHomeContent() {
 
       // Fetch recommended artists
       try {
-          const artistsResponse = await fetch(`${API_BASE_URL}/api/artists/featured?limit=6`);
-        const artistsData = await artistsResponse.json();
-        if (artistsData.success && artistsData.artists) {
-          setRecommendedArtists(artistsData.artists.map((a: any) => {
-            const defaultImage = a.genres && a.genres[0] === 'DJ' 
-              ? `https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&h=500&fit=crop`
-              : (a.genres && a.genres[0] === 'Singer/Vocalist'
-                 ? `https://images.unsplash.com/photo-1493225457124-a1a2a5f01222?w=500&h=500&fit=crop`
-                 : `https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&h=500&fit=crop`);
-            
-            return {
-              _id: a._id,
-              name: a.user?.name || "Unknown Artist",
-              genre: (a.genres && a.genres[0]) ? a.genres[0] : "Artist",
-              hourlyRate: a.hourlyRate || 0,
-              rating: a.rating || 0,
-              reviews: a.reviewStats?.totalReviews || 0,
-              profileImage: a.user?.profileImage || a.profileImage || defaultImage
-            };
-          }));
+        const firestoreArtists = await getAllArtistsFromFirestore();
+        if (firestoreArtists && firestoreArtists.length > 0) {
+          // Sync with the Firebase data used in client search area
+          setRecommendedArtists(firestoreArtists.slice(0, 6));
         }
       } catch (err) {
-        console.error("Failed to load recommended artists", err);
+        console.error("Failed to load recommended artists from Firestore", err);
       }
     };
 
@@ -496,56 +482,7 @@ function ClientHomeContent() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {recommendedArtists.length > 0 ? recommendedArtists.map((artist) => (
-              <div
-                key={artist._id}
-                className="group bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700/50 rounded-xl overflow-hidden hover:border-yellow-600/50 transition-all duration-300 hover:shadow-xl hover:shadow-yellow-600/10"
-              >
-                {artist.profileImage ? (
-                  <div 
-                    className="h-32 sm:h-40 w-full bg-cover bg-center"
-                    style={{ backgroundImage: `url(${artist.profileImage})` }}
-                  />
-                ) : (
-                  <div className="bg-gradient-to-r from-yellow-600/20 to-orange-600/20 h-32 sm:h-40 flex items-center justify-center p-4">
-                    <span className="text-4xl">🎵</span>
-                  </div>
-                )}
-                <div className="p-5 sm:p-6">
-                  <h4 className="text-lg font-bold mb-1">{artist.name}</h4>
-                  <p className="text-yellow-400 text-sm font-medium mb-3">
-                    {artist.genre}
-                  </p>
-
-                  <div className="flex items-center justify-between mb-4 py-3 border-y border-gray-700/50">
-                    <div>
-                      <p className="text-gray-400 text-xs">Hourly Rate</p>
-                      <p className="text-lg font-bold text-green-400">
-                        ${artist.hourlyRate}/hr
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-gray-400 text-xs">Rating</p>
-                      <div className="flex items-center gap-1">
-                        <span className="text-yellow-400">⭐</span>
-                        <p className="text-lg font-bold">
-                          {artist.rating}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <p className="text-gray-400 text-xs mb-4">
-                    {artist.reviews} reviews
-                  </p>
-
-                  <Link
-                    href={`/artists/${artist._id}`}
-                    className="w-full inline-block text-center bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 text-white font-bold py-2.5 rounded-lg transition-all duration-200 group-hover:shadow-lg"
-                  >
-                    View Profile & Book
-                  </Link>
-                </div>
-              </div>
+              <FirebaseArtistCard key={artist.id || artist._id} artist={artist} />
             )) : (
               <div className="col-span-full py-8 text-center text-gray-500">
                 No recommended artists found yet. Start by exploring the directory!

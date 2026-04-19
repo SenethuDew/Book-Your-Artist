@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts";
 import { apiCall } from "@/lib/api";
 import { getAllArtistsFromFirestore } from "@/lib/firebaseBookingAPI";
+import { FirebaseArtistCard } from "@/components/FirebaseArtistCard";
 
 /* ─── Artist categories ─── */
 const artistCategories = [
@@ -35,6 +36,15 @@ const artistCategories = [
     count: "87+",
     color: "from-amber-500/20 to-orange-500/20",
     borderColor: "border-amber-500/30 hover:border-amber-400/60",
+  },
+  {
+    id: 'rappers',
+    name: "Rappers",
+    description: "Hip-hop, Rap, Trap",
+    icon: "🎤",
+    count: "65+",
+    color: "from-rose-500/20 to-red-500/20",
+    borderColor: "border-rose-500/30 hover:border-rose-400/60",
   },
 ];
 
@@ -99,32 +109,7 @@ export default function Home() {
       try {
         const data = await getAllArtistsFromFirestore();
         if (data && data.length > 0) {
-          const colors = [
-            "from-violet-500 to-fuchsia-500",
-            "from-cyan-500 to-blue-500",
-            "from-amber-500 to-pink-500",
-            "from-blue-500 to-cyan-500",
-            "from-red-500 to-orange-500",
-            "from-pink-500 to-rose-500"
-          ];
-          setFeaturedArtists(data.slice(0, 6).map((a: any, i: number) => {
-            const name = a.stageName || a.name || "Unknown";
-            const init = name.split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase();
-            return {
-              id: a.id,
-              name,
-              category: a.category || "Artist",
-              genre: (a.genres && a.genres[0]) ? a.genres[0] : "Artist",
-              rating: a.rating || 0,
-              reviews: a.reviews || Math.floor(Math.random() * 50) + 10,
-              hourlyRate: a.hourlyRate || 0,
-              color: colors[i % colors.length],
-              initials: init,
-              profileImage: a.profileImage,
-              location: a.location || "Sri Lanka",
-              availability: a.availability !== undefined ? a.availability : true
-            };
-          }));
+          setFeaturedArtists(data.slice(0, 6));
         }
       } catch (err) {
         console.error(err);
@@ -288,7 +273,7 @@ export default function Home() {
             <p className="text-gray-400 text-lg">Find the perfect performer for any event</p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {artistCategories.map((cat) => (
               <Link
                 key={cat.id}
@@ -381,85 +366,7 @@ export default function Home() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {featuredArtists.map((artist) => (
-              <Link
-                key={artist.id}
-                href={`/artists/${artist.id}`}
-                className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm border border-white/10 hover:border-violet-500/30 p-6 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-violet-500/20"
-              >
-                {/* Gradient overlay on hover */}
-                <div className="absolute inset-0 bg-gradient-to-br from-violet-600/5 to-fuchsia-600/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-
-                <div className="relative z-10">
-                  {/* Avatar & Info */}
-                  <div className="flex items-center gap-4 mb-4">
-                    {artist.profileImage ? (
-                      <div className="w-16 h-16 shrink-0 rounded-xl overflow-hidden shadow-lg shadow-violet-500/20 group-hover:shadow-xl group-hover:shadow-violet-500/40 transition-all border border-white/10">
-                        <img 
-                          src={artist.profileImage} 
-                          alt={artist.name} 
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                        />
-                      </div>
-                    ) : (
-                      <div
-                        className={`w-16 h-16 shrink-0 rounded-xl bg-gradient-to-br ${artist.color} flex items-center justify-center text-xl font-bold shadow-lg shadow-violet-500/20 group-hover:shadow-xl group-hover:shadow-violet-500/40 transition-all`}
-                      >
-                        {artist.initials}
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap flex-col items-start gap-1 mb-1">
-                         <span className="px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30">
-                           {artist.category}
-                         </span>
-                         <h3 className="font-bold text-lg group-hover:text-violet-300 transition truncate w-full">
-                           {artist.name}
-                         </h3>
-                      </div>
-                      <p className="text-sm text-gray-400 truncate">{artist.genre}</p>
-                    </div>
-                  </div>
-
-                  {/* Location & Availability */}
-                  <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400 mt-2">
-                    <div className="flex items-center gap-1.5">
-                      <svg className="w-3.5 h-3.5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                      {artist.location}
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className={`w-1.5 h-1.5 rounded-full ${artist.availability ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]' : 'bg-red-500'}`}></div>
-                      {artist.availability ? 'Available' : 'Unavailable'}
-                    </div>
-                  </div>
-
-                  {/* Divider */}
-                  <div className="border-t border-white/10 my-4" />
-
-                  {/* Rating */}
-                  <div className="flex items-center gap-3 mb-4">
-                    <Stars rating={artist.rating} />
-                    <span className="text-xs text-gray-500">
-                      {artist.rating} • {artist.reviews} reviews
-                    </span>
-                  </div>
-
-                  {/* Rate and CTA */}
-                  <div className="flex items-center justify-between pt-4 border-t border-white/10">
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase tracking-wider">From</p>
-                      <p className="text-xl font-bold">
-                        ${artist.hourlyRate}
-                        <span className="text-xs font-normal text-gray-400">/hr</span>
-                      </p>
-                    </div>
-                    <div className="w-10 h-10 rounded-lg bg-violet-500/20 border border-violet-500/30 flex items-center justify-center group-hover:bg-violet-500/40 transition">
-                      <svg className="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-              </Link>
+              <FirebaseArtistCard key={artist.id || artist._id} artist={artist} />
             ))}
           </div>
 
