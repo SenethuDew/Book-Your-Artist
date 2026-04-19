@@ -482,7 +482,7 @@ export default function ArtistProfilePage() {
           artistName={artist.stageName || artist.name} 
           hourlyRate={artist.hourlyRate || 250}
           onClose={() => setShowBookingForm(false)} 
-          clientId={user?._id || (user as any)?.uid} 
+          clientId={(user as any)?.id || user?._id || (user as any)?.uid} 
           prefilledSlot={selectedSlot || undefined}
         />
       )}

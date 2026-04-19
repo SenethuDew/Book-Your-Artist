@@ -17,7 +17,7 @@ function ArtistProfileView() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<any>({});
   const [loading, setLoading] = useState(true);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -30,16 +30,13 @@ function ArtistProfileView() {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      if (!user?.uid) return;
+      if (!user?.uid) { setProfile({}); setLoading(false); return; }
       try {
         const docRef = doc(db, "artists", user.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           setProfile(docSnap.data());
-        } else {
-          toast("No profile found. Let's create one!", { icon: "👋" });
-          router.push("/artist/edit-profile");
-        }
+        } else { setProfile({}); }
       } catch (err) {
         console.error("Error fetching profile:", err);
         toast.error("Failed to load profile");
@@ -51,7 +48,7 @@ function ArtistProfileView() {
   }, [user, router]);
 
   const handleDeleteProfile = async () => {
-    if (!user?.uid) return;
+    if (!user?.uid) { setProfile({}); setLoading(false); return; }
     setIsDeleting(true);
     try {
       await deleteDoc(doc(db, "artists", user.uid));
@@ -75,7 +72,7 @@ function ArtistProfileView() {
     );
   }
 
-  if (!profile) return null;
+  if (!profile) setProfile({}); // Ensure profile is never null during rendering
 
   return (
     <div className="min-h-screen bg-gray-950 text-white pb-20 selection:bg-violet-500/30">
@@ -262,9 +259,5 @@ function ArtistProfileView() {
 }
 
 export default function ArtistProfilePage() {
-  return (
-    <ProtectedRoute requiredRole="artist">
-      <ArtistProfileView />
-    </ProtectedRoute>
-  );
+  return <ArtistProfileView />;
 }

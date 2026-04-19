@@ -143,6 +143,7 @@ function ArtistDashboardContent() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [hasProfile, setHasProfile] = useState(true);
 
   useEffect(() => { 
     const fetchDashboardDataInternal = async () => {
@@ -152,7 +153,11 @@ function ArtistDashboardContent() {
         if(!token) return;
 
         const profileRes = await fetch(`${API_BASE_URL}/api/artists/me`, { headers: { Authorization: `Bearer ${token}` } });
-        if (profileRes.status === 404) { router.push('/artist/setup'); return; }
+        if (profileRes.status === 404) { 
+          setHasProfile(false); 
+        } else {
+          setHasProfile(true);
+        }
 
         const bookingsRes = await fetch(`${API_BASE_URL}/api/bookings/my?limit=50&sort=-eventDate`, {
           headers: { Authorization: `Bearer ${token}` }
@@ -225,19 +230,6 @@ function ArtistDashboardContent() {
     );
   }
 
-  if (user?.status !== "active" && user?.status !== "pending") {
-    return (
-      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center p-4">
-         <div className="max-w-md bg-[#1E112A]/80 border border-white/10 rounded-2xl p-8 text-center text-sm">
-           <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-           <h1 className="text-xl font-bold mb-2">Account Unverified</h1>
-           <p className="text-gray-400 mb-6">Complete your profile setup to be discovered by clients.</p>
-           <button onClick={() => router.push("/artist/setup")} className="bg-violet-600 w-full py-2.5 rounded-lg font-bold">Resume Setup</button>
-         </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-950 text-white font-sans overflow-x-hidden selection:bg-violet-500/30">
       {/* Background Decor */}
@@ -293,7 +285,7 @@ function ArtistDashboardContent() {
                             <ChevronRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                           </Link>
                           <Link href="/artist/edit-profile" className="flex items-center justify-between px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-colors group">
-                            <span className="flex items-center gap-2.5"><Edit2 className="w-4 h-4 text-fuchsia-400" /> Edit Profile</span>
+                              <span className="flex items-center gap-2.5"><Edit2 className="w-4 h-4 text-fuchsia-400" /> Complete Profile</span>
                             <ChevronRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                           </Link>
                           <button onClick={() => router.push('/artist/profile?delete=true')} className="flex items-center justify-between px-3 py-2 text-sm text-gray-300 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors group">
@@ -315,6 +307,21 @@ function ArtistDashboardContent() {
 
       {/* Main Control Flow */}
       <main className="max-w-[90rem] mx-auto px-4 lg:px-8 py-8 relative z-10">
+
+        {!hasProfile && (
+          <div className="mb-8 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-6 h-6 text-amber-500" />
+              <div>
+                <h3 className="font-bold text-amber-500">Profile Not Setup</h3>
+                <p className="text-sm text-amber-400/80">Complete your profile to be discovered and booked by clients.</p>
+              </div>
+            </div>
+            <button onClick={() => router.push("/artist/edit-profile")} className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold rounded-lg text-sm transition-all whitespace-nowrap truncate">
+              Complete Profile
+            </button>
+          </div>
+        )}
         
         {/* Top Header / Profile Completion Strip */}
         <div className="flex flex-col xl:flex-row justify-between gap-6 mb-8">
@@ -330,7 +337,7 @@ function ArtistDashboardContent() {
                 <div className="w-full bg-black/40 rounded-full h-1.5"><div className="bg-gradient-to-r from-violet-500 to-emerald-400 h-1.5 rounded-full" style={{width: `${completionPercentage}%`}}></div></div>
                 <p className="text-[10px] text-gray-400 mt-2">Finish setup to get 40% more booking requests.</p>
               </div>
-              <Link href="/artist/profile" className="shrink-0 text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded-lg transition-colors whitespace-nowrap">Complete Now</Link>
+              <Link href="/artist/edit-profile" className="shrink-0 text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded-lg transition-colors whitespace-nowrap">Complete Now</Link>
             </div>
           )}
         </div>
