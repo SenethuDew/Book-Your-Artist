@@ -13,9 +13,9 @@ import {
   Calendar,
   Star,
   ChevronDown,
-  Bell,
+
   MessageSquare,
-  Heart,
+
   Clock,
   DollarSign,
   Filter,
@@ -246,30 +246,6 @@ function ClientHomeContent() {
 
             {/* User Controls */}
             <div className="flex items-center gap-3 sm:gap-4">
-              <div className="hidden sm:flex items-center gap-2 pr-4 border-r border-white/10">
-                <Link
-                  href="/messages"
-                  className="p-2.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all relative"
-                >
-                  <MessageSquare className="w-5 h-5" />
-                </Link>
-                <button className="p-2.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all relative">
-                  <Bell className="w-5 h-5" />
-                  <span className="absolute top-2 right-2 w-2 h-2 bg-fuchsia-500 rounded-full ring-2 ring-gray-950"></span>
-                </button>
-                <Link
-                  href="/bookings"
-                  className="p-2.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
-                >
-                  <Calendar className="w-5 h-5" />
-                </Link>
-                <Link
-                  href="/favorites"
-                  className="p-2.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
-                >
-                  <Heart className="w-5 h-5" />
-                </Link>
-              </div>
 
               {/* Profile Dropdown */}
               <div className="relative isolate">

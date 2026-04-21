@@ -292,7 +292,6 @@ function ArtistDashboardContent() {
 
              {/* Right Utilities */}
              <div className="hidden sm:flex items-center gap-4 shrink-0">
-                <button className="relative text-gray-400 hover:text-white transition-colors"><Bell className="w-5 h-5" />{stats.pendingRequests > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-fuchsia-500 rounded-full border-2 border-gray-950" />}</button>
                 <div className="w-px h-5 bg-white/10" />
                 <div className="relative">
                   <button onClick={() => setShowDropdown(!showDropdown)} className="flex items-center gap-3 hover:bg-white/5 p-1 rounded-full transition-colors focus:outline-none">
