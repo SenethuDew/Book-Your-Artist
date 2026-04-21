@@ -9,18 +9,32 @@ const artistProfileSchema = new mongoose.Schema(
       unique: true,
       index: true,
     },
+    name: String,
+    bio: String,
+    category: String,
+    artistType: String,
+    location: String,
     genres: {
       type: [String],
       required: true,
       index: true,
     },
-    specialties: [String],
-    yearsOfExperience: Number,
     hourlyRate: {
       type: Number,
       required: true,
       index: true,
     },
+    experience: { type: Number, default: 0 },
+    profileImage: String,
+    coverImage: String,
+    socialLinks: {
+      instagram: String,
+      spotify: String,
+      youtube: String,
+    },
+    // Old fields matching original schema
+    specialties: [String],
+    yearsOfExperience: Number,
     minimumBooking: {
       type: Number,
       default: 1,
@@ -60,24 +74,8 @@ const artistProfileSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    createdAt: {
-      type: Date,
-      default: Date.now,
-    },
-    updatedAt: {
-      type: Date,
-      default: Date.now,
-    },
   },
   { timestamps: true }
 );
-
-// Recalculate rating when saved
-artistProfileSchema.pre("save", async function (next) {
-  if (this.isModified("rating")) {
-    this.updatedAt = Date.now();
-  }
-  next();
-});
 
 module.exports = mongoose.model("ArtistProfile", artistProfileSchema);

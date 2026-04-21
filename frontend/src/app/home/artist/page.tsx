@@ -43,7 +43,7 @@ const NavItem = ({ href, icon: Icon, label, active, badge }: { href: string, ico
   <Link href={href} className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all ${active ? "bg-violet-600/20 text-violet-400 font-bold border border-violet-500/30" : "text-gray-400 hover:text-white hover:bg-white/5"}`}>
     <Icon className={`w-4 h-4 ${active ? "text-violet-400" : ""}`} />
     <span className="hidden xl:block whitespace-nowrap">{label}</span>
-    {badge > 0 && (
+    {badge !== undefined && badge > 0 && (
       <span className="flex items-center justify-center bg-fuchsia-500 text-white text-[10px] min-w-[18px] h-4 px-1 rounded-full font-bold ml-auto shadow-[0_0_8px_rgba(217,70,239,0.5)]">
         {badge}
       </span>
@@ -144,6 +144,8 @@ function ArtistDashboardContent() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [hasProfile, setHasProfile] = useState(true);
+  const [isProfileComplete, setIsProfileComplete] = useState(true);
+  const [completionPercentage, setCompletionPercentage] = useState(100);
 
   useEffect(() => { 
     const fetchDashboardDataInternal = async () => {
@@ -153,10 +155,40 @@ function ArtistDashboardContent() {
         if(!token) return;
 
         const profileRes = await fetch(`${API_BASE_URL}/api/artists/me`, { headers: { Authorization: `Bearer ${token}` } });
+        
         if (profileRes.status === 404) { 
           setHasProfile(false); 
+          setIsProfileComplete(false);
+          setCompletionPercentage(0);
         } else {
           setHasProfile(true);
+          if (profileRes.ok) {
+            const data = await profileRes.json();
+            const profile = data.profile || data.artist || {};
+            
+            // Check completion: bio, category, profile image, hourly rate, location
+            const fieldsComplete = {
+              bio: !!(profile.bio || profile.biography),
+              category: !!profile.category,
+              image: !!(profile.profileImage || profile.profileImageUrl),
+              hourlyRate: !!(profile.hourlyRate || profile.price),
+              location: !!profile.location
+            };
+            
+            const completedCount = Object.values(fieldsComplete).filter(Boolean).length;
+            const totalFields = Object.keys(fieldsComplete).length;
+            const percentage = Math.round((completedCount / totalFields) * 100);
+            
+            setCompletionPercentage(percentage);
+            setIsProfileComplete(completedCount === totalFields);
+            
+            console.log("Artist Profile Data:", profile);
+            console.log("Profile Completion Status:", { 
+              fields: fieldsComplete, 
+              percentage, 
+              isComplete: completedCount === totalFields 
+            });
+          }
         }
 
         const bookingsRes = await fetch(`${API_BASE_URL}/api/bookings/my?limit=50&sort=-eventDate`, {
@@ -219,7 +251,7 @@ function ArtistDashboardContent() {
 
   const pendingBookings = bookings.filter(b => b.status === "pending");
   const upcomingBookings = bookings.filter(b => b.status === "confirmed").sort((a,b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime()).slice(0, 4);
-  const completionPercentage = user?.profileImage ? 85 : 60; // Mock calculation
+  const isTestAccount = user?.email === "artist@test.com" || user?.email?.includes("test.com");
   
   if (loading) {
     return (
@@ -251,10 +283,10 @@ function ArtistDashboardContent() {
              {/* Main Navigation - Scrollable on mobile */}
              <div className="flex items-center overflow-x-auto scrollbar-hide py-1 w-full sm:w-auto px-2 sm:px-0 mx-0 sm:mx-6 flex-1 lg:justify-center gap-1">
                <NavItem href="/home/artist" icon={LayoutDashboard} label="Dashboard" active={true} />
-               <NavItem href="/bookings" icon={Briefcase} label="Bookings" badge={stats.pendingRequests} />
-               <NavItem href="/artist/availability" icon={CalendarIcon} label="Calendar" />
-               <NavItem href="/messages" icon={MessageSquare} label="Messages" />
-               <NavItem href="/earnings" icon={Wallet} label="Earnings" />
+               <NavItem href="/artist/bookings" icon={Briefcase} label="Bookings" badge={stats.pendingRequests} />
+               <NavItem href="/artist/calendar" icon={CalendarIcon} label="Calendar" />
+               <NavItem href="/artist/messages" icon={MessageSquare} label="Messages" />
+               <NavItem href="/artist/earnings" icon={Wallet} label="Earnings" />
                <NavItem href="/artist/profile" icon={Settings} label="Profile Settings" />
              </div>
 
@@ -265,7 +297,7 @@ function ArtistDashboardContent() {
                 <div className="relative">
                   <button onClick={() => setShowDropdown(!showDropdown)} className="flex items-center gap-3 hover:bg-white/5 p-1 rounded-full transition-colors focus:outline-none">
                     <div className="w-8 h-8 rounded-full bg-violet-600/30 border border-violet-500/50 overflow-hidden">
-                      {user?.profileImage ? <img src={user.profileImage} alt="User" className="w-full h-full object-cover" /> : <User className="w-4 h-4 m-auto mt-2 text-violet-300" />}
+                      {(user as any)?.profileImage ? <img src={(user as any).profileImage} alt="User" className="w-full h-full object-cover" /> : <User className="w-4 h-4 m-auto mt-2 text-violet-300" />}
                     </div>
                     <span className="text-xs font-bold text-gray-200 hidden lg:block pr-2">{user?.name?.split(' ')[0]}</span>
                   </button>
@@ -308,38 +340,34 @@ function ArtistDashboardContent() {
       {/* Main Control Flow */}
       <main className="max-w-[90rem] mx-auto px-4 lg:px-8 py-8 relative z-10">
 
-        {!hasProfile && (
-          <div className="mb-8 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="w-6 h-6 text-amber-500" />
-              <div>
-                <h3 className="font-bold text-amber-500">Profile Not Setup</h3>
-                <p className="text-sm text-amber-400/80">Complete your profile to be discovered and booked by clients.</p>
+        {(!isProfileComplete && !isTestAccount) && (
+          <div className="mb-8 p-5 bg-gradient-to-r from-amber-500/10 to-amber-600/5 border border-amber-500/30 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6 shadow-lg shadow-amber-500/5">
+            <div className="flex items-center gap-5 w-full md:w-auto flex-1">
+              <div className="w-14 h-14 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0 border border-amber-500/30">
+                <AlertTriangle className="w-7 h-7 text-amber-500" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-lg text-amber-500 mb-1">Complete your profile to get more bookings</h3>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 max-w-[200px] bg-black/40 rounded-full h-2">
+                    <div className="bg-gradient-to-r from-amber-500 to-amber-400 h-2 rounded-full transition-all duration-1000" style={{width: `${completionPercentage}%`}}></div>
+                  </div>
+                  <span className="text-xs font-bold text-amber-400">{completionPercentage}% Completed</span>
+                </div>
               </div>
             </div>
-            <button onClick={() => router.push("/artist/edit-profile")} className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold rounded-lg text-sm transition-all whitespace-nowrap truncate">
-              Complete Profile
+            <button onClick={() => router.push("/artist/edit-profile")} className="w-full md:w-auto px-8 py-3 bg-amber-500 hover:bg-amber-400 text-gray-950 font-black rounded-xl text-sm transition-all shadow-lg shadow-amber-500/20 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+              Complete Now
             </button>
           </div>
         )}
         
-        {/* Top Header / Profile Completion Strip */}
+        {/* Top Header */}
         <div className="flex flex-col xl:flex-row justify-between gap-6 mb-8">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-2">Welcome back, {user?.name?.split(' ')[0] || 'Artist'}</h1>
             <p className="text-sm text-gray-400 max-w-xl">Your workspace is looking busy. Check out your latest performance metrics and upcoming gigs.</p>
           </div>
-          
-          {completionPercentage < 100 && (
-            <div className="flex flex-col sm:flex-row items-center gap-4 bg-violet-900/20 border border-violet-500/20 rounded-xl p-4 xl:w-[450px]">
-              <div className="flex-1 w-full">
-                <div className="flex justify-between text-xs font-bold mb-1.5"><span className="text-violet-300">Profile Strength</span><span className="text-emerald-400">{completionPercentage}%</span></div>
-                <div className="w-full bg-black/40 rounded-full h-1.5"><div className="bg-gradient-to-r from-violet-500 to-emerald-400 h-1.5 rounded-full" style={{width: `${completionPercentage}%`}}></div></div>
-                <p className="text-[10px] text-gray-400 mt-2">Finish setup to get 40% more booking requests.</p>
-              </div>
-              <Link href="/artist/edit-profile" className="shrink-0 text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded-lg transition-colors whitespace-nowrap">Complete Now</Link>
-            </div>
-          )}
         </div>
 
         {/* Global Key Metrics / Analytics Overview */}
@@ -426,7 +454,7 @@ function ArtistDashboardContent() {
              {/* Quick Availability Overview */}
              <div className="bg-[#1E112A]/40 backdrop-blur-md border border-white/10 rounded-2xl p-5 relative overflow-hidden">
                <h3 className="font-bold text-sm text-gray-400 uppercase tracking-widest mb-4 flex justify-between items-center">
-                 Next 7 Days <Link href="/artist/availability"><Settings className="w-4 h-4 hover:text-white" /></Link>
+                 Next 7 Days <Link href="/artist/calendar"><Settings className="w-4 h-4 hover:text-white" /></Link>
                </h3>
                <div className="flex justify-between gap-1">
                  {['M','T','W','T','F','S','S'].map((day, i) => {

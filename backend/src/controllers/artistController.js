@@ -155,8 +155,12 @@ class ArtistController {
       }
 
       // Check if user is artist
-      const user = await User.findById(userId);
-      if (user.role !== "artist") {
+      let user;
+      try {
+        user = await User.findById(userId);
+      } catch(e) {}
+      
+      if (user && user.role !== "artist") {
         return res.status(403).json({
           success: false,
           message: "Only artists can update artist profile",
@@ -183,6 +187,7 @@ class ArtistController {
       return res.status(200).json({
         success: true,
         message: "Profile updated successfully",
+        profile: profile,
         artist: profile,
       });
     } catch (error) {
@@ -213,14 +218,17 @@ class ArtistController {
         .populate("userId", "name email profileImage phone role status");
 
       if (!profile) {
-        return res.status(404).json({
-          success: false,
+        return res.status(200).json({
+          success: true,
+          profile: null,
+          artist: null,
           message: "Artist profile not found",
         });
       }
 
       return res.status(200).json({
         success: true,
+        profile: profile,
         artist: profile,
       });
     } catch (error) {

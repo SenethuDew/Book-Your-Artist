@@ -21,6 +21,20 @@ const availabilitySchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    status: {
+      type: String,
+      enum: ['Available', 'Booked', 'Blocked', 'Draft'],
+      default: 'Available',
+    },
+    isPublished: {
+      type: Boolean,
+      default: true, // Currently default to true for retro-compatibility until fully implemented
+    },
+    bookingId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Booking',
+      default: null,
+    },
     createdAt: {
       type: Date,
       default: Date.now,

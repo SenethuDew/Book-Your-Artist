@@ -22,6 +22,7 @@ router.post("/auth/logout", auth, authController.logout);
 
 // ===== ARTIST PROFILE ROUTES (Auth Required) - MUST BE BEFORE /:id =====
 router.get("/artists/me", auth, artistController.getMyProfile);
+router.put("/artists/me", auth, artistController.updateProfile);
 
 // ===== ARTIST SEARCH & BROWSE ROUTES =====
 router.get("/artists/genres", artistController.getGenres);

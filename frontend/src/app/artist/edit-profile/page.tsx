@@ -7,6 +7,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { db, storage } from "@/lib/firebaseService";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { apiCall } from "@/lib/api";
 import { 
   MapPin, Edit2, ArrowLeft, Loader2, Image as ImageIcon, Check, DollarSign, Briefcase, Plus, X, ListMusic, Globe, User, Hash
 } from "lucide-react";
@@ -78,36 +79,75 @@ function EditProfileView() {
       }
 
       try {
-        let docRef = doc(db, "artistProfiles", userId);
-        let docSnap = await getDoc(docRef);
-        
-        if (!docSnap.exists()) {
-           docRef = doc(db, "artists", userId);
-           docSnap = await getDoc(docRef);
-        }
-
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setFormData({
-            name: data.name || user.name || "",
-            bio: data.biography || data.bio || "",
-            category: data.category || "",
-            artistType: data.artistType || "",
-            price: data.hourlyRate || data.price || 0,
-            experience: data.experience || 0,
-            location: data.location || "",
-            genres: data.genres || [],
-            profileImage: data.profileImageUrl || data.profileImage || user.profileImage || "",
-            coverImage: data.coverImageUrl || data.coverImage || "",
-            socialLinks: {
-              instagram: data.instagramUrl || data.socialLinks?.instagram || "",
-              spotify: data.spotifyUrl || data.socialLinks?.spotify || "",
-              youtube: data.youtubeUrl || data.socialLinks?.youtube || ""
+        let hasBackendData = false;
+        try {
+          const res: any = await apiCall("/api/artists/me");
+          if (res?.success) {
+              const data = res.profile || res.artist;
+              if (data) {
+                hasBackendData = true;
+                setFormData({
+                  name: data.name || user.name || "",
+                  bio: data.biography || data.bio || "",
+                  category: data.category || "",
+                  artistType: data.artistType || "",
+                  price: data.hourlyRate || data.price || 0,
+                  experience: data.experience || data.yearsOfExperience || 0,
+                  location: data.location || "",
+                  genres: data.genres || [],
+                  profileImage: data.profileImage || data.profileImageUrl || (user as any).profileImage || "",
+                  coverImage: data.coverImage || data.coverImageUrl || "",
+                  socialLinks: {
+                    instagram: data.socialLinks?.instagram || "",
+                    spotify: data.socialLinks?.spotify || "",
+                    youtube: data.socialLinks?.youtube || ""
+                  }
+                });
+              } else {
+                 setFormData(f => ({ ...f, name: user.name || "", profileImage: (user as any).profileImage || "" }));
+              }
             }
-          });
-        } else {
-           // fallback to basic user auth
-           setFormData(f => ({ ...f, name: user.name || "", profileImage: user.profileImage || "" }));
+          } catch (apiErr) {
+            console.warn("Backend API fetch failed, falling back to firebase", apiErr);
+          }
+
+          if (!hasBackendData) {
+            try {
+              let docRef = doc(db, "artistProfiles", userId);
+              let docSnap = await getDoc(docRef);
+              
+              if (!docSnap.exists()) {
+                 docRef = doc(db, "artists", userId);
+                 docSnap = await getDoc(docRef);
+              }
+
+              if (docSnap.exists()) {
+                const data = docSnap.data();
+              setFormData({
+                name: data.name || user.name || "",
+                bio: data.biography || data.bio || "",
+                category: data.category || "",
+                artistType: data.artistType || "",
+                price: data.hourlyRate || data.price || 0,
+                experience: data.experience || 0,
+                location: data.location || "",
+                genres: data.genres || [],
+                  profileImage: data.profileImageUrl || data.profileImage || (user as any).profileImage || "",
+                coverImage: data.coverImageUrl || data.coverImage || "",
+                socialLinks: {
+                  instagram: data.instagramUrl || data.socialLinks?.instagram || "",
+                  spotify: data.spotifyUrl || data.socialLinks?.spotify || "",
+                  youtube: data.youtubeUrl || data.socialLinks?.youtube || ""
+                }
+              });
+            } else {
+               // fallback to basic user auth
+               setFormData(f => ({ ...f, name: user.name || "", profileImage: (user as any).profileImage || "" }));
+            }
+          } catch (fbErr) {
+             console.error("Firebase fallback completely failed (probably unconfigured/offline):", fbErr);
+             setFormData(f => ({ ...f, name: user.name || "", profileImage: (user as any).profileImage || "" }));
+          }
         }
       } catch (err) {
         console.error("Error fetching form data:", err);
@@ -214,67 +254,73 @@ function EditProfileView() {
       
       setUploadingImage(null);
 
-      const docRef = doc(db, "artistProfiles", userId);
-      await setDoc(docRef, {
-        name: formData.name,
-        biography: formData.bio,
-        hourlyRate: formData.price,
-        profileImageUrl: currentProfileUrl,
-        coverImageUrl: currentCoverUrl,
-        instagramUrl: formData.socialLinks.instagram,
-        spotifyUrl: formData.socialLinks.spotify,
-        youtubeUrl: formData.socialLinks.youtube,
-        status: "active",
-        profileCompleted: true,
-        category: formData.category,
-        artistType: formData.artistType,
-        experience: formData.experience,
-        location: formData.location,
-        genres: formData.genres,
-        uid: userId,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
+      // Save to Backend API
+      try {
+        await apiCall("/api/artists/me", {
+          method: "PUT",
+          body: JSON.stringify({
+          name: formData.name,
+          bio: formData.bio,
+          hourlyRate: formData.price,
+          profileImage: currentProfileUrl,
+          coverImage: currentCoverUrl,
+          socialLinks: {
+            instagram: formData.socialLinks.instagram,
+            spotify: formData.socialLinks.spotify,
+            youtube: formData.socialLinks.youtube,
+          },
+          category: formData.category,
+          artistType: formData.artistType,
+          experience: formData.experience,
+          location: formData.location,
+          genres: formData.genres,
+          }),
+          headers: { "Content-Type": "application/json" }
+        });
+      } catch (apiErr) {
+        console.warn("Backend API sync failed, continuing to Firebase:", apiErr);
+      }
 
-      // Also set to old collection just to prevent breaks elsewhere
-      const oldDocRef = doc(db, "artists", userId);
-      await setDoc(oldDocRef, {
-        name: formData.name,
-        biography: formData.bio,
-        hourlyRate: formData.price,
-        profileImageUrl: currentProfileUrl,
-        coverImageUrl: currentCoverUrl,
-        instagramUrl: formData.socialLinks.instagram,
-        spotifyUrl: formData.socialLinks.spotify,
-        youtubeUrl: formData.socialLinks.youtube,
-        status: "active",
-        profileCompleted: true,
-        category: formData.category,
-        artistType: formData.artistType,
-        experience: formData.experience,
-        location: formData.location,
-        genres: formData.genres,
-        uid: userId,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
+        // Also set to firebase collections for compatibility
+        try {
+          const docData = {
+            name: formData.name,
+            biography: formData.bio,
+            price: formData.price,
+            hourlyRate: formData.price,
+            profileImageUrl: currentProfileUrl,
+            coverImageUrl: currentCoverUrl,
+            instagramUrl: formData.socialLinks.instagram,
+            spotifyUrl: formData.socialLinks.spotify,
+            youtubeUrl: formData.socialLinks.youtube,
+            status: "active",
+            profileCompleted: true,
+            category: formData.category,
+            artistType: formData.artistType,
+            experience: formData.experience,
+            location: formData.location,
+            genres: formData.genres,
+            uid: userId,
+            updatedAt: new Date().toISOString()
+          };
+        const docRef = doc(db, "artistProfiles", userId);
+        await setDoc(docRef, docData, { merge: true });
+        const oldDocRef = doc(db, "artists", userId);
+        await setDoc(oldDocRef, docData, { merge: true });
+      } catch (fbErr) {
+        console.warn("Firebase sync warning:", fbErr);
+      }
 
       toast.success("Profile saved successfully");
       router.push("/artist/profile");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to save profile");
+    } catch (err: any) {
+      console.error("Save Error:", err);
+      toast.error(err.message || "Failed to save profile");
+    } finally {
       setUploadingImage(null);
       setSaving(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center gap-4">
-        <Loader2 className="w-12 h-12 text-violet-500 animate-spin" />
-        <p className="text-gray-400 font-bold uppercase tracking-widest text-sm">Loading Workspace</p>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-950 text-white pb-20 selection:bg-violet-500/30 pt-8">

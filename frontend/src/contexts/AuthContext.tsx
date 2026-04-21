@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { API_BASE_URL, parseJsonResponse, getAuthToken, setAuthToken, clearAuthToken } from '@/lib/api';
+import { getApiBaseUrl, parseJsonResponse, getAuthToken, setAuthToken, clearAuthToken } from '@/lib/api';
 
 export interface User {
   _id?: string;
@@ -45,7 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+        const apiUrl = getApiBaseUrl();
+        const response = await fetch(`${apiUrl}/api/auth/me`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -65,35 +66,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const apiUrl = getApiBaseUrl();
+      console.log(`[Auth] Attempting login at ${apiUrl}/api/auth/login`);
+      const response = await fetch(`${apiUrl}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
-    const data = await parseJsonResponse<{ user: User; token: string }>(response);
-    setAuthToken(data.token);
-    setUser(data.user);
-    return data;
+      console.log(`[Auth] Login response status: ${response.status}`);
+      const data = await parseJsonResponse<{ user: User; token: string }>(response);
+      
+      setAuthToken(data.token);
+      setUser(data.user);
+      return data;
+    } catch (error: any) {
+      console.error('[Auth] Login error:', error);
+      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        throw new Error(`Cannot connect to server. Unable to reach backend at ${getApiBaseUrl()}. Please ensure the backend is running.`);
+      }
+      // If error message indicates 400 or 401 or invalid credentials from backend
+      if (error.message && (error.message.toLowerCase().includes('password') || error.message.toLowerCase().includes('invalid') || error.message.toLowerCase().includes('credential'))) {
+        throw new Error('Invalid email or password');
+      }
+      throw error;
+    }
   };
 
   const logout = async () => {
-    await fetch(`${API_BASE_URL}/api/auth/logout`, { method: 'POST' });
-    clearAuthToken();
-    setUser(null);
+    try {
+      const apiUrl = getApiBaseUrl();
+      await fetch(`${apiUrl}/api/auth/logout`, { method: 'POST' });
+    } catch (e) {
+      console.warn('Logout request failed, continuing local clear', e);
+    } finally {
+      clearAuthToken();
+      setUser(null);
+    }
   };
 
   const signup = async (data: SignupData) => {
-    const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
+    try {
+      const apiUrl = getApiBaseUrl();
+      console.log(`[Auth] Attempting signup at ${apiUrl}/api/auth/register`);
+      const response = await fetch(`${apiUrl}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
 
-    const result = await parseJsonResponse<{ user: User; token: string }>(response);
-    setAuthToken(result.token);
-    setUser(result.user);
-    return result;
+      console.log(`[Auth] Signup response status: ${response.status}`);
+      const result = await parseJsonResponse<{ user: User; token: string }>(response);
+      
+      setAuthToken(result.token);
+      setUser(result.user);
+      return result;
+    } catch (error: any) {
+      console.error('[Auth] Signup error:', error);
+      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        throw new Error(`Cannot connect to server. Unable to reach backend at ${getApiBaseUrl()}.`);
+      }
+      throw error;
+    }
   };
 
   return (

@@ -31,19 +31,11 @@ export function ProtectedRoute({
   }, [loading, isAuthenticated, user, requiredRole, router]);
 
   if (loading || !isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
-        <p>Loading...</p>
-      </div>
-    );
+    return null; // Return nothing during auth check for instant feeling navigation
   }
 
   if (requiredRole && user?.role !== requiredRole) {
-    return (
-      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
-        <p>Access Denied</p>
-      </div>
-    );
+    return null;
   }
 
   return <>{children}</>;

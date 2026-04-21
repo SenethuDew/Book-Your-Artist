@@ -13,6 +13,8 @@ import { FaInstagram, FaYoutube } from "react-icons/fa";
 import Link from "next/link";
 import toast, { Toaster } from "react-hot-toast";
 
+import { apiCall } from "@/lib/api";
+
 function ArtistProfileView() {
   const { user, logout } = useAuth();
   const router = useRouter();
@@ -30,13 +32,83 @@ function ArtistProfileView() {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      if (!user?.uid) { setProfile({}); setLoading(false); return; }
+      if (!(user as any)?.uid && !(user as any)?.id && !(user as any)?._id) { 
+        setProfile({}); setLoading(false); return; 
+      }
+      
+      const userId = (user as any)?.uid || (user as any)?.id || (user as any)?._id;
+
       try {
-        const docRef = doc(db, "artists", user.uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setProfile(docSnap.data());
-        } else { setProfile({}); }
+        let hasBackendData = false;
+        try {
+          const res: any = await apiCall("/api/artists/me");
+          if (res?.success) {
+              const data = res.profile || res.artist;
+              if (data) {
+                hasBackendData = true;
+                // Map backend schema props to view expected props
+                setProfile({
+                  name: data.name || user?.name || "",
+                  bio: data.biography || data.bio || "",
+                  category: data.category || "",
+                  artistType: data.artistType || "",
+                  price: data.hourlyRate || data.price || 0,
+                  experience: data.experience || data.yearsOfExperience || 0,
+                  location: data.location || "",
+                  genres: data.genres || [],
+                  profileImage: data.profileImage || data.profileImageUrl || (user as any)?.profileImage || "",
+                  coverImage: data.coverImage || data.coverImageUrl || "",
+                  socialLinks: {
+                    instagram: data.socialLinks?.instagram || data.instagramUrl || "",
+                    spotify: data.socialLinks?.spotify || data.spotifyUrl || "",
+                    youtube: data.socialLinks?.youtube || data.youtubeUrl || ""
+                  }
+                });
+              } else {
+                setProfile({});
+              }
+            }
+          } catch (apiErr) {
+            console.warn("Backend API fetch failed, falling back to firebase", apiErr);
+          }
+
+          if (!hasBackendData) {
+            try {
+              let docRef = doc(db, "artistProfiles", userId);
+              let docSnap = await getDoc(docRef);
+              
+              if (!docSnap.exists()) {
+                 docRef = doc(db, "artists", userId);
+                 docSnap = await getDoc(docRef);
+              }
+
+              if (docSnap.exists()) {
+                const data = docSnap.data();
+              setProfile({
+                name: data.name || user?.name || "",
+                bio: data.biography || data.bio || "",
+                category: data.category || "",
+                artistType: data.artistType || "",
+                price: data.hourlyRate || data.price || 0,
+                experience: data.experience || 0,
+                location: data.location || "",
+                genres: data.genres || [],
+                profileImage: data.profileImageUrl || data.profileImage || (user as any)?.profileImage || "",
+                coverImage: data.coverImageUrl || data.coverImage || "",
+                socialLinks: {
+                  instagram: data.instagramUrl || data.socialLinks?.instagram || "",
+                  spotify: data.spotifyUrl || data.socialLinks?.spotify || "",
+                  youtube: data.youtubeUrl || data.socialLinks?.youtube || ""
+                }
+              });
+            } else { 
+              setProfile({}); 
+            }
+          } catch (fbErr) {
+            console.error("Firebase fallback completely failed (probably unconfigured/offline):", fbErr);
+            setProfile({});
+          }
+        }
       } catch (err) {
         console.error("Error fetching profile:", err);
         toast.error("Failed to load profile");
@@ -48,10 +120,11 @@ function ArtistProfileView() {
   }, [user, router]);
 
   const handleDeleteProfile = async () => {
-    if (!user?.uid) { setProfile({}); setLoading(false); return; }
+    const userId = (user as any)?.uid || (user as any)?.id || (user as any)?._id;
+    if (!userId) { setProfile({}); setLoading(false); return; }
     setIsDeleting(true);
     try {
-      await deleteDoc(doc(db, "artists", user.uid));
+      await deleteDoc(doc(db, "artists", userId));
       toast.success("Profile deleted successfully");
       await logout();
       router.push("/");
@@ -62,15 +135,6 @@ function ArtistProfileView() {
       setDeleteModalOpen(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center gap-4">
-        <Loader2 className="w-12 h-12 text-violet-500 animate-spin" />
-        <p className="text-gray-400 font-bold uppercase tracking-widest text-sm">Loading Profile</p>
-      </div>
-    );
-  }
 
   if (!profile) setProfile({}); // Ensure profile is never null during rendering
 
@@ -108,8 +172,8 @@ function ArtistProfileView() {
         {/* Avatar & Title Row */}
         <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-start md:items-end mb-10">
           <div className="w-32 h-32 md:w-44 md:h-44 rounded-2xl border-4 border-gray-950 bg-gray-900 shadow-2xl shadow-violet-900/30 overflow-hidden shrink-0">
-            {profile.profileImage || user?.profileImage ? (
-              <img src={profile.profileImage || user?.profileImage} alt="Avatar" className="w-full h-full object-cover" />
+            {profile.profileImage || (user as any)?.profileImage ? (
+              <img src={profile.profileImage || (user as any)?.profileImage} alt="Avatar" className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full bg-violet-900/50 flex items-center justify-center">
                  <Mic2 className="w-12 h-12 text-violet-300" />
@@ -118,7 +182,7 @@ function ArtistProfileView() {
           </div>
           <div className="flex-1">
             <div className="flex flex-col md:flex-row md:items-center gap-3 mb-2">
-              <h1 className="text-3xl md:text-5xl font-black tracking-tight">{profile.name || user?.name || "Artist Name"}</h1>
+              <h1 className="text-3xl md:text-5xl font-black tracking-tight">{profile.name || (user as any)?.name || "Artist Name"}</h1>
               {profile.artistType && (
                  <span className="px-3 py-1 rounded-full bg-white/10 text-xs font-bold uppercase tracking-wider text-violet-300 w-fit border border-violet-500/20">{profile.artistType}</span>
               )}
@@ -258,6 +322,12 @@ function ArtistProfileView() {
   );
 }
 
+import { Suspense } from "react";
+
 export default function ArtistProfilePage() {
-  return <ArtistProfileView />;
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center gap-4"><Loader2 className="w-12 h-12 text-violet-500 animate-spin" /></div>}>
+       <ArtistProfileView />
+    </Suspense>
+  );
 }

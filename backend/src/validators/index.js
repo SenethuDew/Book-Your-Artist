@@ -17,11 +17,24 @@ const loginSchema = z.object({
 
 // Artist profile update validation
 const artistProfileSchema = z.object({
-  genres: z.array(z.string()).min(1, "At least one genre is required"),
+  name: z.string().optional(),
+  bio: z.string().optional(),
+  category: z.string().optional(),
+  artistType: z.string().optional(),
+  location: z.string().optional(),
+  genres: z.array(z.string()).min(1, "At least one genre is required").optional(),
+  hourlyRate: z.coerce.number().min(5, "Hourly rate must be at least $5").optional(),
+  experience: z.coerce.number().optional(),
+  profileImage: z.string().optional(),
+  coverImage: z.string().optional(),
+  socialLinks: z.object({
+    instagram: z.string().optional(),
+    spotify: z.string().optional(),
+    youtube: z.string().optional(),
+  }).optional(),
   specialties: z.array(z.string()).optional(),
   yearsOfExperience: z.number().optional(),
-  hourlyRate: z.number().min(10, "Hourly rate must be at least $10"),
-  minimumBooking: z.number().min(1).optional(),
+  minimumBooking: z.number().optional(),
   serviceTypes: z.array(z.string()).optional(),
   equipmentProvided: z.array(z.string()).optional(),
   travelRadius: z.number().optional(),
@@ -32,7 +45,7 @@ const artistProfileSchema = z.object({
     audioLinks: z.array(z.string().url()).optional(),
     images: z.array(z.string().url()).optional(),
   }).optional(),
-});
+}).passthrough();
 
 // Search filters validation
 const searchFiltersSchema = z.object({

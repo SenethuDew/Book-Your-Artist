@@ -158,6 +158,7 @@ const createAvailability = async (req, res) => {
       date: slotDate,
       startTime,
       endTime,
+      status: req.body.status || 'Available',
     });
 
     await availability.save();
