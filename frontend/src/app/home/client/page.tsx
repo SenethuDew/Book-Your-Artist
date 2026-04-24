@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useAuth } from "@/contexts";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { API_BASE_URL } from "@/lib/api";
 import { getAllArtistsFromFirestore } from "@/lib/firebaseBookingAPI";
@@ -22,6 +22,7 @@ import {
   SlidersHorizontal,
   Music,
   Mic2,
+  Mic,
   User,
   ChevronRight,
   CheckCircle2,
@@ -79,6 +80,13 @@ const CATEGORIES = [
     desc: "Solo Vocalists",
     image: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&q=80",
   },
+  {
+    id: "rapper",
+    title: "Rappers",
+    icon: <Mic className="w-8 h-8 text-cyan-400" />,
+    desc: "Hip-Hop & Rap Artists",
+    image: "https://images.unsplash.com/photo-1601643157091-ce5c665179ab?w=500&q=80",
+  },
 ];
 
 const BOOKING_TIPS = [
@@ -107,6 +115,7 @@ const BOOKING_TIPS = [
 function ClientHomeContent() {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   const [stats, setStats] = useState<Stats>({
     pending: 0,
@@ -219,25 +228,33 @@ function ClientHomeContent() {
               <div className="hidden md:flex items-center gap-1 bg-white/5 p-1 rounded-full border border-white/5">
                 <Link
                   href="/home/client"
-                  className="px-4 py-2 rounded-full bg-white/10 text-white text-sm font-semibold transition-all shadow-inner"
+                  className={`px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+                    pathname === '/home/client' ? 'bg-white/10 text-white shadow-inner' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  }`}
                 >
                   Home
                 </Link>
                 <Link
                   href="/search"
-                  className="px-4 py-2 rounded-full text-gray-400 hover:text-white hover:bg-white/5 text-sm font-semibold transition-all"
+                  className={`px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+                    pathname === '/search' ? 'bg-white/10 text-white shadow-inner' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  }`}
                 >
                   Browse Artists
                 </Link>
                 <Link
-                  href="/categories"
-                  className="px-4 py-2 rounded-full text-gray-400 hover:text-white hover:bg-white/5 text-sm font-semibold transition-all"
+                  href="/bookings"
+                  className={`px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+                    pathname?.startsWith('/bookings') ? 'bg-white/10 text-white shadow-inner' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  }`}
                 >
-                  Categories
+                  My Bookings
                 </Link>
                 <Link
                   href="/about"
-                  className="px-4 py-2 rounded-full text-gray-400 hover:text-white hover:bg-white/5 text-sm font-semibold transition-all"
+                  className={`px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+                    pathname === '/about' ? 'bg-white/10 text-white shadow-inner' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  }`}
                 >
                   About
                 </Link>
@@ -334,7 +351,7 @@ function ClientHomeContent() {
               Elevate Your Event With Phenomenal Talent.
             </h2>
             <p className="text-lg sm:text-xl text-gray-300 mb-10 max-w-2xl font-medium leading-relaxed">
-              Welcome back, {user?.name?.split(" ")[0] || "Guest"}. Find top-tier DJs, live bands, and solo artists for your next unforgettable occasion. Compare, book, and enjoy.
+              Welcome back, {user?.name?.split(" ")[0] || "Guest"}. Find top-tier DJs, live bands, solo artists, and rappers for your next unforgettable occasion. Compare, book, and enjoy.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
@@ -377,9 +394,10 @@ function ClientHomeContent() {
                   onChange={(e) => setCategoryFilter(e.target.value)}
                 >
                   <option value="">Any Category</option>
-                  <option value="DJ">DJs</option>
-                  <option value="Band">Live Bands</option>
-                  <option value="Singer">Singers</option>
+                  <option value="djs">DJs</option>
+                  <option value="bands">Live Bands</option>
+                  <option value="singers">Singers</option>
+                  <option value="rappers">Rappers</option>
                 </select>
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
                   <ChevronDown className="w-4 h-4 text-gray-600" />
@@ -417,10 +435,10 @@ function ClientHomeContent() {
               View all <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {CATEGORIES.map((cat) => (
               <Link
-                href={`/search?category=${cat.title.replace("Live ", "")}`}
+                href={`/search?category=${cat.title.replace("Live ", "").toLowerCase()}`}
                 key={cat.id}
                 className="group relative rounded-3xl overflow-hidden aspect-video md:aspect-[4/3] border border-white/5 isolate bg-gray-900 shadow-lg"
               >
@@ -790,10 +808,10 @@ function ClientHomeContent() {
                 </li>
                 <li>
                   <Link
-                    href="/categories"
+                    href="/bookings"
                     className="hover:text-violet-400 transition-colors flex items-center gap-2"
                   >
-                    <ChevronRight className="w-3 h-3" /> Categories
+                    <ChevronRight className="w-3 h-3" /> My Bookings
                   </Link>
                 </li>
                 <li>

@@ -217,25 +217,25 @@ export default function BookingsPage() {
             <div className="flex gap-6 items-center">
               {isClient && (
                 <>
-                  <Link href="/search" className="text-gray-400 hover:text-white text-sm font-semibold transition-colors">
+                  <Link href="/search" className="px-4 py-2 rounded-full text-gray-400 hover:text-white hover:bg-white/5 text-sm font-semibold transition-all">
                     Browse Artists
                   </Link>
-                  <Link href="/home/client" className="text-gray-400 hover:text-white text-sm font-semibold transition-colors">
-                    Dashboard
+                  <Link href="/home/client" className="px-4 py-2 rounded-full text-gray-400 hover:text-white hover:bg-white/5 text-sm font-semibold transition-all">
+                    Home
                   </Link>
                 </>
               )}
               {isArtist && (
                 <>
-                  <Link href="/home/artist" className="text-gray-400 hover:text-white text-sm font-semibold transition-colors">
+                  <Link href="/home/artist" className="px-4 py-2 rounded-full text-gray-400 hover:text-white hover:bg-white/5 text-sm font-semibold transition-all">
                     Dashboard
                   </Link>
-                  <Link href="/artist/profile" className="text-gray-400 hover:text-white text-sm font-semibold transition-colors">
+                  <Link href="/artist/profile" className="px-4 py-2 rounded-full text-gray-400 hover:text-white hover:bg-white/5 text-sm font-semibold transition-all">
                     Profile
                   </Link>
                 </>
               )}
-              <Link href="/bookings" className="text-violet-400 font-semibold bg-violet-500/10 px-4 py-2 rounded-full border border-violet-500/20">
+              <Link href="/bookings" className="px-4 py-2 rounded-full bg-white/10 text-white text-sm font-semibold transition-all shadow-inner">
                 My Bookings
               </Link>
             </div>
