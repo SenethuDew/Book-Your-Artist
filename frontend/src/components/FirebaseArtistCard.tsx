@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { MapPin, Star, Clock } from 'lucide-react';
+import { ArtistAvailabilityCard } from './ArtistAvailabilityCard';
 
 interface FirebaseArtistCardProps {
   artist: any;
@@ -78,6 +79,14 @@ export function FirebaseArtistCard({ artist }: FirebaseArtistCardProps) {
         </div>
 
         <div className="mt-auto">
+          {/* Availability Calendar */}
+          <div className="mb-4">
+            <ArtistAvailabilityCard 
+              artistId={artist.id || artist._id}
+              artistName={artist.stageName || artist.name}
+            />
+          </div>
+
           {/* View Profile Button */}
           <Link 
             href={`/artist/${artist.id || artist._id}`}

@@ -38,6 +38,8 @@ router.get("/artists/me/stats", auth, artistController.getStats);
 router.get("/availability/me", auth, availabilityController.getMyAvailability);
 router.post("/availability", auth, availabilityController.createAvailability);
 router.delete("/availability/:id", auth, availabilityController.deleteAvailability);
+router.get("/availability/artist/:artistId", availabilityController.getArtistAvailability);
+router.patch("/availability/:id", auth, availabilityController.updateAvailability);
 
 // ===== BOOKING ROUTES =====
 router.post("/bookings", auth, bookingController.createBooking);

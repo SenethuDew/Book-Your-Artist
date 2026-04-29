@@ -251,7 +251,6 @@ function ArtistDashboardContent() {
 
   const pendingBookings = bookings.filter(b => b.status === "pending");
   const upcomingBookings = bookings.filter(b => b.status === "confirmed").sort((a,b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime()).slice(0, 4);
-  const isTestAccount = user?.email === "artist@test.com" || user?.email?.includes("test.com");
   
   if (loading) {
     return (
@@ -339,7 +338,7 @@ function ArtistDashboardContent() {
       {/* Main Control Flow */}
       <main className="max-w-[90rem] mx-auto px-4 lg:px-8 py-8 relative z-10">
 
-        {(!isProfileComplete && !isTestAccount) && (
+        {(!isProfileComplete) && (
           <div className="mb-8 p-5 bg-gradient-to-r from-amber-500/10 to-amber-600/5 border border-amber-500/30 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6 shadow-lg shadow-amber-500/5">
             <div className="flex items-center gap-5 w-full md:w-auto flex-1">
               <div className="w-14 h-14 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0 border border-amber-500/30">

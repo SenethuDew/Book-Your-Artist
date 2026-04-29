@@ -1,10 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import toast from "react-hot-toast";
 import { 
-  Wallet, DollarSign, ArrowUpRight, CheckCircle, TrendingUp, LayoutDashboard, Briefcase, CalendarIcon, MessageSquare, Settings, Bell, Download
+  Wallet, DollarSign, ArrowUpRight, CheckCircle, TrendingUp, LayoutDashboard, Briefcase, CalendarIcon, MessageSquare, Settings, Bell, Download, Zap
 } from "lucide-react";
+import { useAuth } from "@/contexts";
+import { isDemoArtist, DEMO_EARNINGS, DEMO_TRANSACTIONS } from "@/lib/demoArtistData";
 
 const NavItem = ({ href, icon: Icon, label, active }: { href: string, icon: any, label: string, active?: boolean }) => (
   <Link href={href} className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all ${active ? "bg-violet-600/20 text-violet-400 font-bold border border-violet-500/30" : "text-gray-400 hover:text-white hover:bg-white/5"}`}>
@@ -21,6 +24,32 @@ const mockTransactions = [
 ];
 
 export default function EarningsPage() {
+  const { user, loading } = useAuth();
+  
+  // Use demo data if demo artist, otherwise use empty/real data
+  const displayTransactions = isDemoArtist(user) ? DEMO_TRANSACTIONS : [];
+  const earnings = isDemoArtist(user) ? DEMO_EARNINGS : {
+    netRevenue: 0,
+    thisMonth: 0,
+    pendingEscrow: 0,
+    completedPayouts: 0,
+    nextPayoutAmount: 0,
+    nextPayoutDate: "",
+    paymentMethod: "",
+    processingFee: 0,
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-violet-600 border-t-transparent rounded-full mx-auto animate-spin mb-4"></div>
+          <p className="text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-950 text-white font-sans selection:bg-violet-500/30 pb-20">
       {/* Background Decor */}
@@ -54,8 +83,19 @@ export default function EarningsPage() {
         
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-extrabold text-white mb-2">Earnings Dashboard</h1>
-            <p className="text-gray-400 text-sm">Track your revenue, payouts, and financial growth.</p>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-extrabold text-white">Earnings Dashboard</h1>
+              {isDemoArtist(user) && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-violet-600/30 border border-violet-500/50 text-violet-300 text-xs font-bold rounded-full">
+                  <Zap className="w-3.5 h-3.5" /> Demo Mode
+                </span>
+              )}
+            </div>
+            <p className="text-gray-400 text-sm">
+              {isDemoArtist(user)
+                ? "Preview sample earnings data (demo data only)"
+                : "Track your revenue, payouts, and financial growth."}
+            </p>
           </div>
           <button className="flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm font-bold transition-colors">
             <Download className="w-4 h-4" /> Download Statement
@@ -65,10 +105,10 @@ export default function EarningsPage() {
         {/* Global Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {[
-            { title: "Net Revenue", value: "$12,450.00", sub: "+15% from last month", icon: TrendingUp, colorClass: "text-emerald-400", bgClass: "bg-emerald-500/10" },
-            { title: "This Month", value: "$3,400.00", sub: "May 2026 total", icon: DollarSign, colorClass: "text-blue-400", bgClass: "bg-blue-500/10" },
-            { title: "Pending Escrow", value: "$2,200.00", sub: "Clearing in 3 days", icon: Wallet, colorClass: "text-amber-400", bgClass: "bg-amber-500/10" },
-            { title: "Completed Payouts", value: "$10,250.00", sub: "Successfully withdrawn", icon: CheckCircle, colorClass: "text-violet-400", bgClass: "bg-violet-500/10" },
+            { title: "Net Revenue", value: `$${earnings.netRevenue.toFixed(2)}`, sub: "+15% from last month", icon: TrendingUp, colorClass: "text-emerald-400", bgClass: "bg-emerald-500/10" },
+            { title: "This Month", value: `$${earnings.thisMonth.toFixed(2)}`, sub: "May 2026 total", icon: DollarSign, colorClass: "text-blue-400", bgClass: "bg-blue-500/10" },
+            { title: "Pending Escrow", value: `$${earnings.pendingEscrow.toFixed(2)}`, sub: "Clearing in 3 days", icon: Wallet, colorClass: "text-amber-400", bgClass: "bg-amber-500/10" },
+            { title: "Completed Payouts", value: `$${earnings.completedPayouts.toFixed(2)}`, sub: "Successfully withdrawn", icon: CheckCircle, colorClass: "text-violet-400", bgClass: "bg-violet-500/10" },
           ].map((card, i) => (
              <div key={i} className="bg-[#1E112A]/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6 group hover:border-white/20 transition-colors">
                <div className="flex justify-between items-start mb-4">
@@ -101,7 +141,14 @@ export default function EarningsPage() {
                    </tr>
                  </thead>
                  <tbody className="divide-y divide-white/5">
-                   {mockTransactions.map((tx) => (
+                   {displayTransactions.length === 0 ? (
+                     <tr>
+                       <td colSpan={4} className="p-8 text-center text-gray-400">
+                         No earnings data available yet
+                       </td>
+                     </tr>
+                   ) : (
+                     displayTransactions.map((tx) => (
                      <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors">
                        <td className="p-4 pl-6">
                          <p className="font-bold text-white text-sm">{tx.event}</p>
@@ -111,13 +158,14 @@ export default function EarningsPage() {
                        <td className="p-4 text-right font-black text-white">${tx.amount.toFixed(2)}</td>
                        <td className="p-4 pr-6 text-right">
                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
-                           tx.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
+                           tx.status === 'processed' || tx.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
                          }`}>
-                           {tx.status === 'completed' ? 'Processed' : 'Pending'}
+                           {tx.status === 'processed' || tx.status === 'completed' ? 'Processed' : 'Pending'}
                          </span>
                        </td>
                      </tr>
-                   ))}
+                   ))
+                   )}
                  </tbody>
                </table>
              </div>
@@ -129,25 +177,32 @@ export default function EarningsPage() {
                 <ArrowUpRight className="w-6 h-6" />
               </div>
               <h2 className="text-xl font-bold text-white mb-2">Next Payout</h2>
-              <p className="text-3xl font-black text-white mb-6">$2,200.00</p>
               
-              <div className="space-y-4 mb-8">
-                <div className="flex justify-between items-center text-sm border-b border-white/10 pb-4">
-                  <span className="text-gray-400">Scheduled Date</span>
-                  <span className="font-bold text-white">May 25, 2026</span>
-                </div>
-                <div className="flex justify-between items-center text-sm border-b border-white/10 pb-4">
-                  <span className="text-gray-400">Payment Method</span>
-                  <span className="font-bold flex items-center gap-2">
-                    <span className="w-8 h-5 bg-white/10 rounded flex items-center justify-center text-[10px] border border-white/20">Bank</span>
-                    **** 4821
-                  </span>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-400">Processing Fee</span>
-                  <span className="font-bold text-red-400">-$66.00</span>
-                </div>
-              </div>
+              {isDemoArtist(user) ? (
+                <>
+                  <p className="text-3xl font-black text-white mb-6">${earnings.nextPayoutAmount.toFixed(2)}</p>
+                  
+                  <div className="space-y-4 mb-8">
+                    <div className="flex justify-between items-center text-sm border-b border-white/10 pb-4">
+                      <span className="text-gray-400">Scheduled Date</span>
+                      <span className="font-bold text-white">{new Date(earnings.nextPayoutDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm border-b border-white/10 pb-4">
+                      <span className="text-gray-400">Payment Method</span>
+                      <span className="font-bold flex items-center gap-2">
+                        <span className="w-8 h-5 bg-white/10 rounded flex items-center justify-center text-[10px] border border-white/20">Bank</span>
+                        {earnings.paymentMethod.split(" ").pop()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-400">Processing Fee</span>
+                      <span className="font-bold text-red-400">${earnings.processingFee.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p className="text-gray-400 text-sm mb-8">No payout scheduled yet. Complete bookings to earn money.</p>
+              )}
 
               <button className="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-xl py-3.5 transition-all outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 flex justify-center items-center gap-2">
                  Manage Payout Methods

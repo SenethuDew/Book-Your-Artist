@@ -234,8 +234,113 @@ const deleteAvailability = async (req, res) => {
   }
 };
 
+/**
+ * Update availability slot (PATCH)
+ * PATCH /api/availability/:id
+ */
+const updateAvailability = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { id } = req.params;
+    const { isPublished, status } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Availability ID is required",
+      });
+    }
+
+    const slot = await Availability.findById(id);
+    if (!slot) {
+      return res.status(404).json({
+        success: false,
+        message: "Availability slot not found",
+      });
+    }
+
+    if (slot.artistId.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only update your own availability slots",
+      });
+    }
+
+    const updateData = {};
+    if (isPublished !== undefined) updateData.isPublished = isPublished;
+    if (status !== undefined) updateData.status = status;
+
+    const updatedSlot = await Availability.findByIdAndUpdate(id, updateData, { new: true });
+
+    return res.status(200).json({
+      success: true,
+      message: "Availability slot updated successfully",
+      availability: updatedSlot,
+    });
+  } catch (error) {
+    console.error("Update availability error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update availability slot",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
 module.exports = {
   getMyAvailability,
   createAvailability,
   deleteAvailability,
+  updateAvailability,
+};
+
+/**
+ * Get availability slots for a specific artist (public)
+ * GET /api/availability/artist/:artistId
+ */
+const getArtistAvailability = async (req, res) => {
+  try {
+    const { artistId } = req.params;
+    if (!artistId) {
+      return res.status(400).json({
+        success: false,
+        message: "Artist ID is required",
+      });
+    }
+
+    const slots = await Availability.find({
+      artistId: artistId,
+      isPublished: true,
+      status: { $in: ["Available", "Booked"] },
+    })
+      .sort({ date: 1, startTime: 1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      availability: slots,
+    });
+  } catch (error) {
+    console.error("Get artist availability error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch availability slots",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+module.exports = {
+  getMyAvailability,
+  createAvailability,
+  deleteAvailability,
+  updateAvailability,
+  getArtistAvailability,
 };

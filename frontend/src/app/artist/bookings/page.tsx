@@ -1,11 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import toast from "react-hot-toast";
 import { 
   Briefcase, CheckCircle, Clock, XCircle, LayoutDashboard, 
-  CalendarIcon, MessageSquare, Wallet, Settings, Bell, ChevronRight, User, Search, MapPin
+  CalendarIcon, MessageSquare, Wallet, Settings, Bell, ChevronRight, User, Search, MapPin, Zap
 } from "lucide-react";
+import { useAuth } from "@/contexts";
+import { isDemoArtist, DEMO_BOOKINGS, getDemoBookingSummary } from "@/lib/demoArtistData";
 
 // Types & Mock Data
 type BookingStatus = "pending" | "confirmed" | "cancelled";
@@ -36,16 +39,33 @@ const NavItem = ({ href, icon: Icon, label, active }: { href: string, icon: any,
 );
 
 export default function BookingsPage() {
+  const { user, loading } = useAuth();
   const [filter, setFilter] = useState<"all" | BookingStatus>("all");
   
-  const filteredBookings = mockBookings.filter(b => filter === "all" || b.status === filter);
+  // Use demo data if demo artist, otherwise use empty/real data
+  const displayBookings: Booking[] = isDemoArtist(user) ? (DEMO_BOOKINGS as Booking[]) : [];
+  const filteredBookings = displayBookings.filter(b => filter === "all" || b.status === filter);
   
-  const summary = {
-    total: mockBookings.length,
-    pending: mockBookings.filter(b => b.status === "pending").length,
-    confirmed: mockBookings.filter(b => b.status === "confirmed").length,
-    cancelled: mockBookings.filter(b => b.status === "cancelled").length,
+  const summary = isDemoArtist(user) 
+    ? getDemoBookingSummary()
+    : { total: 0, pending: 0, confirmed: 0, cancelled: 0 };
+
+  const handleDemoAction = () => {
+    toast.error("Demo mode: This action is only for preview.", {
+      duration: 3000,
+    });
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-violet-600 border-t-transparent rounded-full mx-auto animate-spin mb-4"></div>
+          <p className="text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-950 text-white font-sans selection:bg-violet-500/30 pb-20">
@@ -77,9 +97,22 @@ export default function BookingsPage() {
       </nav>
 
       <main className="max-w-[90rem] mx-auto px-4 lg:px-8 py-8 relative z-10">
-        <div className="mb-8">
-          <h1 className="text-3xl font-extrabold text-white mb-2">Bookings</h1>
-          <p className="text-gray-400 text-sm">Manage your upcoming gigs and client requests.</p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-extrabold text-white">Bookings</h1>
+              {isDemoArtist(user) && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-violet-600/30 border border-violet-500/50 text-violet-300 text-xs font-bold rounded-full">
+                  <Zap className="w-3.5 h-3.5" /> Demo Mode
+                </span>
+              )}
+            </div>
+            <p className="text-gray-400 text-sm">
+              {isDemoArtist(user) 
+                ? "Preview sample bookings (demo data only)" 
+                : "Manage your upcoming gigs and client requests."}
+            </p>
+          </div>
         </div>
 
         {/* Summary Cards */}
@@ -170,8 +203,28 @@ export default function BookingsPage() {
                          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                            {booking.status === 'pending' && (
                              <>
-                               <button className="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500 text-emerald-400 hover:text-white rounded text-xs font-bold transition-all">Accept</button>
-                               <button className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white rounded text-xs font-bold transition-all">Reject</button>
+                               <button 
+                                 onClick={isDemoArtist(user) ? handleDemoAction : undefined}
+                                 disabled={isDemoArtist(user)}
+                                 className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${
+                                   isDemoArtist(user)
+                                     ? "bg-emerald-500/10 text-emerald-400 cursor-not-allowed opacity-50"
+                                     : "bg-emerald-500/20 hover:bg-emerald-500 text-emerald-400 hover:text-white"
+                                 }`}
+                               >
+                                 Accept
+                               </button>
+                               <button 
+                                 onClick={isDemoArtist(user) ? handleDemoAction : undefined}
+                                 disabled={isDemoArtist(user)}
+                                 className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${
+                                   isDemoArtist(user)
+                                     ? "bg-red-500/10 text-red-400 cursor-not-allowed opacity-50"
+                                     : "bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white"
+                                 }`}
+                               >
+                                 Reject
+                               </button>
                              </>
                            )}
                            <button className="px-3 py-1.5 border border-white/20 hover:bg-white/10 rounded text-xs font-bold text-white transition-all">Details</button>

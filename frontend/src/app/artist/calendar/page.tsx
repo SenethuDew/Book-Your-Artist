@@ -126,6 +126,26 @@ export default function CalendarBuilderPage() {
     { label: "9:00 PM - 11:00 PM", start: "21:00", end: "23:00" },
     { label: "11:30 PM - 1:00 AM", start: "23:30", end: "01:00" }
   ];
+
+    const handlePublish = async () => {
+      if (!slots.length) { setError("Add slots first"); return; }
+      const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+      if (!token) return;
+      if (!confirm("Publish available slots?")) return;
+      try {
+        for (const s of slots.filter((x: any) => x.status === "Available")) {
+          await fetch(`${API_BASE_URL}/api/availability/${s._id}`, {
+            method: "PATCH",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ isPublished: true })
+          });
+        }
+        setSuccess("Published!");
+        fetchSlots();
+      } catch (e) {
+        setError("Publish failed");
+      }
+    };
   
   // Future dates (Next 14 days)
   const upcomingDates = Array.from({length: 14}).map((_, i) => {
@@ -202,7 +222,7 @@ export default function CalendarBuilderPage() {
               <RefreshCw className="w-4 h-4 text-fuchsia-400" /> Recurring
             </button>
             <div className="w-px h-8 bg-white/10 mx-1 hidden sm:block"></div>
-            <button className="flex items-center gap-2 px-6 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-violet-600/20">
+            <button onClick={handlePublish} className="flex items-center gap-2 px-6 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-violet-600/20">
               <Upload className="w-4 h-4" /> Publish/Launch
             </button>
           </div>

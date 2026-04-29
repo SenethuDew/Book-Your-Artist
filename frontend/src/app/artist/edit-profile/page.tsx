@@ -4,10 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { db, storage } from "@/lib/firebaseService";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { apiCall } from "@/lib/api";
+import { apiCall, getApiBaseUrl, getAuthToken } from "@/lib/api";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebaseService";
 import { 
   MapPin, Edit2, ArrowLeft, Loader2, Image as ImageIcon, Check, DollarSign, Briefcase, Plus, X, ListMusic, Globe, User, Hash
 } from "lucide-react";
@@ -205,9 +204,7 @@ function EditProfileView() {
     const hasSocialLink = !!(formData.socialLinks.instagram || formData.socialLinks.spotify || formData.socialLinks.youtube);
     if (!hasSocialLink) { newErrors.socialLinks = "At least one social link is required"; missing.push("Social Links"); }
 
-    if (!profileImageFile && !formData.profileImage) { newErrors.profileImage = "Profile Avatar is required"; missing.push("Profile Avatar"); }
-    if (!coverImageFile && !formData.coverImage) { newErrors.coverImage = "Cover Image is required"; missing.push("Cover Image"); }
-
+    // Images are now optional for faster saves
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
@@ -220,9 +217,13 @@ function EditProfileView() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const userId = (user as any)?.uid || (user as any)?.id || (user as any)?._id;
-    if (!userId) return;
+    if (!userId) {
+      toast.error("User ID not found");
+      return;
+    }
 
     if (!validateForm()) {
       toast.error("Please fix the missing fields below.");
@@ -231,93 +232,138 @@ function EditProfileView() {
     }
 
     setSaving(true);
-    console.log("Saving for user:", userId);
-    let currentCoverUrl = formData.coverImage;
-    let currentProfileUrl = formData.profileImage;
-
+    
     try {
-      // Handle Cover Upload
-      if (coverImageFile) {
-        setUploadingImage("cover");
-        const storageRef = ref(storage, `artists/${userId}/cover-${Date.now()}`);
-        await uploadBytes(storageRef, coverImageFile);
-        currentCoverUrl = await getDownloadURL(storageRef);
+      const apiBaseUrl = getApiBaseUrl();
+      const authToken = getAuthToken();
+
+      if (!authToken) {
+        throw new Error("Not authenticated. Please log in again.");
       }
 
-      // Handle Profile Upload
-      if (profileImageFile) {
-        setUploadingImage("profile");
-        const storageRef = ref(storage, `artists/${userId}/profile-${Date.now()}`);
-        await uploadBytes(storageRef, profileImageFile);
-        currentProfileUrl = await getDownloadURL(storageRef);
-      }
-      
-      setUploadingImage(null);
+      // Prepare profile data with existing image URLs
+      const profileData = {
+        name: formData.name,
+        bio: formData.bio,
+        hourlyRate: formData.price,
+        profileImage: formData.profileImage,
+        coverImage: formData.coverImage,
+        socialLinks: {
+          instagram: formData.socialLinks.instagram,
+          spotify: formData.socialLinks.spotify,
+          youtube: formData.socialLinks.youtube,
+        },
+        category: formData.category,
+        artistType: formData.artistType,
+        experience: formData.experience,
+        location: formData.location,
+        genres: formData.genres,
+      };
 
-      // Save to Backend API
-      try {
-        await apiCall("/api/artists/me", {
-          method: "PUT",
-          body: JSON.stringify({
-          name: formData.name,
-          bio: formData.bio,
-          hourlyRate: formData.price,
-          profileImage: currentProfileUrl,
-          coverImage: currentCoverUrl,
-          socialLinks: {
-            instagram: formData.socialLinks.instagram,
-            spotify: formData.socialLinks.spotify,
-            youtube: formData.socialLinks.youtube,
-          },
-          category: formData.category,
-          artistType: formData.artistType,
-          experience: formData.experience,
-          location: formData.location,
-          genres: formData.genres,
-          }),
-          headers: { "Content-Type": "application/json" }
-        });
-      } catch (apiErr) {
-        console.warn("Backend API sync failed, continuing to Firebase:", apiErr);
+      console.log("Saving profile to backend...", profileData);
+
+      // MAIN SAVE - happens immediately
+      const result = await apiCall("/api/artists/me", {
+        method: "PUT",
+        body: JSON.stringify(profileData),
+        headers: { "Content-Type": "application/json" }
+      });
+
+      console.log("Profile saved successfully:", result);
+      toast.success("Profile saved successfully!");
+
+      // Handle image uploads ASYNCHRONOUSLY in background (don't block the user)
+      if (coverImageFile || profileImageFile) {
+        console.log("Uploading images in background...");
+        
+        // Fire and forget image uploads - they run independently
+        (async () => {
+          try {
+            let updatedImages: Record<string, string> = {};
+
+            // Upload cover image if new
+            if (coverImageFile) {
+              try {
+                setUploadingImage("cover");
+                const formDataCover = new FormData();
+                formDataCover.append('file', coverImageFile);
+                
+                const uploadRes = await fetch(`${apiBaseUrl}/api/upload`, {
+                  method: 'POST',
+                  body: formDataCover,
+                  headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                if (uploadRes.ok) {
+                  const uploadData = await uploadRes.json();
+                  if (uploadData.success) {
+                    updatedImages.coverImage = `${apiBaseUrl}${uploadData.url}`;
+                    console.log("Cover image uploaded:", updatedImages.coverImage);
+                  }
+                }
+              } catch (coverErr) {
+                console.warn("Cover upload failed (non-critical):", coverErr);
+              }
+            }
+
+            // Upload profile image if new
+            if (profileImageFile) {
+              try {
+                setUploadingImage("profile");
+                const formDataProfile = new FormData();
+                formDataProfile.append('file', profileImageFile);
+                
+                const uploadRes = await fetch(`${apiBaseUrl}/api/upload`, {
+                  method: 'POST',
+                  body: formDataProfile,
+                  headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                if (uploadRes.ok) {
+                  const uploadData = await uploadRes.json();
+                  if (uploadData.success) {
+                    updatedImages.profileImage = `${apiBaseUrl}${uploadData.url}`;
+                    console.log("Profile image uploaded:", updatedImages.profileImage);
+                  }
+                }
+              } catch (profileErr) {
+                console.warn("Profile upload failed (non-critical):", profileErr);
+              }
+            }
+
+            // If images were uploaded, update the profile with new image URLs
+            if (Object.keys(updatedImages).length > 0) {
+              console.log("Updating profile with new image URLs...");
+              const updateData = { ...profileData, ...updatedImages };
+              await apiCall("/api/artists/me", {
+                method: "PUT",
+                body: JSON.stringify(updateData),
+                headers: { "Content-Type": "application/json" }
+              });
+              console.log("Profile updated with new images");
+              toast.success("Images uploaded successfully!");
+            }
+          } catch (imgErr) {
+            console.error("Background image upload error:", imgErr);
+            // Don't block the user with image upload errors
+          } finally {
+            setUploadingImage(null);
+          }
+        })();
+      } else {
+        setUploadingImage(null);
       }
 
-        // Also set to firebase collections for compatibility
-        try {
-          const docData = {
-            name: formData.name,
-            biography: formData.bio,
-            price: formData.price,
-            hourlyRate: formData.price,
-            profileImageUrl: currentProfileUrl,
-            coverImageUrl: currentCoverUrl,
-            instagramUrl: formData.socialLinks.instagram,
-            spotifyUrl: formData.socialLinks.spotify,
-            youtubeUrl: formData.socialLinks.youtube,
-            status: "active",
-            profileCompleted: true,
-            category: formData.category,
-            artistType: formData.artistType,
-            experience: formData.experience,
-            location: formData.location,
-            genres: formData.genres,
-            uid: userId,
-            updatedAt: new Date().toISOString()
-          };
-        const docRef = doc(db, "artistProfiles", userId);
-        await setDoc(docRef, docData, { merge: true });
-        const oldDocRef = doc(db, "artists", userId);
-        await setDoc(oldDocRef, docData, { merge: true });
-      } catch (fbErr) {
-        console.warn("Firebase sync warning:", fbErr);
-      }
+      // Redirect immediately after profile save (images upload in background)
+      setTimeout(() => {
+        router.push("/artist/profile");
+      }, 500);
 
-      toast.success("Profile saved successfully");
-      router.push("/artist/profile");
     } catch (err: any) {
       console.error("Save Error:", err);
       toast.error(err.message || "Failed to save profile");
-    } finally {
       setUploadingImage(null);
+    } finally {
       setSaving(false);
     }
   };
