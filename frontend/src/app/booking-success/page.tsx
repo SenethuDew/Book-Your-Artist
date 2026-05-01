@@ -2,11 +2,12 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle, ShieldCheck, ArrowRight, Music2, AlertTriangle, Home } from "lucide-react";
 import { createFirestoreBooking } from "@/lib/firebaseBookingAPI";
+import { API_BASE_URL, getAuthToken } from "@/lib/api";
 import toast from "react-hot-toast";
 
 function SuccessContent() {
@@ -16,6 +17,7 @@ function SuccessContent() {
   const [booking, setBooking] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const processedSessionRef = useRef<string | null>(null);
 
   useEffect(() => {
     const sessionId = searchParams?.get("session_id");
@@ -25,6 +27,11 @@ function SuccessContent() {
       setIsLoading(false);
       return;
     }
+
+    if (processedSessionRef.current === sessionId) {
+      return;
+    }
+    processedSessionRef.current = sessionId;
 
     const processPayment = async () => {
       try {
@@ -38,7 +45,12 @@ function SuccessContent() {
         const metadata = data.metadata;
         setBooking(metadata);
 
-        // Save to Firestore ONLY NOW
+        const isBackendArtist =
+          metadata.artistId &&
+          !String(metadata.artistId).startsWith("sample-") &&
+          !String(metadata.artistId).startsWith("intl-");
+
+        // Save booking ONLY after Stripe confirms payment.
         const bookingData = {
           artistId: metadata.artistId,
           artistName: metadata.artistName,
@@ -53,18 +65,53 @@ function SuccessContent() {
           specialRequest: metadata.specialRequest || "",
           totalPrice: Number(metadata.totalPrice),
           advanceAmount: Number(metadata.advanceAmount),
-          status: "confirmed" as "confirmed", // Mark as confirmed instantly since paid
+          status: "confirmed" as "confirmed",
           paymentStatus: "paid" as "paid",
         };
 
-        const result = await createFirestoreBooking(bookingData);
-        if (!result.success) {
-          // If the slot mysteriously got booked in the 5 minutes they took to pay
-          throw new Error(result.error || "Failed to finalize booking in system.");
+        if (isBackendArtist) {
+          const token = getAuthToken();
+          if (!token) {
+            throw new Error("Login session missing. Please login again to finalize this booking.");
+          }
+
+          const [city = "", ...addressParts] = String(metadata.location || "").split(",");
+          const backendRes = await fetch(`${API_BASE_URL}/api/bookings`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              artistId: metadata.artistId,
+              eventDate: new Date(metadata.eventDate).toISOString(),
+              startTime: metadata.startTime,
+              endTime: metadata.endTime,
+              eventType: metadata.eventTitle || "Performance request",
+              eventLocation: {
+                venue: metadata.location || "",
+                city: city.trim(),
+                address: addressParts.join(",").trim(),
+              },
+              eventDetails: metadata.specialRequest || "",
+              paymentStatus: "paid",
+              paymentIntentId: sessionId,
+            }),
+          });
+          const backendData = await backendRes.json();
+          if (!backendRes.ok || !backendData?.success) {
+            throw new Error(backendData?.message || "Failed to finalize booking request.");
+          }
+          setBookingId(backendData.booking?._id || null);
+        } else {
+          const result = await createFirestoreBooking(bookingData);
+          if (!result.success) {
+            throw new Error(result.error || "Failed to finalize booking in system.");
+          }
+          setBookingId(result.bookingId || null);
         }
 
-        setBookingId(result.bookingId || null);
-        toast.success("Booking officially confirmed!");
+        toast.success(isBackendArtist ? "Performance request sent to artist!" : "Booking officially confirmed!");
       } catch (err: any) {
         console.error(err);
         setError(err.message || "Failed to confirm payment details.");

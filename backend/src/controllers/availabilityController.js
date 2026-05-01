@@ -26,6 +26,13 @@ const getMyAvailability = async (req, res) => {
     }
 
     const slots = await Availability.find({ artistId: userId })
+      .populate({
+        path: "bookingId",
+        populate: {
+          path: "clientId",
+          select: "name email phone",
+        },
+      })
       .sort({ date: 1, startTime: 1 })
       .lean();
 
@@ -349,7 +356,7 @@ const getArtistAvailability = async (req, res) => {
     const slots = await Availability.find({
       artistId: artistId,
       isPublished: true,
-      status: { $in: ["Available", "Booked"] },
+      status: { $in: ["Available", "Requested", "Booked"] },
     })
       .sort({ date: 1, startTime: 1 })
       .lean();

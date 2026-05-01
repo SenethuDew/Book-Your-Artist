@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { API_BASE_URL } from "@/lib/api";
 import { 
-  Bell, Calendar as CalendarIcon, DollarSign, MessageSquare, User, 
+  Bell, Calendar as CalendarIcon, DollarSign, User, 
   LogOut, CheckCircle, TrendingUp, LayoutDashboard, Check, X,
   MapPin, Activity, Wallet, Settings, Eye, Users, ChevronRight, Briefcase, AlertTriangle, Edit2, Trash2
 } from "lucide-react";
@@ -19,7 +19,12 @@ interface Booking {
   startTime: string;
   endTime: string;
   eventType: string;
-  eventLocation: string;
+  eventLocation?: string | {
+    venue?: string;
+    address?: string;
+    city?: string;
+    country?: string;
+  };
   totalPrice: number;
   artistPrice: number;
   status: string;
@@ -77,6 +82,14 @@ const CompactBooking = ({ booking, onAction, actionLoading, type = 'pending' }: 
   const dateObj = new Date(booking.eventDate);
   const formattedDate = dateObj.toLocaleDateString("en-US", { weekday: 'short', month: 'short', day: 'numeric' });
   const isLoading = actionLoading === booking._id;
+  const locationText = typeof booking.eventLocation === "string"
+    ? booking.eventLocation
+    : [
+        booking.eventLocation?.venue,
+        booking.eventLocation?.address,
+        booking.eventLocation?.city,
+        booking.eventLocation?.country,
+      ].filter(Boolean).join(", ") || "Location not provided";
 
   return (
     <div className="relative group bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 hover:border-white/10 rounded-xl p-4 transition-all">
@@ -94,7 +107,7 @@ const CompactBooking = ({ booking, onAction, actionLoading, type = 'pending' }: 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-gray-400">
             <span className="flex items-center gap-1"><User className="w-3 h-3" /> {booking.clientId?.name || "Client"}</span>
             <span className="flex items-center gap-1 text-violet-300"><CalendarIcon className="w-3 h-3" /> {formattedDate}</span>
-            <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {booking.eventLocation}</span>
+            <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {locationText}</span>
           </div>
         </div>
         
@@ -134,6 +147,7 @@ function ArtistDashboardContent() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   
   const [stats, setStats] = useState<ArtistStats>({
     totalEarnings: 0, monthlyEarnings: 0, pendingPayments: 0, totalBookings: 0,
@@ -284,16 +298,96 @@ function ArtistDashboardContent() {
                <NavItem href="/home/artist" icon={LayoutDashboard} label="Dashboard" active={true} />
                <NavItem href="/artist/bookings" icon={Briefcase} label="Bookings" badge={stats.pendingRequests} />
                <NavItem href="/artist/calendar" icon={CalendarIcon} label="Calendar" />
-               <NavItem href="/artist/messages" icon={MessageSquare} label="Messages" />
+              <NavItem href="/artist/messages" icon={Bell} label="Notifications" />
                <NavItem href="/artist/earnings" icon={Wallet} label="Earnings" />
                <NavItem href="/artist/profile" icon={Settings} label="Profile Settings" />
              </div>
 
              {/* Right Utilities */}
              <div className="hidden sm:flex items-center gap-4 shrink-0">
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setShowNotifications(!showNotifications);
+                      setShowDropdown(false);
+                    }}
+                    className="relative w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                    title="Booking request notifications"
+                  >
+                    <Bell className="w-5 h-5" />
+                    {pendingBookings.length > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-fuchsia-500 text-white text-[10px] font-black flex items-center justify-center shadow-[0_0_10px_rgba(217,70,239,0.7)]">
+                        {pendingBookings.length}
+                      </span>
+                    )}
+                  </button>
+
+                  {showNotifications && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)}></div>
+                      <div className="absolute right-0 mt-3 w-80 bg-gray-900 border border-white/10 rounded-2xl shadow-xl shadow-fuchsia-900/10 backdrop-blur-xl z-50 overflow-hidden animate-fade-in-up">
+                        <div className="p-4 border-b border-white/5 bg-white/5">
+                          <p className="text-sm font-bold text-white">Booking Notifications</p>
+                          <p className="text-xs text-gray-400">
+                            {pendingBookings.length} pending performance request{pendingBookings.length === 1 ? "" : "s"}
+                          </p>
+                        </div>
+                        <div className="max-h-80 overflow-y-auto p-2">
+                          {pendingBookings.length > 0 ? (
+                            pendingBookings.slice(0, 5).map((booking) => {
+                              const dateText = new Date(booking.eventDate).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                              });
+
+                              return (
+                                <div key={booking._id} className="p-3 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/10 transition-colors">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-bold text-white truncate">{booking.eventType || "Performance request"}</p>
+                                      <p className="text-xs text-gray-400 truncate">
+                                        {booking.clientId?.name || "Client"} • {dateText} • {booking.startTime} - {booking.endTime}
+                                      </p>
+                                    </div>
+                                    <span className="shrink-0 px-2 py-1 rounded-md bg-amber-500/10 text-amber-400 text-[10px] font-black uppercase">
+                                      Request
+                                    </span>
+                                  </div>
+                                  <div className="flex gap-2 mt-3">
+                                    <button onClick={() => handleBookingAction(booking._id, "confirmed")} className="flex-1 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-bold">
+                                      Accept
+                                    </button>
+                                    <button onClick={() => handleBookingAction(booking._id, "cancelled")} className="flex-1 py-1.5 rounded-lg bg-red-500/15 hover:bg-red-500/25 text-red-400 text-xs font-bold">
+                                      Reject
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <div className="py-8 text-center">
+                              <CheckCircle className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+                              <p className="text-sm font-bold text-white">No new requests</p>
+                              <p className="text-xs text-gray-500 mt-1">New paid performance requests will appear here.</p>
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-3 border-t border-white/5">
+                          <Link
+                            href="/artist/bookings"
+                            onClick={() => setShowNotifications(false)}
+                            className="flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold transition-colors"
+                          >
+                            View All Requests <ChevronRight className="w-3.5 h-3.5" />
+                          </Link>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
                 <div className="w-px h-5 bg-white/10" />
                 <div className="relative">
-                  <button onClick={() => setShowDropdown(!showDropdown)} className="flex items-center gap-3 hover:bg-white/5 p-1 rounded-full transition-colors focus:outline-none">
+                  <button onClick={() => { setShowDropdown(!showDropdown); setShowNotifications(false); }} className="flex items-center gap-3 hover:bg-white/5 p-1 rounded-full transition-colors focus:outline-none">
                     <div className="w-8 h-8 rounded-full bg-violet-600/30 border border-violet-500/50 overflow-hidden">
                       {(user as any)?.profileImage ? <img src={(user as any).profileImage} alt="User" className="w-full h-full object-cover" /> : <User className="w-4 h-4 m-auto mt-2 text-violet-300" />}
                     </div>

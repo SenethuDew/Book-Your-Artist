@@ -23,7 +23,7 @@ const availabilitySchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Available', 'Booked', 'Blocked', 'Draft'],
+      enum: ['Available', 'Requested', 'Booked', 'Blocked', 'Draft'],
       default: 'Available',
     },
     isPublished: {

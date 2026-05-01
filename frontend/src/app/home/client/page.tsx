@@ -31,7 +31,8 @@ import {
   LayoutDashboard,
   LogOut,
   Info,
-  Settings
+  Settings,
+  Trash2
 } from "lucide-react";
 
 interface Booking {
@@ -39,6 +40,7 @@ interface Booking {
   eventDate: string;
   eventType: string;
   status: string;
+  paymentStatus?: string;
   totalPrice: number;
   artistId?: {
     name: string;
@@ -126,11 +128,13 @@ function ClientHomeContent() {
   });
 
   const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
+  const [notificationBookings, setNotificationBookings] = useState<Booking[]>([]);
   const [recommendedArtists, setRecommendedArtists] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Search states
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
 
@@ -153,14 +157,16 @@ function ClientHomeContent() {
 
         // Fetch recent bookings
         const bookingsRes = await fetch(
-          `${API_BASE_URL}/api/bookings/my?limit=4&sort=-eventDate`,
+          `${API_BASE_URL}/api/bookings/my?limit=20&sort=-createdAt`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
         const bookingsData = await bookingsRes.json();
         if (bookingsData.success) {
-          setRecentBookings(bookingsData.bookings || []);
+          const bookings = bookingsData.bookings || [];
+          setNotificationBookings(bookings);
+          setRecentBookings(bookings.slice(0, 4));
         }
 
         // Fetch recommended artists
@@ -179,11 +185,6 @@ function ClientHomeContent() {
       fetchData();
     }
   }, [user]);
-
-  const handleLogout = () => {
-    logout();
-    router.push("/");
-  };
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -207,6 +208,37 @@ function ClientHomeContent() {
       day: "numeric",
       year: "numeric",
     });
+  };
+
+  const notificationItems = notificationBookings.map((booking) => {
+    const artistName = booking.artistId?.name || "Artist";
+    const title =
+      booking.status === "pending"
+        ? "Booking request sent"
+        : booking.status === "confirmed"
+          ? "Booking confirmed"
+          : booking.status === "cancelled"
+            ? "Booking cancelled"
+            : booking.status === "completed"
+              ? "Performance completed"
+              : "Booking update";
+
+    return {
+      id: booking._id,
+      title,
+      message: `${artistName} - ${booking.eventType || "Performance"} on ${formatDate(booking.eventDate)}`,
+      status: booking.status,
+      amount: booking.totalPrice,
+    };
+  });
+
+  const unreadNotificationCount = notificationItems.filter((item) =>
+    ["pending", "confirmed"].includes(item.status)
+  ).length;
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/sign-in");
   };
 
   return (
@@ -251,6 +283,14 @@ function ClientHomeContent() {
                   My Bookings
                 </Link>
                 <Link
+                  href="/messages"
+                  className={`px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+                    pathname === '/messages' ? 'bg-white/10 text-white shadow-inner' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  Messages
+                </Link>
+                <Link
                   href="/about"
                   className={`px-4 py-2 rounded-full text-sm font-semibold transition-all ${
                     pathname === '/about' ? 'bg-white/10 text-white shadow-inner' : 'text-gray-400 hover:text-white hover:bg-white/5'
@@ -263,11 +303,84 @@ function ClientHomeContent() {
 
             {/* User Controls */}
             <div className="flex items-center gap-3 sm:gap-4">
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setIsNotificationsOpen(!isNotificationsOpen);
+                    setIsProfileOpen(false);
+                  }}
+                  className="relative w-10 h-10 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-gray-300 hover:text-white transition-all"
+                  title="Messages"
+                >
+                  <MessageSquare className="w-5 h-5" />
+                  {unreadNotificationCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-fuchsia-500 text-white text-[10px] font-black flex items-center justify-center shadow-[0_0_10px_rgba(217,70,239,0.7)]">
+                      {unreadNotificationCount}
+                    </span>
+                  )}
+                </button>
+
+                {isNotificationsOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsNotificationsOpen(false)}></div>
+                    <div className="absolute right-0 mt-3 w-80 bg-[#120A20] border border-white/10 rounded-2xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] z-50 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-200">
+                      <div className="px-4 py-3 border-b border-white/5 bg-white/5">
+                        <p className="text-white font-bold">Messages</p>
+                        <p className="text-gray-400 text-xs">{unreadNotificationCount} new update{unreadNotificationCount === 1 ? "" : "s"}</p>
+                      </div>
+                      <div className="max-h-80 overflow-y-auto p-2">
+                        {notificationItems.length > 0 ? (
+                          notificationItems.slice(0, 5).map((item) => (
+                            <Link
+                              key={item.id}
+                              href="/messages"
+                              onClick={() => setIsNotificationsOpen(false)}
+                              className="block p-3 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/10 transition-colors"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-bold text-white truncate">{item.title}</p>
+                                  <p className="text-xs text-gray-400 truncate">{item.message}</p>
+                                </div>
+                                <span className={`shrink-0 px-2 py-1 rounded-md text-[10px] font-black uppercase ${
+                                  item.status === "confirmed" ? "bg-emerald-500/10 text-emerald-400" :
+                                  item.status === "cancelled" ? "bg-red-500/10 text-red-400" :
+                                  "bg-amber-500/10 text-amber-400"
+                                }`}>
+                                  {item.status}
+                                </span>
+                              </div>
+                            </Link>
+                          ))
+                        ) : (
+                          <div className="py-8 text-center">
+                            <MessageSquare className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                            <p className="text-sm font-bold text-white">No messages</p>
+                            <p className="text-xs text-gray-500 mt-1">Booking updates will appear here.</p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-3 border-t border-white/5">
+                        <Link
+                          href="/messages"
+                          onClick={() => setIsNotificationsOpen(false)}
+                          className="flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold transition-colors"
+                        >
+                          View all messages <ChevronRight className="w-3.5 h-3.5" />
+                        </Link>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
 
               {/* Profile Dropdown */}
               <div className="relative isolate">
                 <button
-                  onClick={() => setIsProfileOpen(!isProfileOpen)}
+                  onClick={() => {
+                    setIsProfileOpen(!isProfileOpen);
+                    setIsNotificationsOpen(false);
+                  }}
                   className="flex items-center gap-3 p-1.5 pr-3 bg-white/5 border border-white/10 hover:bg-white/10 rounded-full transition-all group"
                 >
                   <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-violet-500 flex items-center justify-center font-bold text-xs ring-2 ring-white/10 group-hover:ring-violet-500/50 transition-all shadow-inner">
@@ -301,21 +414,21 @@ function ClientHomeContent() {
                         <User className="w-4 h-4" /> My Profile
                       </Link>
                       <Link
-                        href="/bookings"
+                        href="/profile/settings"
                         className="flex items-center gap-3 px-4 py-2.5 text-gray-300 hover:text-white hover:bg-white/5 transition-colors font-medium text-sm"
                       >
-                        <Calendar className="w-4 h-4" /> Booking History
+                        <Settings className="w-4 h-4" /> Profile Settings
                       </Link>
                       <Link
-                        href="/settings"
-                        className="flex items-center gap-3 px-4 py-2.5 text-gray-300 hover:text-white hover:bg-white/5 transition-colors font-medium text-sm"
+                        href="/profile/delete-profile"
+                        className="flex items-center gap-3 px-4 py-2.5 text-red-400 hover:text-red-300 hover:bg-red-400/10 transition-colors font-medium text-sm"
                       >
-                        <Settings className="w-4 h-4" /> Settings
+                        <Trash2 className="w-4 h-4" /> Delete Profile
                       </Link>
-                      <div className="h-px bg-white/5 my-2"></div>
+                      <div className="h-px bg-white/5 my-2" />
                       <button
                         onClick={handleLogout}
-                        className="flex items-center gap-3 px-4 py-2.5 text-red-400 hover:text-red-300 hover:bg-red-400/10 w-full text-left transition-colors font-medium text-sm"
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-300 hover:text-white hover:bg-white/5 transition-colors font-medium text-sm"
                       >
                         <LogOut className="w-4 h-4" /> Sign out
                       </button>

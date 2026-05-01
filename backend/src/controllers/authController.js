@@ -230,6 +230,119 @@ class AuthController {
   }
 
   /**
+   * Update current user profile
+   * PUT /users/me
+   */
+  async updateMe(req, res) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      const { name, email, phone } = req.body;
+      const updates = {};
+
+      if (typeof name === "string" && name.trim()) {
+        updates.name = name.trim();
+      }
+
+      if (typeof email === "string" && email.trim()) {
+        const normalizedEmail = email.trim().toLowerCase();
+        const existingUser = await User.findOne({
+          email: normalizedEmail,
+          _id: { $ne: userId },
+        });
+
+        if (existingUser) {
+          return res.status(400).json({
+            success: false,
+            message: "Email already in use",
+          });
+        }
+
+        updates.email = normalizedEmail;
+      }
+
+      if (typeof phone === "string") {
+        updates.phone = phone.trim();
+      }
+
+      const user = await User.findByIdAndUpdate(userId, updates, {
+        new: true,
+        runValidators: true,
+      }).select("-password");
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Profile updated successfully",
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          status: user.status,
+          profileImage: user.profileImage,
+          phone: user.phone,
+        },
+      });
+    } catch (error) {
+      console.error("Update me error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to update profile",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  /**
+   * Delete current user profile
+   * DELETE /users/me
+   */
+  async deleteMe(req, res) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      const user = await User.findByIdAndDelete(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Profile deleted successfully",
+      });
+    } catch (error) {
+      console.error("Delete me error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to delete profile",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  /**
    * Logout user (client-side only, but keep for consistency)
    * POST /auth/logout
    */

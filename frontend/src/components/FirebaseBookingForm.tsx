@@ -16,6 +16,13 @@ interface BookingFormProps {
 export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, onClose, clientId, prefilledSlot, availableSlots = [] }: BookingFormProps) {
   const router = useRouter();
   const isIntl = artistId?.startsWith('intl-');
+  const formatLocalDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  const getSlotDateString = (dateValue: string) => formatLocalDate(new Date(dateValue));
   const [formData, setFormData] = useState({
     clientName: '',
     clientEmail: '',
@@ -32,6 +39,17 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
   const [error, setError] = useState('');
   const [existingBookings, setExistingBookings] = useState<any[]>([]);
   const [loadingDates, setLoadingDates] = useState(false);
+
+  useEffect(() => {
+    if (!prefilledSlot) return;
+    setFormData((prev) => ({
+      ...prev,
+      eventDate: prefilledSlot.date,
+      startTime: prefilledSlot.start,
+      endTime: prefilledSlot.end,
+    }));
+    setError('');
+  }, [prefilledSlot]);
 
   useEffect(() => {
     const fetchBookings = async () => {
@@ -95,7 +113,7 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
     // If availability exists, only those slots are bookable.
     if (availableSlots.length > 0) {
       return availableSlots.some((slot) => {
-        const slotDate = new Date(slot.date).toISOString().split('T')[0];
+        const slotDate = getSlotDateString(slot.date);
         return (
           slotDate === formData.eventDate &&
           slot.startTime === start &&
@@ -263,7 +281,7 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
                 setFormData(prev => ({ ...prev, startTime: '', endTime: '' })); // clear slot when date changes
               }}
               className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white outline-none focus:border-yellow-500 transition-colors color-scheme-dark mb-4"
-              min={new Date().toISOString().split('T')[0]} // prevent past bookings
+              min={formatLocalDate(new Date())} // prevent past bookings
             />
 
             {formData.eventDate && !isIntl && (

@@ -25,6 +25,8 @@ router.use((req, res, next) => {
 });
 router.get("/auth/me", auth, authController.getMe);
 router.get("/users/me", auth, authController.getMe);
+router.put("/users/me", auth, authController.updateMe);
+router.delete("/users/me", auth, authController.deleteMe);
 router.post("/auth/logout", auth, authController.logout);
 
 // ===== ARTIST PROFILE ROUTES (Auth Required) - MUST BE BEFORE /:id =====

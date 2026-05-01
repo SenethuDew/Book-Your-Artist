@@ -4,7 +4,8 @@ import { useEffect, useState, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts';
-  import { getAllArtistsFromFirestore, seedSampleArtists, INTERNATIONAL_ARTISTS } from '@/lib/firebaseBookingAPI';
+import { getAllArtistsFromFirestore, seedSampleArtists, INTERNATIONAL_ARTISTS } from '@/lib/firebaseBookingAPI';
+import { API_BASE_URL } from '@/lib/api';
 import { FirebaseArtistCard } from '@/components/FirebaseArtistCard';
 import { Search, Music2, MapPin, Tag, Mic2, Globe, Home } from 'lucide-react';
 
@@ -58,26 +59,64 @@ function SearchArtistsContent() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const initialCategory = searchParams?.get('category') || '';
+  const initialQuery = searchParams?.get('q') || '';
   const [allArtists, setAllArtists] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
   const [activeTab, setActiveTab] = useState<'local' | 'international'>('local');
+
+  const normalizeBackendArtist = (artist: any) => ({
+    id: artist?.user?._id || artist?._id,
+    _id: artist?.user?._id || artist?._id,
+    name: artist?.name || artist?.user?.name || 'Unknown Artist',
+    stageName: artist?.name || artist?.user?.name || 'Unknown Artist',
+    category: artist?.category || artist?.artistType || 'Musician',
+    location: artist?.location || '',
+    genres: Array.isArray(artist?.genres) ? artist.genres : [],
+    hourlyRate: artist?.hourlyRate || 0,
+    rating: typeof artist?.rating === 'number' ? artist.rating : 0,
+    profileImage: artist?.profileImage || artist?.user?.profileImage || '',
+    availability: true,
+  });
 
   useEffect(() => {
     const fetchArtists = async () => {
       setLoading(true);
       try {
-        let data = await getAllArtistsFromFirestore();
-        if (data.length === 0) {
-          await seedSampleArtists();
-          data = await getAllArtistsFromFirestore();
+        const params = new URLSearchParams({
+          limit: '100',
+          sort: '-createdAt',
+        });
+        const [backendResponse, firestoreArtists] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/artists/search?${params.toString()}`),
+          getAllArtistsFromFirestore(),
+        ]);
+
+        const backendData = await backendResponse.json();
+        if (!backendResponse.ok || !backendData?.success) {
+          throw new Error(backendData?.message || 'Failed to load artists');
         }
-        setAllArtists(data);
+
+        let sampleArtists = firestoreArtists;
+        if (sampleArtists.length === 0) {
+          await seedSampleArtists();
+          sampleArtists = await getAllArtistsFromFirestore();
+        }
+
+        const backendArtists = Array.isArray(backendData.artists)
+          ? backendData.artists.map(normalizeBackendArtist)
+          : [];
+
+        const sampleArtistIds = new Set(sampleArtists.map((artist: any) => artist.id || artist._id));
+        const newBackendArtists = backendArtists.filter((artist: any) => !sampleArtistIds.has(artist.id || artist._id));
+        setAllArtists([...sampleArtists, ...newBackendArtists]);
       } catch (err) {
         console.error('Failed to load artists:', err);
-        setError('Failed to load artists. Please try again.');
+        const fallbackArtists = await getAllArtistsFromFirestore();
+        setAllArtists(fallbackArtists);
+        setError(fallbackArtists.length ? '' : 'Failed to load local artists. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -114,10 +153,13 @@ function SearchArtistsContent() {
       if (selectedCategory) {
         const cat = ARTIST_CATEGORIES.find(c => c.id === selectedCategory);
         if (cat) {
+          const artistCategory = (artist.category || '').toLowerCase();
           const artistGenres = (artist.genres || []).map((g: string) => g.toLowerCase());
-          matchesCategory = cat.genres.some((catGenre) =>
+          const categoryMatch = cat.name.toLowerCase().includes(artistCategory) || artistCategory.includes(cat.name.toLowerCase());
+          const genreMatch = cat.genres.some((catGenre) =>
             artistGenres.some((ag: string) => ag.includes(catGenre.toLowerCase()) || catGenre.toLowerCase().includes(ag))
           );
+          matchesCategory = categoryMatch || genreMatch;
         }
       }
 

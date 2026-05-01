@@ -5,23 +5,29 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import { 
   Briefcase, CheckCircle, Clock, XCircle, LayoutDashboard, 
-  CalendarIcon, MessageSquare, Wallet, Settings, Bell, ChevronRight, User, Search, MapPin, Zap
+  CalendarIcon, Wallet, Settings, Bell, ChevronRight, User, Search, MapPin, Zap
 } from "lucide-react";
 import { useAuth } from "@/contexts";
 import { isDemoArtist, DEMO_BOOKINGS, getDemoBookingSummary } from "@/lib/demoArtistData";
+import { API_BASE_URL, getAuthToken } from "@/lib/api";
 
 // Types & Mock Data
-type BookingStatus = "pending" | "confirmed" | "cancelled";
+type BookingStatus = "pending" | "confirmed" | "completed" | "cancelled";
 
 interface Booking {
   id: string;
   clientName: string;
+  clientEmail?: string;
   avatar?: string;
   eventType: string;
   date: string;
+  startTime?: string;
+  endTime?: string;
   location: string;
+  details?: string;
   amount: number;
   status: BookingStatus;
+  paymentStatus?: string;
 }
 
 const mockBookings: Booking[] = [
@@ -41,19 +47,100 @@ const NavItem = ({ href, icon: Icon, label, active }: { href: string, icon: any,
 export default function BookingsPage() {
   const { user, loading } = useAuth();
   const [filter, setFilter] = useState<"all" | BookingStatus>("all");
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(true);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+
+  const normalizeBooking = (booking: any): Booking => ({
+    id: booking._id,
+    clientName: booking.clientId?.name || "Client",
+    clientEmail: booking.clientId?.email || "",
+    eventType: booking.eventType || "Performance request",
+    date: booking.eventDate ? new Date(booking.eventDate).toISOString().split("T")[0] : "",
+    startTime: booking.startTime,
+    endTime: booking.endTime,
+    location: booking.eventLocation?.venue || booking.eventLocation?.city || "Location not provided",
+    details: booking.eventDetails || "",
+    amount: booking.totalPrice || 0,
+    status: booking.status,
+    paymentStatus: booking.paymentStatus,
+  });
+
+  const fetchBookings = async () => {
+    if (!user || isDemoArtist(user)) {
+      setBookingsLoading(false);
+      return;
+    }
+
+    try {
+      setBookingsLoading(true);
+      const token = getAuthToken();
+      const res = await fetch(`${API_BASE_URL}/api/bookings/my?limit=100&sort=eventDate`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.message || "Failed to load bookings");
+      }
+      setBookings((data.bookings || []).map(normalizeBooking));
+    } catch (error: any) {
+      toast.error(error.message || "Failed to load bookings");
+    } finally {
+      setBookingsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!loading) {
+      fetchBookings();
+    }
+  }, [loading, user]);
   
   // Use demo data if demo artist, otherwise use empty/real data
-  const displayBookings: Booking[] = isDemoArtist(user) ? (DEMO_BOOKINGS as Booking[]) : [];
+  const displayBookings: Booking[] = isDemoArtist(user) ? (DEMO_BOOKINGS as Booking[]) : bookings;
   const filteredBookings = displayBookings.filter(b => filter === "all" || b.status === filter);
   
   const summary = isDemoArtist(user) 
     ? getDemoBookingSummary()
-    : { total: 0, pending: 0, confirmed: 0, cancelled: 0 };
+    : {
+        total: bookings.length,
+        pending: bookings.filter((b) => b.status === "pending").length,
+        confirmed: bookings.filter((b) => b.status === "confirmed").length,
+        cancelled: bookings.filter((b) => b.status === "cancelled").length,
+      };
 
   const handleDemoAction = () => {
     toast.error("Demo mode: This action is only for preview.", {
       duration: 3000,
     });
+  };
+
+  const handleBookingAction = async (bookingId: string, status: "confirmed" | "cancelled") => {
+    if (isDemoArtist(user)) {
+      handleDemoAction();
+      return;
+    }
+
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/status`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.message || "Failed to update booking");
+      }
+      toast.success(status === "confirmed" ? "Performance request accepted" : "Performance request rejected");
+      setSelectedBooking(null);
+      fetchBookings();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update booking");
+    }
   };
 
   if (loading) {
@@ -86,7 +173,7 @@ export default function BookingsPage() {
              <NavItem href="/home/artist" icon={LayoutDashboard} label="Dashboard" />
              <NavItem href="/artist/bookings" icon={Briefcase} label="Bookings" active />
              <NavItem href="/artist/calendar" icon={CalendarIcon} label="Calendar" />
-             <NavItem href="/artist/messages" icon={MessageSquare} label="Messages" />
+             <NavItem href="/artist/messages" icon={Bell} label="Notifications" />
              <NavItem href="/artist/earnings" icon={Wallet} label="Earnings" />
              <NavItem href="/artist/profile" icon={Settings} label="Profile" />
           </div>
@@ -152,7 +239,12 @@ export default function BookingsPage() {
 
           {/* Table */}
           <div className="p-4 overflow-x-auto">
-            {filteredBookings.length === 0 ? (
+            {bookingsLoading && !isDemoArtist(user) ? (
+              <div className="py-12 flex flex-col items-center justify-center text-center text-gray-400">
+                 <div className="w-10 h-10 border-4 border-violet-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+                 <p className="text-sm">Loading performance requests...</p>
+              </div>
+            ) : filteredBookings.length === 0 ? (
               <div className="py-12 flex flex-col items-center justify-center text-center text-gray-400">
                  <Briefcase className="w-12 h-12 mb-4 opacity-50 text-white" />
                  <h3 className="text-lg font-bold text-white mb-1">No bookings found</h3>
@@ -186,6 +278,11 @@ export default function BookingsPage() {
                       <td className="p-4 text-sm">
                         <div className="flex flex-col gap-1 text-gray-300">
                           <span className="flex items-center gap-1.5"><CalendarIcon className="w-3.5 h-3.5 text-violet-400" /> {booking.date}</span>
+                          {booking.startTime && booking.endTime && (
+                            <span className="flex items-center gap-1.5 text-xs text-amber-400">
+                              <Clock className="w-3 h-3" /> {booking.startTime} - {booking.endTime}
+                            </span>
+                          )}
                           <span className="flex items-center gap-1.5 text-xs text-gray-500"><MapPin className="w-3 h-3" /> {booking.location}</span>
                         </div>
                       </td>
@@ -204,8 +301,8 @@ export default function BookingsPage() {
                            {booking.status === 'pending' && (
                              <>
                                <button 
-                                 onClick={isDemoArtist(user) ? handleDemoAction : undefined}
-                                 disabled={isDemoArtist(user)}
+                                onClick={() => handleBookingAction(booking.id, "confirmed")}
+                                disabled={isDemoArtist(user)}
                                  className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${
                                    isDemoArtist(user)
                                      ? "bg-emerald-500/10 text-emerald-400 cursor-not-allowed opacity-50"
@@ -215,8 +312,8 @@ export default function BookingsPage() {
                                  Accept
                                </button>
                                <button 
-                                 onClick={isDemoArtist(user) ? handleDemoAction : undefined}
-                                 disabled={isDemoArtist(user)}
+                                onClick={() => handleBookingAction(booking.id, "cancelled")}
+                                disabled={isDemoArtist(user)}
                                  className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${
                                    isDemoArtist(user)
                                      ? "bg-red-500/10 text-red-400 cursor-not-allowed opacity-50"
@@ -227,7 +324,7 @@ export default function BookingsPage() {
                                </button>
                              </>
                            )}
-                           <button className="px-3 py-1.5 border border-white/20 hover:bg-white/10 rounded text-xs font-bold text-white transition-all">Details</button>
+                           <button onClick={() => setSelectedBooking(booking)} className="px-3 py-1.5 border border-white/20 hover:bg-white/10 rounded text-xs font-bold text-white transition-all">Details</button>
                          </div>
                       </td>
                     </tr>
@@ -238,6 +335,38 @@ export default function BookingsPage() {
           </div>
         </div>
       </main>
+
+      {selectedBooking && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-[#1E112A] border border-white/10 rounded-3xl shadow-2xl p-6">
+            <div className="flex items-start justify-between gap-4 mb-6">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-violet-300 font-bold mb-1">Performance Request</p>
+                <h2 className="text-2xl font-black text-white">{selectedBooking.eventType}</h2>
+              </div>
+              <button onClick={() => setSelectedBooking(null)} className="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <div className="space-y-3 text-sm text-gray-300">
+              <p><span className="text-gray-500">Client:</span> {selectedBooking.clientName}</p>
+              {selectedBooking.clientEmail && <p><span className="text-gray-500">Email:</span> {selectedBooking.clientEmail}</p>}
+              <p><span className="text-gray-500">Date:</span> {selectedBooking.date} {selectedBooking.startTime} - {selectedBooking.endTime}</p>
+              <p><span className="text-gray-500">Location:</span> {selectedBooking.location}</p>
+              <p><span className="text-gray-500">Payment:</span> {selectedBooking.paymentStatus || "pending"}</p>
+              <p><span className="text-gray-500">Details:</span> {selectedBooking.details || "No extra details provided."}</p>
+            </div>
+            {selectedBooking.status === "pending" && (
+              <div className="flex gap-3 mt-8">
+                <button onClick={() => handleBookingAction(selectedBooking.id, "confirmed")} className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold text-white">
+                  Accept
+                </button>
+                <button onClick={() => handleBookingAction(selectedBooking.id, "cancelled")} className="flex-1 py-3 bg-red-600 hover:bg-red-500 rounded-xl font-bold text-white">
+                  Reject
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

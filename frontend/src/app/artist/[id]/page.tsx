@@ -26,10 +26,42 @@ export default function ArtistProfilePage() {
     async function loadArtist() {
       if (!id) return;
       try {
-        const [artistData, bookingData] = await Promise.all([
+        const [firebaseArtistData, bookingData] = await Promise.all([
           getArtistFromFirestore(id),
           getArtistBookings(id)
         ]);
+        let artistData = firebaseArtistData;
+
+        // Fallback to backend artist profile for newly registered local artists.
+        if (!artistData && !id.startsWith('intl-')) {
+          try {
+            const profileRes = await fetch(`${API_BASE_URL}/api/artists/${id}`);
+            const profileData = await profileRes.json();
+            if (profileRes.ok && profileData?.success && profileData?.artist) {
+              const backendArtist = profileData.artist;
+              artistData = {
+                id,
+                _id: id,
+                name: backendArtist?.name || backendArtist?.user?.name,
+                stageName: backendArtist?.name || backendArtist?.user?.name,
+                category: backendArtist?.category || backendArtist?.artistType || 'Musician',
+                location: backendArtist?.location || '',
+                hourlyRate: backendArtist?.hourlyRate || 0,
+                rating: typeof backendArtist?.rating === 'number' ? backendArtist.rating : 0,
+                genres: Array.isArray(backendArtist?.genres) ? backendArtist.genres : [],
+                profileImage: backendArtist?.profileImage || backendArtist?.user?.profileImage || '',
+                coverImage: backendArtist?.coverImage || '',
+                biography: backendArtist?.bio || '',
+                socialLinks: backendArtist?.socialLinks || {},
+                experience: backendArtist?.yearsOfExperience || backendArtist?.experience || '',
+                availability: true,
+              };
+            }
+          } catch (profileErr) {
+            console.error("Error loading backend artist profile:", profileErr);
+          }
+        }
+
         setArtist(artistData);
         setBookings(bookingData || []);
 
@@ -120,7 +152,12 @@ export default function ArtistProfilePage() {
     return dates;
   };
   const upcomingDates = getUpcomingDates();
-  const formatYYYYMMDD = (d: Date) => d.toISOString().split('T')[0];
+  const formatYYYYMMDD = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   const getBookingForSlot = (dateStr: string, start: string, end: string) => {
     return bookings.find(b => {
@@ -143,9 +180,13 @@ export default function ArtistProfilePage() {
   };
 
   const isPublishedAvailableSlot = (dateStr: string, start: string, end: string) => {
-    return publishedAvailability.some((slot) => {
-      const slotDate = new Date(slot.date).toISOString().split('T')[0];
-      return slotDate === dateStr && slot.startTime === start && slot.endTime === end && slot.status === 'Available';
+    return getPublishedSlotForCell(dateStr, start, end)?.status === 'Available';
+  };
+
+  const getPublishedSlotForCell = (dateStr: string, start: string, end: string) => {
+    return publishedAvailability.find((slot) => {
+      const slotDate = formatYYYYMMDD(new Date(slot.date));
+      return slotDate === dateStr && slot.startTime === start && slot.endTime === end;
     });
   };
 
@@ -407,20 +448,24 @@ export default function ArtistProfilePage() {
                           </td>
                           {TIME_SLOTS.map((slot, sIdx) => {
                             const booking = getBookingForSlot(dateString, slot.start, slot.end);
+                            const publishedSlot = getPublishedSlotForCell(dateString, slot.start, slot.end);
                             const isBooked = !!booking;
                             const isPublished = isPublishedAvailableSlot(dateString, slot.start, slot.end);
+                            const isReserved = publishedSlot?.status === 'Requested' || publishedSlot?.status === 'Booked';
                             
                             return (
                               <td key={sIdx} className="p-1 sm:p-2 border-r border-gray-700/30 align-top overflow-hidden">
-                                {isBooked ? (
+                                {isBooked || isReserved ? (
                                   <div className="flex flex-col items-center justify-center p-1 sm:p-2 rounded bg-red-500/5 border border-red-500/10 h-full text-center">
                                     <span className="inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-bold text-red-400 uppercase tracking-wider mb-0.5 sm:mb-1">
                                       <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-red-500" /> Booked
                                     </span>
-                                    <span className="text-[9px] sm:text-[11px] text-gray-400 font-medium truncate w-full px-0.5" title={`${booking.eventTitle} ${booking.location ? `- ${booking.location}` : ''}`}>
-                                      {booking.eventTitle}
-                                    </span>
-                                    {booking.location && (
+                                    {booking && (
+                                      <span className="text-[9px] sm:text-[11px] text-gray-400 font-medium truncate w-full px-0.5" title={`${booking.eventTitle} ${booking.location ? `- ${booking.location}` : ''}`}>
+                                        {booking.eventTitle}
+                                      </span>
+                                    )}
+                                    {booking?.location && (
                                       <span className="text-[8px] sm:text-[10px] text-gray-500 truncate w-full flex items-center justify-center gap-0.5 mt-0.5 px-0.5">
                                         <MapPin size={10} className="w-2 h-2 sm:w-2.5 sm:h-2.5" /> {booking.location.split(',')[0]}
                                       </span>

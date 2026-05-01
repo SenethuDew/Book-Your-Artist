@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { 
-  Wallet, DollarSign, ArrowUpRight, CheckCircle, TrendingUp, LayoutDashboard, Briefcase, CalendarIcon, MessageSquare, Settings, Bell, Download, Zap
+  Wallet, DollarSign, ArrowUpRight, CheckCircle, TrendingUp, LayoutDashboard, Briefcase, CalendarIcon, Settings, Bell, Download, Zap
 } from "lucide-react";
 import { useAuth } from "@/contexts";
 import { isDemoArtist, DEMO_EARNINGS, DEMO_TRANSACTIONS } from "@/lib/demoArtistData";
@@ -69,7 +69,7 @@ export default function EarningsPage() {
              <NavItem href="/home/artist" icon={LayoutDashboard} label="Dashboard" />
              <NavItem href="/artist/bookings" icon={Briefcase} label="Bookings" />
              <NavItem href="/artist/calendar" icon={CalendarIcon} label="Calendar" />
-             <NavItem href="/artist/messages" icon={MessageSquare} label="Messages" />
+             <NavItem href="/artist/messages" icon={Bell} label="Notifications" />
              <NavItem href="/artist/earnings" icon={Wallet} label="Earnings" active />
              <NavItem href="/artist/profile" icon={Settings} label="Profile" />
           </div>

@@ -1,6 +1,7 @@
 const ArtistProfile = require("../models/ArtistProfile");
 const User = require("../models/User");
 const Review = require("../models/Review");
+const Availability = require("../models/Availability");
 
 class SearchService {
   /**
@@ -20,8 +21,26 @@ class SearchService {
         sort = "-rating",
       } = filters;
 
+      // Only show artists that have at least one published free slot.
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const publishedArtistIds = await Availability.distinct("artistId", {
+        isPublished: true,
+        status: "Available",
+        date: { $gte: today },
+      });
+
+      if (!publishedArtistIds.length) {
+        return {
+          success: true,
+          artists: [],
+          pagination: { total: 0, page, limit, pages: 0 },
+        };
+      }
+
       // Build query
       const query = { verified: true }; // Only show verified artists
+      query.userId = { $in: publishedArtistIds };
 
       if (genres && genres.length > 0) {
         query.genres = { $in: genres };

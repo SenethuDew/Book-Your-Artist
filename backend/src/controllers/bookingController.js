@@ -1,7 +1,74 @@
 const Booking = require("../models/Booking");
 const ArtistProfile = require("../models/ArtistProfile");
+const Availability = require("../models/Availability");
 const User = require("../models/User");
 const { bookingSchema } = require("../validators");
+
+const toObjectIdString = (value) => {
+  if (!value) return "";
+  if (value._id) return value._id.toString();
+  return value.toString();
+};
+
+const enrichBookingsWithProfiles = async (bookings) => {
+  const plainBookings = bookings.map((booking) =>
+    typeof booking.toObject === "function" ? booking.toObject() : booking
+  );
+
+  const artistIds = [
+    ...new Set(
+      plainBookings
+        .map((booking) => toObjectIdString(booking.artistId))
+        .filter(Boolean)
+    ),
+  ];
+
+  if (!artistIds.length) {
+    return plainBookings;
+  }
+
+  const artistProfiles = await ArtistProfile.find({ userId: { $in: artistIds } })
+    .select(
+      "userId name bio category artistType location genres hourlyRate experience profileImage coverImage rating reviewCount verified"
+    )
+    .lean();
+
+  const profileByUserId = artistProfiles.reduce((acc, profile) => {
+    acc[profile.userId.toString()] = profile;
+    return acc;
+  }, {});
+
+  return plainBookings.map((booking) => {
+    const artistUserId = toObjectIdString(booking.artistId);
+    const profile = profileByUserId[artistUserId] || {};
+    const artistUser =
+      booking.artistId && typeof booking.artistId === "object" ? booking.artistId : {};
+
+    return {
+      ...booking,
+      artistId: {
+        ...artistUser,
+        _id: artistUser._id || artistUserId,
+        name: profile.name || artistUser.name,
+        email: artistUser.email,
+        phone: artistUser.phone,
+        profileImage: profile.profileImage || artistUser.profileImage,
+        profileId: profile._id,
+        bio: profile.bio,
+        category: profile.category,
+        artistType: profile.artistType,
+        location: profile.location,
+        genres: profile.genres || [],
+        hourlyRate: profile.hourlyRate,
+        experience: profile.experience,
+        coverImage: profile.coverImage,
+        rating: profile.rating,
+        reviewCount: profile.reviewCount,
+        verified: profile.verified,
+      },
+    };
+  });
+};
 
 class BookingController {
   /**
@@ -30,6 +97,7 @@ class BookingController {
 
       const { artistId, eventDate, startTime, endTime, eventType, eventLocation, eventDetails } =
         validation.data;
+      const paymentIntentId = req.body.paymentIntentId;
 
       // Check artist exists
       const artist = await ArtistProfile.findOne({ userId: artistId });
@@ -40,9 +108,64 @@ class BookingController {
         });
       }
 
+      const requestedDate = new Date(eventDate);
+      requestedDate.setHours(0, 0, 0, 0);
+
+      if (paymentIntentId) {
+        const existingPaidBooking = await Booking.findOne({
+          clientId,
+          artistId,
+          paymentIntentId,
+        });
+
+        if (existingPaidBooking) {
+          return res.status(200).json({
+            success: true,
+            message: "Booking already finalized",
+            booking: existingPaidBooking,
+          });
+        }
+      }
+
+      const availabilitySlot = await Availability.findOne({
+        artistId,
+        date: requestedDate,
+        startTime,
+        endTime,
+        isPublished: true,
+        status: "Available",
+      });
+
+      if (!availabilitySlot) {
+        const existingSlotBooking = await Booking.findOne({
+          clientId,
+          artistId,
+          eventDate: requestedDate,
+          startTime,
+          endTime,
+          status: { $in: ["pending", "confirmed"] },
+        });
+
+        if (existingSlotBooking) {
+          return res.status(200).json({
+            success: true,
+            message: "Booking already finalized",
+            booking: existingSlotBooking,
+          });
+        }
+
+        return res.status(409).json({
+          success: false,
+          message: "This slot is no longer available",
+        });
+      }
+
       // Calculate duration and price
       const start = new Date(`2000-01-01 ${startTime}`);
       const end = new Date(`2000-01-01 ${endTime}`);
+      if (end <= start) {
+        end.setDate(end.getDate() + 1);
+      }
       const durationHours = (end - start) / (1000 * 60 * 60);
 
       if (durationHours <= 0) {
@@ -60,7 +183,7 @@ class BookingController {
       const booking = new Booking({
         clientId,
         artistId,
-        eventDate: new Date(eventDate),
+        eventDate: requestedDate,
         startTime,
         endTime,
         durationHours,
@@ -71,10 +194,15 @@ class BookingController {
         eventLocation,
         eventDetails,
         status: "pending",
-        paymentStatus: "pending",
+        paymentStatus: req.body.paymentStatus === "paid" ? "paid" : "pending",
+        paymentIntentId,
       });
 
       await booking.save();
+
+      availabilitySlot.status = "Requested";
+      availabilitySlot.bookingId = booking._id;
+      await availabilitySlot.save();
 
       return res.status(201).json({
         success: true,
@@ -108,13 +236,8 @@ class BookingController {
       }
 
       const booking = await Booking.findById(id)
-        .populate("clientId", "name email profileImage")
-        .populate("artistId", "-password")
-        .populate({
-          path: "artistId",
-          model: "User",
-          select: "name email profileImage",
-        });
+        .populate("clientId", "name email phone profileImage")
+        .populate("artistId", "name email phone profileImage");
 
       if (!booking) {
         return res.status(404).json({
@@ -131,9 +254,11 @@ class BookingController {
         });
       }
 
+      const [enrichedBooking] = await enrichBookingsWithProfiles([booking]);
+
       return res.status(200).json({
         success: true,
-        booking,
+        booking: enrichedBooking,
       });
     } catch (error) {
       console.error("Get booking error:", error);
@@ -182,17 +307,18 @@ class BookingController {
       const skip = (parseInt(page) - 1) * parseInt(limit);
 
       const bookings = await Booking.find(query)
-        .populate("clientId", "name email profileImage")
-        .populate("artistId", "name email profileImage")
+        .populate("clientId", "name email phone profileImage")
+        .populate("artistId", "name email phone profileImage")
         .sort(sort)
         .skip(skip)
         .limit(parseInt(limit));
+      const enrichedBookings = await enrichBookingsWithProfiles(bookings);
 
       const total = await Booking.countDocuments(query);
 
       return res.status(200).json({
         success: true,
-        bookings,
+        bookings: enrichedBookings,
         pagination: {
           total,
           page: parseInt(page),
@@ -261,10 +387,29 @@ class BookingController {
       booking.status = status;
       await booking.save();
 
+      if (status === "confirmed") {
+        await Availability.findOneAndUpdate(
+          { bookingId: booking._id, artistId: booking.artistId },
+          { status: "Booked" }
+        );
+      }
+
+      if (status === "cancelled") {
+        await Availability.findOneAndUpdate(
+          { bookingId: booking._id, artistId: booking.artistId },
+          { status: "Available", bookingId: null }
+        );
+      }
+
+      const updatedBooking = await Booking.findById(booking._id)
+        .populate("clientId", "name email phone profileImage")
+        .populate("artistId", "name email phone profileImage");
+      const [enrichedBooking] = await enrichBookingsWithProfiles([updatedBooking]);
+
       return res.status(200).json({
         success: true,
         message: `Booking ${status} successfully`,
-        booking,
+        booking: enrichedBooking,
       });
     } catch (error) {
       console.error("Update booking status error:", error);

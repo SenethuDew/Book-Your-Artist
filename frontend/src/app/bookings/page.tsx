@@ -10,7 +10,8 @@ import { API_BASE_URL } from "@/lib/api";
 import { 
   Calendar, Clock, DollarSign, MapPin, Search as SearchIcon, 
   Music, ChevronDown, CreditCard, ArrowRight, AlertCircle, 
-  CheckCircle2, XCircle, Star, ChevronLeft, ChevronRight, MessageSquare
+  CheckCircle2, XCircle, Star, ChevronLeft, ChevronRight, MessageSquare,
+  User, Mail, Phone, BadgeCheck
 } from "lucide-react";
 
 interface Booking {
@@ -19,13 +20,25 @@ interface Booking {
     _id: string;
     name: string;
     email: string;
-    profileImage: string;
+    phone?: string;
+    profileImage?: string;
   };
   artistId: {
     _id: string;
     name: string;
-    email: string;
-    profileImage: string;
+    email?: string;
+    phone?: string;
+    profileImage?: string;
+    profileId?: string;
+    category?: string;
+    artistType?: string;
+    location?: string;
+    genres?: string[];
+    hourlyRate?: number;
+    experience?: number;
+    rating?: number;
+    reviewCount?: number;
+    verified?: boolean;
   };
   eventDate: string;
   startTime: string;
@@ -54,6 +67,14 @@ const statusThemes: Record<string, { bg: string; text: string; icon: any /* esli
   completed: { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/20", icon: Star },
   cancelled: { bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/20", icon: XCircle },
   disputed: { bg: "bg-orange-500/10", text: "text-orange-400", border: "border-orange-500/20", icon: AlertCircle },
+};
+
+const resolveImageUrl = (value?: string) => {
+  if (!value) return "";
+  if (value.startsWith("http://") || value.startsWith("https://")) return value;
+  if (value.startsWith("/")) return `${API_BASE_URL}${value}`;
+  if (value.startsWith("uploads/")) return `${API_BASE_URL}/${value}`;
+  return value;
 };
 
 export default function BookingsPage() {
@@ -184,6 +205,17 @@ export default function BookingsPage() {
   const formatTime = (timeString: string) => {
     const [hours, minutes] = timeString.split(":");
     return `${hours}:${minutes}`;
+  };
+
+  const formatLocation = (location: Booking["eventLocation"]) => {
+    const parts = [
+      location?.venue,
+      location?.address,
+      location?.city,
+      location?.country,
+    ].filter(Boolean);
+
+    return parts.length ? parts.join(", ") : "Venue TBD";
   };
 
   const isUpcoming = (booking: Booking) => {
@@ -367,17 +399,21 @@ export default function BookingsPage() {
                   const isConfirmed = booking.status === "confirmed";
                   const isUpcomingEvent = isUpcoming(booking);
                   const other = isClient ? booking.artistId : booking.clientId;
+                  const artist = booking.artistId;
+                  const client = booking.clientId;
                   const StatusIcon = statusThemes[booking.status]?.icon || Clock;
                   const theme = statusThemes[booking.status] || statusThemes.pending;
+                  const cardImageRaw = isClient ? artist?.profileImage : client?.profileImage;
+                  const cardImage = resolveImageUrl(cardImageRaw);
 
                   return (
                     <div key={booking._id} className="bg-[#120A20] border border-white/5 rounded-2xl md:rounded-3xl overflow-hidden hover:border-white/10 transition-all hover:shadow-[0_0_30px_-10px_rgba(139,92,246,0.15)] group">
                       <div className="flex flex-col md:flex-row">
                         {/* Image Section */}
                         <div className="w-full md:w-64 h-64 md:h-auto bg-gradient-to-br from-violet-600/30 to-fuchsia-600/30 relative overflow-hidden shrink-0">
-                          {other?.profileImage ? (
+                          {cardImage ? (
                             <Image
-                              src={other.profileImage}
+                              src={cardImage}
                               alt={other.name}
                               fill
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
@@ -400,9 +436,21 @@ export default function BookingsPage() {
                                 <p className="text-gray-400 text-sm font-medium uppercase tracking-wider mb-1">
                                   {isClient ? "Booking with" : "Booking from"}
                                 </p>
-                                <h3 className="text-2xl font-bold text-white leading-tight">
-                                  {other?.name || "Unknown User"}
-                                </h3>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <h3 className="text-2xl font-bold text-white leading-tight">
+                                    {other?.name || "Unknown User"}
+                                  </h3>
+                                  {isClient && artist?.verified && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20 text-[10px] font-black uppercase">
+                                      <BadgeCheck className="w-3 h-3" /> Verified
+                                    </span>
+                                  )}
+                                </div>
+                                {isClient && (
+                                  <p className="text-sm text-gray-400 mt-1">
+                                    {[artist?.category, artist?.artistType, artist?.location].filter(Boolean).join(" • ") || "Artist details available"}
+                                  </p>
+                                )}
                                 <p className="text-xs text-gray-500 mt-1 font-mono">
                                   ID: {booking._id.substring(0, 8)}
                                 </p>
@@ -437,8 +485,8 @@ export default function BookingsPage() {
                                   <MapPin className="w-4 h-4 text-fuchsia-400" /> Location
                                 </div>
                                 <p className="text-white font-bold truncate" title={booking.eventType}>{booking.eventType || "General Event"}</p>
-                                <p className="text-sm text-gray-400 truncate" title={booking.eventLocation?.venue}>
-                                  {booking.eventLocation?.venue ? `@ ${booking.eventLocation.venue}` : "Venue TBD"}
+                                <p className="text-sm text-gray-400 truncate" title={formatLocation(booking.eventLocation)}>
+                                  {formatLocation(booking.eventLocation)}
                                 </p>
                               </div>
 
@@ -450,6 +498,74 @@ export default function BookingsPage() {
                                 <p className="text-xs text-gray-500 mt-0.5">
                                   {isClient ? "Total Amount" : `Your cut: $${booking.artistPrice}`}
                                 </p>
+                              </div>
+                            </div>
+
+                            {/* Real Artist and Client Details */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                              <div className="rounded-2xl border border-violet-500/10 bg-violet-500/[0.04] p-5">
+                                <div className="flex items-center gap-3 mb-4">
+                                  <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+                                    <Music className="w-5 h-5 text-violet-300" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-black uppercase tracking-wider text-violet-300">Artist Details</p>
+                                    <p className="text-white font-bold truncate">{artist?.name || "Artist"}</p>
+                                  </div>
+                                </div>
+                                <div className="space-y-2 text-sm">
+                                  {artist?.email && (
+                                    <p className="flex items-center gap-2 text-gray-300">
+                                      <Mail className="w-4 h-4 text-gray-500" /> {artist.email}
+                                    </p>
+                                  )}
+                                  {artist?.phone && (
+                                    <p className="flex items-center gap-2 text-gray-300">
+                                      <Phone className="w-4 h-4 text-gray-500" /> {artist.phone}
+                                    </p>
+                                  )}
+                                  <p className="flex items-center gap-2 text-gray-300">
+                                    <MapPin className="w-4 h-4 text-gray-500" /> {artist?.location || "Artist location not added"}
+                                  </p>
+                                  <div className="flex flex-wrap gap-2 pt-2">
+                                    {artist?.category && <span className="px-2 py-1 rounded-lg bg-white/5 text-xs font-bold text-gray-300">{artist.category}</span>}
+                                    {artist?.hourlyRate !== undefined && <span className="px-2 py-1 rounded-lg bg-white/5 text-xs font-bold text-gray-300">${artist.hourlyRate}/hr</span>}
+                                    {artist?.experience !== undefined && <span className="px-2 py-1 rounded-lg bg-white/5 text-xs font-bold text-gray-300">{artist.experience} yrs exp.</span>}
+                                    {artist?.rating !== undefined && <span className="px-2 py-1 rounded-lg bg-white/5 text-xs font-bold text-gray-300">{artist.rating.toFixed(1)} rating</span>}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="rounded-2xl border border-fuchsia-500/10 bg-fuchsia-500/[0.04] p-5">
+                                <div className="flex items-center gap-3 mb-4">
+                                  <div className="w-10 h-10 rounded-xl bg-fuchsia-500/10 border border-fuchsia-500/20 flex items-center justify-center">
+                                    <User className="w-5 h-5 text-fuchsia-300" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-black uppercase tracking-wider text-fuchsia-300">Client Details</p>
+                                    <p className="text-white font-bold truncate">{client?.name || "Client"}</p>
+                                  </div>
+                                </div>
+                                <div className="space-y-2 text-sm">
+                                  {client?.email && (
+                                    <p className="flex items-center gap-2 text-gray-300">
+                                      <Mail className="w-4 h-4 text-gray-500" /> {client.email}
+                                    </p>
+                                  )}
+                                  {client?.phone && (
+                                    <p className="flex items-center gap-2 text-gray-300">
+                                      <Phone className="w-4 h-4 text-gray-500" /> {client.phone}
+                                    </p>
+                                  )}
+                                  <p className="flex items-center gap-2 text-gray-300">
+                                    <MapPin className="w-4 h-4 text-gray-500" /> {formatLocation(booking.eventLocation)}
+                                  </p>
+                                  {booking.eventDetails && (
+                                    <p className="text-gray-400 line-clamp-2 pt-2">
+                                      {booking.eventDetails}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>

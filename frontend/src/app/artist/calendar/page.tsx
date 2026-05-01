@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { 
-  CalendarIcon, Briefcase, MessageSquare, Wallet, Settings, Bell, LayoutDashboard, Plus, Trash2, Check, ExternalLink, CalendarDays, Clock, FileText, Upload, RefreshCw, X, Save, Pause, Eye
+  CalendarIcon, Briefcase, Wallet, Settings, Bell, LayoutDashboard, Plus, Trash2, Check, ExternalLink, CalendarDays, Clock, FileText, Upload, RefreshCw, X, Save, Pause, Eye
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api";
 
@@ -21,8 +21,9 @@ interface Slot {
   date: string;
   startTime: string;
   endTime: string;
-  status: "Available" | "Booked" | "Blocked" | "Draft";
+  status: "Available" | "Requested" | "Booked" | "Blocked" | "Draft";
   isPublished: boolean;
+  bookingId?: any;
 }
 
 export default function CalendarBuilderPage() {
@@ -119,6 +120,31 @@ export default function CalendarBuilderPage() {
     }
   };
 
+  const handleBookingAction = async (bookingId: string, status: "confirmed" | "cancelled", e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+    if (!token) return setError("Not authenticated");
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/status`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Failed to update booking request");
+      }
+      setSuccess(status === "confirmed" ? "Booking request accepted" : "Booking request rejected");
+      fetchSlots();
+    } catch (err: any) {
+      setError(err.message || "Failed to update booking request");
+    }
+  };
+
   // Grid Mapping logic to match client booking calendar
   const TIME_SLOTS = [
     { label: "4:00 PM - 6:00 PM", start: "16:00", end: "18:00" },
@@ -173,6 +199,7 @@ export default function CalendarBuilderPage() {
     total: slots.length,
     available: slots.filter(s => s.status === "Available").length,
     booked: slots.filter(s => s.status === "Booked").length,
+    requested: slots.filter(s => s.status === "Requested").length,
     blocked: slots.filter(s => s.status === "Blocked").length,
     drafts: slots.filter(s => s.status === "Draft").length
   };
@@ -196,7 +223,7 @@ export default function CalendarBuilderPage() {
              <NavItem href="/home/artist" icon={LayoutDashboard} label="Dashboard" />
              <NavItem href="/artist/bookings" icon={Briefcase} label="Bookings" />
              <NavItem href="/artist/calendar" icon={CalendarIcon} label="Calendar" active />
-             <NavItem href="/artist/messages" icon={MessageSquare} label="Messages" />
+             <NavItem href="/artist/messages" icon={Bell} label="Notifications" />
              <NavItem href="/artist/earnings" icon={Wallet} label="Earnings" />
              <NavItem href="/artist/profile" icon={Settings} label="Settings" />
           </div>
@@ -237,7 +264,7 @@ export default function CalendarBuilderPage() {
         )}
 
         {/* 3. Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
           <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-5 flex flex-col justify-center">
             <p className="text-gray-400 text-xs font-bold uppercase mb-1 flex items-center gap-2"><CalendarIcon className="w-4 h-4"/> Total Cards</p>
             <h3 className="text-3xl font-black text-white mt-1">{stats.total}</h3>
@@ -249,7 +276,12 @@ export default function CalendarBuilderPage() {
           </div>
           <div className="bg-violet-500/5 backdrop-blur-xl border border-violet-500/20 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden group">
             <Check className="absolute -right-4 -bottom-4 w-24 h-24 text-violet-500/10 group-hover:scale-110 transition-transform" />
-            <p className="text-violet-400 text-xs font-bold uppercase mb-1 relative z-10">Booked</p>
+            <p className="text-violet-400 text-xs font-bold uppercase mb-1 relative z-10">Requested</p>
+            <h3 className="text-3xl font-black text-violet-300 mt-1 relative z-10">{stats.requested}</h3>
+          </div>
+          <div className="bg-blue-500/5 backdrop-blur-xl border border-blue-500/20 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden group">
+            <Check className="absolute -right-4 -bottom-4 w-24 h-24 text-blue-500/10 group-hover:scale-110 transition-transform" />
+            <p className="text-blue-400 text-xs font-bold uppercase mb-1 relative z-10">Booked</p>
             <h3 className="text-3xl font-black text-violet-300 mt-1 relative z-10">{stats.booked}</h3>
           </div>
           <div className="bg-red-500/5 backdrop-blur-xl border border-red-500/20 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden group">
@@ -316,19 +348,38 @@ export default function CalendarBuilderPage() {
                                 }}
                                 className={`w-full h-full rounded-xl border flex flex-col justify-center items-center gap-1.5 cursor-pointer transition-all transform hover:scale-[1.02] shadow-md group relative
                                 ${slot.status === 'Available' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50' : 
+                                 slot.status === 'Requested' ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:border-amber-500/50' :
                                  slot.status === 'Booked' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/20 hover:border-indigo-500/50' :
                                  slot.status === 'Blocked' ? 'bg-red-500/10 border-red-500/30 text-red-500 hover:bg-red-500/20 hover:border-red-500/50' :
                                  'bg-gray-500/10 border-gray-500/30 text-gray-500 hover:bg-gray-500/20 hover:border-gray-500/50'}`}
                               >
                                 <span className={`inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider mb-0.5 sm:mb-1
                                   ${slot.status === 'Available' ? 'text-emerald-400' : 
+                                   slot.status === 'Requested' ? 'text-amber-400' :
                                    slot.status === 'Booked' ? 'text-indigo-400' :
                                    slot.status === 'Blocked' ? 'text-red-400' : 'text-gray-400'}`}>
                                   <div className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full 
                                     ${slot.status === 'Available' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 
+                                     slot.status === 'Requested' ? 'bg-amber-500' :
                                      slot.status === 'Booked' ? 'bg-indigo-500' :
                                      slot.status === 'Blocked' ? 'bg-red-500' : 'bg-gray-500'}`} /> {slot.status}
                                 </span>
+
+                                {slot.status === "Requested" && slot.bookingId && (
+                                  <div className="text-center px-2">
+                                    <p className="text-[10px] text-white font-bold truncate max-w-[120px]">
+                                      {slot.bookingId.clientId?.name || "Client request"}
+                                    </p>
+                                    <div className="flex justify-center gap-1 mt-1">
+                                      <button onClick={(e) => handleBookingAction(slot.bookingId._id, "confirmed", e)} className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 rounded text-[9px] text-white font-bold">
+                                        Accept
+                                      </button>
+                                      <button onClick={(e) => handleBookingAction(slot.bookingId._id, "cancelled", e)} className="px-2 py-1 bg-red-600 hover:bg-red-500 rounded text-[9px] text-white font-bold">
+                                        Reject
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
 
                                 <div className="absolute top-1 sm:top-2 right-1 sm:right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <button title="Delete Slot" onClick={(e) => handleDeleteSlot(slot._id, e)} className="p-1 sm:p-1.5 bg-red-600/90 rounded-md text-white hover:bg-red-500 transition-all transform scale-90 hover:scale-105 shadow-md">
@@ -407,6 +458,7 @@ export default function CalendarBuilderPage() {
                 <div className="relative">
                   <select value={modalStatus} onChange={e => setModalStatus(e.target.value as any)} className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-3.5 text-white font-bold focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all appearance-none cursor-pointer">
                      <option value="Available">Available (Clients can book this)</option>
+                     <option value="Requested">Requested (Waiting for your decision)</option>
                      <option value="Booked">Booked (Paid & Assigned)</option>
                      <option value="Blocked">Blocked (Personal time / Off)</option>
                      <option value="Draft">Draft (Hidden from clients)</option>

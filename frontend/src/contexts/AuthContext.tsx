@@ -21,6 +21,7 @@ export interface AuthContextType {
   login: (email: string, password: string) => Promise<{ user: User }>;
   logout: () => Promise<void>;
   signup: (data: SignupData) => Promise<{ user: User }>;
+  refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -133,6 +134,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const refreshUser = async () => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    const apiUrl = getApiBaseUrl();
+    const response = await fetch(`${apiUrl}/api/users/me`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await parseJsonResponse<{ user: User } | null>(response);
+    if (data?.user) {
+      setUser(normalizeUser(data.user));
+    }
+  };
+
   const logout = async () => {
     try {
       const apiUrl = getApiBaseUrl();
@@ -194,6 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         signup,
+        refreshUser,
         isAuthenticated: !!user,
       }}
     >
