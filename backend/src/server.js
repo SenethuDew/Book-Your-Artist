@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
-require("dotenv").config();
+require("dotenv").config({ override: true });
 
 const connectDB = require("./config/db");
 const apiRoutes = require("./routes/api"); // Consolidated API routes

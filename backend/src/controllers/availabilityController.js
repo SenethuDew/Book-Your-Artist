@@ -99,25 +99,43 @@ const createAvailability = async (req, res) => {
       });
     }
 
-    // Validate time order
+    // Convert HH:MM to total minutes for interval math
     const startParts = startTime.split(":").map(Number);
     const endParts = endTime.split(":").map(Number);
     const startMinutes = startParts[0] * 60 + startParts[1];
     const endMinutes = endParts[0] * 60 + endParts[1];
 
-    if (endMinutes <= startMinutes) {
+    // Zero-length slots are invalid. end < start is allowed (crosses midnight).
+    if (endMinutes === startMinutes) {
       return res.status(400).json({
         success: false,
-        message: "End time must be after start time",
+        message: "End time must be different from start time",
       });
     }
 
-    // Check for overlapping slots
+    // Build absolute interval [startDateTime, endDateTime)
+    const slotStartDateTime = new Date(slotDate);
+    slotStartDateTime.setHours(startParts[0], startParts[1], 0, 0);
+
+    const slotEndDateTime = new Date(slotDate);
+    slotEndDateTime.setHours(endParts[0], endParts[1], 0, 0);
+    if (endMinutes <= startMinutes) {
+      // Overnight slot (e.g. 23:30 -> 01:00)
+      slotEndDateTime.setDate(slotEndDateTime.getDate() + 1);
+    }
+
+    // Check for overlapping slots (same day plus adjacent days for overnight overlap)
+    const previousDay = new Date(slotDate);
+    previousDay.setDate(previousDay.getDate() - 1);
+
+    const nextDay = new Date(slotDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+
     const existingSlots = await Availability.find({
       artistId: userId,
       date: {
-        $gte: slotDate,
-        $lt: new Date(slotDate.getTime() + 24 * 60 * 60 * 1000),
+        $gte: previousDay,
+        $lt: new Date(nextDay.getTime() + 24 * 60 * 60 * 1000),
       },
     }).lean();
 
@@ -128,16 +146,29 @@ const createAvailability = async (req, res) => {
       const existingStartMinutes = existingStart[0] * 60 + existingStart[1];
       const existingEndMinutes = existingEnd[0] * 60 + existingEnd[1];
 
+      const existingSlotDate = new Date(slot.date);
+      existingSlotDate.setHours(0, 0, 0, 0);
+
+      const existingStartDateTime = new Date(existingSlotDate);
+      existingStartDateTime.setHours(existingStart[0], existingStart[1], 0, 0);
+
+      const existingEndDateTime = new Date(existingSlotDate);
+      existingEndDateTime.setHours(existingEnd[0], existingEnd[1], 0, 0);
+      if (existingEndMinutes <= existingStartMinutes) {
+        existingEndDateTime.setDate(existingEndDateTime.getDate() + 1);
+      }
+
       // Check for exact duplicate
       if (
+        existingSlotDate.getTime() === slotDate.getTime() &&
         slot.startTime === startTime &&
         slot.endTime === endTime
       ) {
         return true;
       }
 
-      // Check for overlap: new slot overlaps with existing slot
-      if (startMinutes < existingEndMinutes && endMinutes > existingStartMinutes) {
+      // Interval overlap check: [A.start < B.end] && [A.end > B.start]
+      if (slotStartDateTime < existingEndDateTime && slotEndDateTime > existingStartDateTime) {
         return true;
       }
 

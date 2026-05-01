@@ -48,6 +48,8 @@ class AuthController {
         { expiresIn: "7d" }
       );
 
+      console.log("[auth] register token:", token);
+
       res.status(201).json({
         success: true,
         message: "User registered successfully",
@@ -79,8 +81,9 @@ class AuthController {
   async login(req, res) {
     try {
       // Frontend might send 'email' for the identifier field
-      const identifier = req.body.identifier || req.body.email;
-      const { password } = req.body;
+      const rawIdentifier = req.body.identifier || req.body.email || "";
+      const identifier = String(rawIdentifier).trim();
+      const password = String(req.body.password || "");
 
       // Validate input
       if (!identifier || !password) {
@@ -91,10 +94,19 @@ class AuthController {
       }
 
       // Find user (allow phone OR email login)
-      const user = await User.findOne({
-        $or: [{ email: identifier.toLowerCase() }, { phone: identifier }]
-      });
-      
+      const normalizedEmail = identifier.toLowerCase();
+      let user = await User.findOne({ email: normalizedEmail });
+
+      if (!user) {
+        user = await User.findOne({
+          $or: [
+            { email: normalizedEmail },
+            { email: identifier },
+            { phone: identifier },
+          ],
+        });
+      }
+
       if (!user) {
         return res.status(401).json({
           success: false,
@@ -127,7 +139,8 @@ class AuthController {
       }
 
       // Check password
-      const isPasswordMatch = await user.matchPassword(password);
+      const isPasswordMatch = user.matchPassword(password);
+      
       if (!isPasswordMatch) {
         return res.status(401).json({
           success: false,
@@ -171,6 +184,7 @@ class AuthController {
   async getMe(req, res) {
     try {
       const userId = req.user?.id;
+      console.log("[auth] getMe token payload:", req.user);
 
       if (!userId) {
         return res.status(401).json({
@@ -182,13 +196,15 @@ class AuthController {
       const user = await User.findById(userId).select("-password");
 
       if (!user) {
+        console.log("[auth] getMe user not found for id:", userId);
         return res.status(404).json({
           success: false,
           message: "User not found",
+          code: "USER_NOT_FOUND",
         });
       }
 
-      res.json({
+      const response = {
         success: true,
         user: {
           id: user._id,
@@ -199,7 +215,10 @@ class AuthController {
           profileImage: user.profileImage,
           phone: user.phone,
         },
-      });
+      };
+
+      console.log("[auth] getMe response:", response);
+      res.json(response);
     } catch (error) {
       console.error("Get me error:", error);
       res.status(500).json({

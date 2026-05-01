@@ -6,6 +6,7 @@ const User = require("./src/models/User");
 const seedTestUsers = async () => {
   try {
     // Connect to MongoDB
+    require("dotenv").config({ override: true });
     await mongoose.connect(process.env.MONGO_URI);
     console.log("✓ MongoDB connected");
 

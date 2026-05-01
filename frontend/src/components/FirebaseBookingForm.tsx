@@ -10,9 +10,10 @@ interface BookingFormProps {
   onClose: () => void;
   clientId?: string;
   prefilledSlot?: { date: string; start: string; end: string };
+  availableSlots?: { date: string; startTime: string; endTime: string; status?: string }[];
 }
 
-export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, onClose, clientId, prefilledSlot }: BookingFormProps) {
+export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, onClose, clientId, prefilledSlot, availableSlots = [] }: BookingFormProps) {
   const router = useRouter();
   const isIntl = artistId?.startsWith('intl-');
   const [formData, setFormData] = useState({
@@ -87,6 +88,26 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
     });
   };
 
+  const isSlotPublished = (start: string, end: string) => {
+    if (!formData.eventDate) return false;
+    if (isIntl) return true;
+
+    // If availability exists, only those slots are bookable.
+    if (availableSlots.length > 0) {
+      return availableSlots.some((slot) => {
+        const slotDate = new Date(slot.date).toISOString().split('T')[0];
+        return (
+          slotDate === formData.eventDate &&
+          slot.startTime === start &&
+          slot.endTime === end &&
+          (slot.status === undefined || slot.status === 'Available')
+        );
+      });
+    }
+
+    return false;
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
@@ -108,6 +129,11 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
     if (!isIntl) {
       if (!formData.startTime || !formData.endTime) {
         setError('Please select an available time slot.');
+        return;
+      }
+
+      if (!isSlotPublished(formData.startTime, formData.endTime)) {
+        setError('This slot is not published by the artist. Please select a published slot.');
         return;
       }
 
@@ -252,17 +278,20 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {TIME_SLOTS.map((slot) => {
                     const isBooked = isSlotBooked(slot.start, slot.end);
+                    const isPublished = isSlotPublished(slot.start, slot.end);
                     const isSelected = formData.startTime === slot.start && formData.endTime === slot.end;
 
                     return (
                       <button
                         type="button"
                         key={slot.label}
-                        disabled={isBooked}
+                        disabled={isBooked || !isPublished}
                         onClick={() => handleSlotSelect(slot.start, slot.end)}
                         className={`text-xs py-2 px-1 rounded-lg border transition-all duration-200 text-center font-medium ${
                           isBooked 
                             ? 'bg-gray-900 border-red-500/20 text-gray-500 cursor-not-allowed opacity-60' 
+                            : !isPublished
+                              ? 'bg-gray-900 border-gray-700 text-gray-600 cursor-not-allowed opacity-60'
                             : isSelected
                               ? 'bg-yellow-600 border-yellow-500 text-white shadow-lg shadow-yellow-600/20'
                               : 'bg-gray-800 border-gray-600 text-gray-300 hover:border-yellow-500 hover:text-white hover:bg-gray-700'
@@ -270,6 +299,7 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
                       >
                         {slot.label}
                         {isBooked && <span className="block mt-0.5 text-[10px] text-red-400">Booked</span>}
+                        {!isBooked && !isPublished && <span className="block mt-0.5 text-[10px] text-gray-500">Not published</span>}
                       </button>
                     );
                   })}

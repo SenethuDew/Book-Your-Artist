@@ -17,7 +17,14 @@ const auth = require("../middleware/auth"); // Assuming this exists
 // ===== AUTH ROUTES =====
 router.post("/auth/register", authController.register);
 router.post("/auth/login", authController.login);
+// Add logging
+const fs = require("fs");
+router.use((req, res, next) => {
+	fs.appendFileSync("./route.log", `[${new Date().toISOString()}] ${req.method} ${req.path}\n`, "utf8");
+	next();
+});
 router.get("/auth/me", auth, authController.getMe);
+router.get("/users/me", auth, authController.getMe);
 router.post("/auth/logout", auth, authController.logout);
 
 // ===== ARTIST PROFILE ROUTES (Auth Required) - MUST BE BEFORE /:id =====

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getArtistFromFirestore, getArtistBookings } from '@/lib/firebaseBookingAPI';
+import { API_BASE_URL } from '@/lib/api';
 import { FirebaseBookingForm } from '@/components/FirebaseBookingForm';
 import { useAuth } from '@/contexts';
 import { MapPin, Star, Clock, Globe, Mic2, Tag, Calendar, Music2, Share2, ArrowLeft, CalendarCheck, CheckCircle2, Zap, Image as ImageIcon, Video, UserCheck, ShieldCheck } from 'lucide-react';
@@ -16,6 +17,7 @@ export default function ArtistProfilePage() {
   const { user } = useAuth();
   const [artist, setArtist] = useState<any>(null);
   const [bookings, setBookings] = useState<any[]>([]);
+  const [publishedAvailability, setPublishedAvailability] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{date: string, start: string, end: string} | null>(null);
@@ -30,6 +32,23 @@ export default function ArtistProfilePage() {
         ]);
         setArtist(artistData);
         setBookings(bookingData || []);
+
+        // Pull published availability from backend so only published slots are bookable.
+        if (!id.startsWith('intl-')) {
+          try {
+            const res = await fetch(`${API_BASE_URL}/api/availability/artist/${id}`);
+            const data = await res.json();
+            if (res.ok && data?.success && Array.isArray(data.availability)) {
+              setPublishedAvailability(data.availability);
+            } else {
+              setPublishedAvailability([]);
+            }
+          } catch {
+            setPublishedAvailability([]);
+          }
+        } else {
+          setPublishedAvailability([]);
+        }
       } catch (error) {
         console.error("Error loading artist:", error);
       } finally {
@@ -120,6 +139,13 @@ export default function ArtistProfilePage() {
       const compStart = parseFloat(bStart.replace(':', '.'));
 
       return (compStart < slotEndVal && bEndVal > slotStart);
+    });
+  };
+
+  const isPublishedAvailableSlot = (dateStr: string, start: string, end: string) => {
+    return publishedAvailability.some((slot) => {
+      const slotDate = new Date(slot.date).toISOString().split('T')[0];
+      return slotDate === dateStr && slot.startTime === start && slot.endTime === end && slot.status === 'Available';
     });
   };
 
@@ -382,6 +408,7 @@ export default function ArtistProfilePage() {
                           {TIME_SLOTS.map((slot, sIdx) => {
                             const booking = getBookingForSlot(dateString, slot.start, slot.end);
                             const isBooked = !!booking;
+                            const isPublished = isPublishedAvailableSlot(dateString, slot.start, slot.end);
                             
                             return (
                               <td key={sIdx} className="p-1 sm:p-2 border-r border-gray-700/30 align-top overflow-hidden">
@@ -399,7 +426,7 @@ export default function ArtistProfilePage() {
                                       </span>
                                     )}
                                   </div>
-                                ) : (
+                                ) : isPublished ? (
                                   <div className="flex flex-col items-center justify-center p-1 sm:p-2 rounded bg-emerald-500/5 border border-emerald-500/10 h-full hover:bg-emerald-500/10 transition-colors group cursor-pointer" onClick={() => openInteractiveModal(dateString, slot.start, slot.end)}>
                                     <span className="inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-bold text-emerald-400 uppercase tracking-wider mb-0.5 sm:mb-1">
                                       <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" /> Free
@@ -409,6 +436,13 @@ export default function ArtistProfilePage() {
                                     >
                                       Book Now
                                     </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col items-center justify-center p-1 sm:p-2 rounded bg-gray-800/60 border border-gray-700/50 h-full text-center">
+                                    <span className="inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5 sm:mb-1">
+                                      <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-gray-600" /> Unavailable
+                                    </span>
+                                    <span className="text-[8px] sm:text-[10px] text-gray-500">Not published</span>
                                   </div>
                                 )}
                               </td>
@@ -483,6 +517,7 @@ export default function ArtistProfilePage() {
           hourlyRate={artist.hourlyRate || 250}
           onClose={() => setShowBookingForm(false)} 
           clientId={(user as any)?.id || user?._id || (user as any)?.uid} 
+          availableSlots={publishedAvailability}
           prefilledSlot={selectedSlot || undefined}
         />
       )}

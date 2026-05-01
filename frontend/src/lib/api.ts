@@ -19,11 +19,22 @@ export const getApiBaseUrl = () => {
 export const API_BASE_URL = getApiBaseUrl();
 
 const STORAGE_KEY = 'authToken';
+const LEGACY_STORAGE_KEY = 'token';
 
-export async function parseJsonResponse<T>(response: Response): Promise<T> {
+export async function parseJsonResponse<T>(response: Response): Promise<T | null> {
   const text = await response.text();
-  
+  console.log('[API] Response', {
+    url: response.url,
+    status: response.status,
+    ok: response.ok,
+    body: text,
+  });
+
   if (!response.ok) {
+    if (response.status === 404) {
+      return null;
+    }
+
     let errorMessage = `API Error ${response.status} ${response.statusText}`;
     try {
       // Try to extract the backend's provided error message from JSON string
@@ -53,23 +64,25 @@ export async function parseJsonResponse<T>(response: Response): Promise<T> {
 
 export function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(STORAGE_KEY);
+  return localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
 }
 
 export function setAuthToken(token: string): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(STORAGE_KEY, token);
+  localStorage.setItem(LEGACY_STORAGE_KEY, token);
 }
 
 export function clearAuthToken(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(LEGACY_STORAGE_KEY);
 }
 
 export async function apiCall<T>(
   endpoint: string,
   options?: RequestInit
-): Promise<T> {
+): Promise<T | null> {
   const token = getAuthToken();
   const headers = new Headers(options?.headers || {});
   
@@ -78,6 +91,7 @@ export async function apiCall<T>(
   }
 
   const apiUrl = getApiBaseUrl();
+  console.log('[API] Request', { endpoint, apiUrl, hasToken: !!token, token });
   const response = await fetch(`${apiUrl}${endpoint}`, {
     ...options,
     headers,
