@@ -6,6 +6,15 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { API_BASE_URL } from "@/lib/api";
+
+/** Avatar URLs stored on Mongo are often `/uploads/...` paths — prefix API host for <img>. */
+function absoluteMediaUrl(raw: string | undefined | null): string | null {
+  const s = typeof raw === "string" ? raw.trim() : "";
+  if (!s) return null;
+  if (/^https?:\/\//i.test(s)) return s;
+  const path = s.startsWith("/") ? s : `/${s}`;
+  return `${API_BASE_URL}${path}`;
+}
 import { 
   Bell, Calendar as CalendarIcon, DollarSign, User, 
   LogOut, CheckCircle, TrendingUp, LayoutDashboard, Check, X,
@@ -158,51 +167,116 @@ function ArtistDashboardContent() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [hasProfile, setHasProfile] = useState(true);
   const [isProfileComplete, setIsProfileComplete] = useState(true);
   const [completionPercentage, setCompletionPercentage] = useState(100);
+
+  /** Navbar avatar + label — merges User account (/users/me) with ArtistProfile (/artists/me). */
+  const [headerDisplayName, setHeaderDisplayName] = useState("");
+  const [headerAvatarUrl, setHeaderAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user?.name) {
+      setHeaderDisplayName((prev) => prev || user.name);
+    }
+  }, [user?.name]);
 
   useEffect(() => { 
     const fetchDashboardDataInternal = async () => {
       try {
         setLoading(true);
         const token = localStorage.getItem("token") || localStorage.getItem("authToken");
-        if(!token) return;
+        if (!token) {
+          setLoading(false);
+          return;
+        }
+        let accountDisplayName = user?.name?.trim() || "Artist";
+        let accountAvatar: string | null = null;
 
-        const profileRes = await fetch(`${API_BASE_URL}/api/artists/me`, { headers: { Authorization: `Bearer ${token}` } });
-        
-        if (profileRes.status === 404) { 
-          setHasProfile(false); 
+        try {
+          const meRes = await fetch(`${API_BASE_URL}/api/users/me`, {
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          });
+          if (meRes.ok) {
+            const meData = await meRes.json();
+            const u = meData?.user as { name?: string; profileImage?: string } | undefined;
+            if (u?.name?.trim()) accountDisplayName = u.name.trim();
+            accountAvatar = absoluteMediaUrl(u?.profileImage);
+          }
+        } catch {
+          /* Fall back to useAuth snapshot */
+        }
+
+        /* Artist catalogue profile (may include stage name + performer photo). */
+        const profileRes = await fetch(`${API_BASE_URL}/api/artists/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!profileRes.ok || profileRes.status === 404) {
           setIsProfileComplete(false);
           setCompletionPercentage(0);
+          setHeaderDisplayName(accountDisplayName);
+          setHeaderAvatarUrl(accountAvatar);
         } else {
-          setHasProfile(true);
-          if (profileRes.ok) {
-            const data = await profileRes.json();
-            const profile = data.profile || data.artist || {};
-            
+          const data = await profileRes.json();
+          const rawProfile =
+            data.profile ??
+            data.artist ??
+            (null as {
+              bio?: string;
+              biography?: string;
+              category?: string;
+              profileImage?: string;
+              profileImageUrl?: string;
+              hourlyRate?: number;
+              price?: number;
+              location?: string;
+              name?: string;
+              userId?: { name?: string; profileImage?: string } | unknown;
+            } | null);
+
+          if (!rawProfile) {
+            setIsProfileComplete(false);
+            setCompletionPercentage(0);
+            setHeaderDisplayName(accountDisplayName);
+            setHeaderAvatarUrl(accountAvatar);
+          } else {
+            const linked =
+              rawProfile.userId &&
+              typeof rawProfile.userId === "object" &&
+              rawProfile.userId !== null
+                ? (rawProfile.userId as { name?: string; profileImage?: string })
+                : null;
+
+            const stageOrProfileName =
+              typeof rawProfile.name === "string" && rawProfile.name.trim().length > 0
+                ? rawProfile.name.trim()
+                : linked?.name?.trim() || accountDisplayName;
+
+            const performerImgRaw =
+              (typeof rawProfile.profileImage === "string" && rawProfile.profileImage.trim()) ||
+              (typeof linked?.profileImage === "string" && linked.profileImage.trim()) ||
+              "";
+
+            const performerImgAbs = performerImgRaw ? absoluteMediaUrl(performerImgRaw) : null;
+
+            setHeaderDisplayName(stageOrProfileName);
+            setHeaderAvatarUrl(performerImgAbs ?? accountAvatar);
+
             // Check completion: bio, category, profile image, hourly rate, location
             const fieldsComplete = {
-              bio: !!(profile.bio || profile.biography),
-              category: !!profile.category,
-              image: !!(profile.profileImage || profile.profileImageUrl),
-              hourlyRate: !!(profile.hourlyRate || profile.price),
-              location: !!profile.location
+              bio: !!(rawProfile.bio || rawProfile.biography),
+              category: !!rawProfile.category,
+              image: !!(rawProfile.profileImage || rawProfile.profileImageUrl),
+              hourlyRate: !!(rawProfile.hourlyRate || rawProfile.price),
+              location: !!rawProfile.location,
             };
-            
+
             const completedCount = Object.values(fieldsComplete).filter(Boolean).length;
             const totalFields = Object.keys(fieldsComplete).length;
             const percentage = Math.round((completedCount / totalFields) * 100);
-            
+
             setCompletionPercentage(percentage);
             setIsProfileComplete(completedCount === totalFields);
-            
-            console.log("Artist Profile Data:", profile);
-            console.log("Profile Completion Status:", { 
-              fields: fieldsComplete, 
-              percentage, 
-              isComplete: completedCount === totalFields 
-            });
           }
         }
 
@@ -301,7 +375,6 @@ function ArtistDashboardContent() {
                <NavItem href="/artist/calendar" icon={CalendarIcon} label="Calendar" />
               <NavItem href="/artist/messages" icon={Bell} label="Notifications" />
                <NavItem href="/artist/earnings" icon={Wallet} label="Earnings" />
-               <NavItem href="/artist/profile" icon={Settings} label="Profile Settings" />
                <NavItem href="/artist/ai-assistant" icon={Sparkles} label="AI Support" />
              </div>
 
@@ -391,9 +464,15 @@ function ArtistDashboardContent() {
                 <div className="relative">
                   <button onClick={() => { setShowDropdown(!showDropdown); setShowNotifications(false); }} className="flex items-center gap-3 hover:bg-white/5 p-1 rounded-full transition-colors focus:outline-none">
                     <div className="w-8 h-8 rounded-full bg-violet-600/30 border border-violet-500/50 overflow-hidden">
-                      {(user as any)?.profileImage ? <img src={(user as any).profileImage} alt="User" className="w-full h-full object-cover" /> : <User className="w-4 h-4 m-auto mt-2 text-violet-300" />}
+                      {headerAvatarUrl ? (
+                        <img src={headerAvatarUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <User className="w-4 h-4 m-auto mt-2 text-violet-300" />
+                      )}
                     </div>
-                    <span className="text-xs font-bold text-gray-200 hidden lg:block pr-2">{user?.name?.split(' ')[0]}</span>
+                    <span className="text-xs font-bold text-gray-200 hidden lg:block pr-2">
+                      {(headerDisplayName || user?.name || "Artist").split(" ")[0]}
+                    </span>
                   </button>
 
                   {/* Dropdown Menu */}
@@ -402,7 +481,7 @@ function ArtistDashboardContent() {
                       <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)}></div>
                       <div className="absolute right-0 mt-3 w-56 bg-gray-900 border border-white/10 rounded-2xl shadow-xl shadow-fuchsia-900/10 backdrop-blur-xl z-50 overflow-hidden animate-fade-in-up">
                         <div className="p-4 border-b border-white/5 bg-white/5">
-                          <p className="text-sm font-bold text-white truncate">{user?.name}</p>
+                          <p className="text-sm font-bold text-white truncate">{headerDisplayName || user?.name}</p>
                           <p className="text-xs text-gray-400 truncate">{user?.email}</p>
                         </div>
                         <div className="p-2 flex flex-col gap-1">
@@ -459,7 +538,9 @@ function ArtistDashboardContent() {
         {/* Top Header */}
         <div className="flex flex-col xl:flex-row justify-between gap-6 mb-8">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-2">Welcome back, {user?.name?.split(' ')[0] || 'Artist'}</h1>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-2">
+              Welcome back, {(headerDisplayName || user?.name || "Artist").split(" ")[0]}
+            </h1>
             <p className="text-sm text-gray-400 max-w-xl">Your workspace is looking busy. Check out your latest performance metrics and upcoming gigs.</p>
           </div>
         </div>

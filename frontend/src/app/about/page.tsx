@@ -280,7 +280,7 @@ export default function AboutPage() {
             </div>
             <div className="text-left">
               <p className="text-sm text-gray-400">Developed by</p>
-              <p className="font-bold text-white">Senethu De Silva</p>
+              <p className="font-bold text-white">Senethu Peiris</p>
             </div>
           </div>
         </div>
