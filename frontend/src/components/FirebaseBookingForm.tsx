@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { createFirestoreBooking, getArtistBookings } from '@/lib/firebaseBookingAPI';
 import toast from 'react-hot-toast';
-import { useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { resolvePublishedSlotForPresetColumn } from '@/lib/slotIntervals';
+import { bookingLoginUrl, bookingRegisterUrl } from '@/lib/bookingAuthRedirect';
 
 interface BookingFormProps {
   artistId: string;
@@ -17,8 +19,9 @@ interface BookingFormProps {
 }
 
 export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, onClose, clientId, prefilledSlot, availableSlots = [], singleGigPerDay = false }: BookingFormProps) {
-  const router = useRouter();
+  const pathname = usePathname();
   const isIntl = artistId?.startsWith('intl-');
+  const loggedInBooking = Boolean(clientId && String(clientId).trim());
   const formatLocalDate = (date: Date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -174,6 +177,12 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!loggedInBooking) {
+      setError('Sign in or create an account to book this artist.');
+      toast.error('Sign in to continue with your booking.');
+      return;
+    }
+
     if (!isIntl) {
       if (!formData.startTime || !formData.endTime) {
         setError('Please select an available time slot.');
@@ -230,7 +239,7 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
             artistName,
             totalPrice: finalTotalPrice,
             advanceAmount,
-            clientId: clientId || 'guest'
+            clientId,
           },
           amount: advanceAmount,
           successUrl: `${window.location.origin}/booking-success`,
@@ -272,6 +281,11 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
   const totalPrice = isIntl ? hourlyRate : Math.max(hours * hourlyRate, (formData.startTime && formData.endTime) ? hourlyRate : 0);
   const advanceAmount = totalPrice * 0.5;
 
+  const returnPath =
+    typeof window !== "undefined"
+      ? `${window.location.pathname}${window.location.search}`
+      : pathname || "/";
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-lg shadow-2xl overflow-y-auto max-h-[90vh]">
@@ -280,6 +294,28 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
           <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
         </div>
 
+        {!loggedInBooking ? (
+          <div className="space-y-5 py-2">
+            <p className="text-gray-300 text-sm text-center leading-relaxed">
+              Sign in or create an account to book artists and complete secure checkout.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link
+                href={bookingLoginUrl(returnPath)}
+                className="inline-flex justify-center items-center rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-violet-500/25 hover:opacity-95 transition-opacity"
+              >
+                Sign in
+              </Link>
+              <Link
+                href={bookingRegisterUrl(returnPath)}
+                className="inline-flex justify-center items-center rounded-xl border border-white/20 bg-white/5 px-5 py-3 text-sm font-bold text-white hover:bg-white/10 transition-colors"
+              >
+                Create account
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <>
         {error && (
           <div className="bg-red-500/20 border border-red-500/50 text-red-200 p-3 mb-4 rounded-lg text-sm">
             {error}
@@ -517,6 +553,8 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
             </button>
           </div>
         </form>
+          </>
+        )}
       </div>
     </div>
   );

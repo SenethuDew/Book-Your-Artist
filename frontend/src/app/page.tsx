@@ -639,13 +639,13 @@ export default function Home() {
                 className="pointer-events-none absolute inset-0 bg-gradient-to-br from-violet-600/35 via-transparent to-fuchsia-600/25 opacity-90"
               />
               <div className="relative z-10 px-8 py-16 text-center sm:px-12 sm:py-20">
-                <p className="mb-4 text-[11px] font-black uppercase tracking-[0.45em] text-fuchsia-200/80">
+                <p className="mb-4 text-[11px] font-black uppercase tracking-[0.45em] text-fuchsia-100">
                   Close the tabs. Open the show.
                 </p>
-                <h2 className="mb-4 text-3xl font-extrabold leading-tight text-white drop-shadow-lg sm:text-4xl lg:text-5xl">
+                <h2 className="mb-4 text-3xl font-extrabold leading-tight text-white drop-shadow-[0_2px_24px_rgba(0,0,0,0.45)] sm:text-4xl lg:text-5xl">
                   Ready for your headline act?
                 </h2>
-                <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-gray-200/95">
+                <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-gray-100">
                   Join clients and performers who swapped chaos for confirmations. One inbox, transparent pricing, applause included.
                 </p>
                 <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -669,8 +669,8 @@ export default function Home() {
       </section>
 
       {/* ═══════════════ FOOTER ═══════════════ */}
-      <footer className="border-t border-white/5 py-16 px-4">
-        <div className="max-w-7xl mx-auto">
+      <footer className="relative border-t border-white/10 bg-[#05030a]/90 py-16 px-4">
+        <div className="relative z-10 max-w-7xl mx-auto">
           {/* Footer grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
             {/* Brand */}
@@ -685,45 +685,45 @@ export default function Home() {
                   <span className="text-gradient">Artist</span>
                 </span>
               </div>
-              <p className="text-sm text-gray-500 leading-relaxed">
+              <p className="text-sm text-gray-300 leading-relaxed">
                 The premier platform for discovering and booking world-class musicians for any event.
               </p>
             </div>
 
             {/* Quick Links */}
             <div>
-              <h4 className="font-semibold text-sm uppercase tracking-wide text-gray-300 mb-4">Platform</h4>
-              <ul className="space-y-2 text-sm text-gray-500">
-                <li><Link href="/search" className="hover:text-white transition">Browse Artists</Link></li>
-                <li><Link href="/sign-up" className="hover:text-white transition">Create Account</Link></li>
-                <li><Link href="#how" className="hover:text-white transition">How It Works</Link></li>
+              <h4 className="font-semibold text-sm uppercase tracking-wide text-white mb-4">Platform</h4>
+              <ul className="space-y-2.5 text-sm text-gray-300">
+                <li><Link href="/search" className="hover:text-white transition-colors">Browse Artists</Link></li>
+                <li><Link href="/sign-up" className="hover:text-white transition-colors">Create Account</Link></li>
+                <li><Link href="#how" className="hover:text-white transition-colors">How It Works</Link></li>
               </ul>
             </div>
 
             {/* For Artists */}
             <div>
-              <h4 className="font-semibold text-sm uppercase tracking-wide text-gray-300 mb-4">For Artists</h4>
-              <ul className="space-y-2 text-sm text-gray-500">
-                <li><Link href="/sign-up" className="hover:text-white transition">Join as Artist</Link></li>
-                <li><Link href="/sign-in" className="hover:text-white transition">Artist Login</Link></li>
-                <li><Link href="#benefits" className="hover:text-white transition">Why Join Us</Link></li>
+              <h4 className="font-semibold text-sm uppercase tracking-wide text-white mb-4">For Artists</h4>
+              <ul className="space-y-2.5 text-sm text-gray-300">
+                <li><Link href="/sign-up" className="hover:text-white transition-colors">Join as Artist</Link></li>
+                <li><Link href="/sign-in" className="hover:text-white transition-colors">Artist Login</Link></li>
+                <li><Link href="#benefits" className="hover:text-white transition-colors">Why Join Us</Link></li>
               </ul>
             </div>
 
             {/* Company */}
             <div>
-              <h4 className="font-semibold text-sm uppercase tracking-wide text-gray-300 mb-4">Company</h4>
-              <ul className="space-y-2 text-sm text-gray-500">
-                <li><a href="#" className="hover:text-white transition">About Us</a></li>
-                <li><a href="#" className="hover:text-white transition">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-white transition">Terms of Service</a></li>
+              <h4 className="font-semibold text-sm uppercase tracking-wide text-white mb-4">Company</h4>
+              <ul className="space-y-2.5 text-sm text-gray-300">
+                <li><a href="#" className="hover:text-white transition-colors">About Us</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
               </ul>
             </div>
           </div>
 
           {/* Footer bottom */}
-          <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-gray-600">
+          <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-sm text-gray-400 text-center md:text-left">
               © 2026 Book Your Artist. All rights reserved.
             </p>
             <div className="flex items-center gap-6">
@@ -735,7 +735,7 @@ export default function Home() {
                 <a
                   key={social.label}
                   href={social.href}
-                  className="text-gray-600 hover:text-violet-400 transition-colors duration-300 text-sm font-medium"
+                  className="text-gray-400 hover:text-violet-300 transition-colors duration-300 text-sm font-medium"
                 >
                   {social.label}
                 </a>

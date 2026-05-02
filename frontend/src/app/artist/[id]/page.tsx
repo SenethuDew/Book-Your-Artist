@@ -6,6 +6,7 @@ import { getArtistFromFirestore, getArtistBookings } from '@/lib/firebaseBooking
 import { API_BASE_URL } from '@/lib/api';
 import { FirebaseBookingForm } from '@/components/FirebaseBookingForm';
 import { intervalsOverlapHM, resolvePublishedSlotForPresetColumn, slotCalendarDay } from '@/lib/slotIntervals';
+import { bookingLoginUrl } from '@/lib/bookingAuthRedirect';
 import { isSingleGigPerDayCategory } from '@/lib/artistCalendarMode';
 import { useAuth } from '@/contexts';
 import { MapPin, Star, Mic2, Calendar, Music2, ArrowLeft, CalendarCheck, CheckCircle2, Zap, UserCheck, ShieldCheck } from 'lucide-react';
@@ -80,7 +81,7 @@ export default function ArtistProfilePage() {
   const params = useParams();
   const id = params?.id as string;
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const authUser = user as AuthUserWithIds | null | undefined;
   const [artist, setArtist] = useState<ArtistProfileData | null>(null);
   const [bookings, setBookings] = useState<BookingSlotData[]>([]);
@@ -216,6 +217,11 @@ export default function ArtistProfilePage() {
   };
 
   const openInteractiveModal = (dateStr?: string, start?: string, end?: string) => {
+    if (authLoading) return;
+    if (!authUser?.id && !authUser?._id && !authUser?.uid) {
+      router.push(bookingLoginUrl(`/artist/${id}`));
+      return;
+    }
     if (dateStr && start && end) {
       setSelectedSlot({ date: dateStr, start, end });
     } else {

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts";
 import Link from "next/link";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Music } from "lucide-react";
@@ -11,8 +11,9 @@ import {
   signInWithFacebook,
   signInWithGoogle,
 } from "@/lib/firebaseSocialAuth";
+import { sanitizePostAuthRedirect } from "@/lib/bookingAuthRedirect";
 
-export default function LoginPage() {
+function LoginInner() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -20,6 +21,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectAfterLogin = sanitizePostAuthRedirect(searchParams.get("redirect"));
+
+  const registerHref =
+    redirectAfterLogin != null
+      ? `/auth/register?redirect=${encodeURIComponent(redirectAfterLogin)}`
+      : "/auth/register";
+
   const { login, loginWithFirebaseIdToken } = useAuth();
 
   const [oauthProvider, setOauthProvider] = useState<"google" | "facebook" | null>(null);
@@ -27,6 +36,15 @@ export default function LoginPage() {
   const oauthBusy = oauthProvider !== null;
 
   const isFormInvalid = !email.trim() || !password.trim();
+
+  const goAfterLogin = (role: "artist" | "client" | "admin") => {
+    if (redirectAfterLogin) {
+      router.push(redirectAfterLogin);
+      return;
+    }
+    const home = role === "artist" ? "/home/artist" : "/home/client";
+    router.push(home);
+  };
 
   const handleSocialGoogle = async () => {
     if (!isFirebaseSocialAuthAvailable()) {
@@ -40,8 +58,7 @@ export default function LoginPage() {
     try {
       const idToken = await signInWithGoogle();
       const result = await loginWithFirebaseIdToken(idToken);
-      const redirectPath = result.user.role === "artist" ? "/home/artist" : "/home/client";
-      router.push(redirectPath);
+      goAfterLogin(result.user.role as "artist" | "client" | "admin");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Google sign-in failed.");
     } finally {
@@ -61,8 +78,7 @@ export default function LoginPage() {
     try {
       const idToken = await signInWithFacebook();
       const result = await loginWithFirebaseIdToken(idToken);
-      const redirectPath = result.user.role === "artist" ? "/home/artist" : "/home/client";
-      router.push(redirectPath);
+      goAfterLogin(result.user.role as "artist" | "client" | "admin");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Facebook sign-in failed.");
     } finally {
@@ -78,7 +94,6 @@ export default function LoginPage() {
 
     try {
       const result = await login(email, password);
-      const redirectPath = result.user.role === "artist" ? "/home/artist" : "/home/client";
 
       if (rememberMe) {
         localStorage.setItem("bya_remember_user", "true");
@@ -86,7 +101,7 @@ export default function LoginPage() {
         localStorage.removeItem("bya_remember_user");
       }
 
-      router.push(redirectPath);
+      goAfterLogin(result.user.role as "artist" | "client" | "admin");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Login failed. Please check your credentials.";
       setError(message);
@@ -97,14 +112,12 @@ export default function LoginPage() {
 
   return (
     <div className="relative isolate min-h-screen flex flex-col justify-center overflow-hidden bg-[#0A0512] py-12 px-4 font-sans text-white selection:bg-violet-500/30 selection:text-violet-200 sm:px-6 lg:px-8">
-      {/* Match client home: deep plum base + violet wash + soft orbs */}
       <div aria-hidden className="pointer-events-none absolute inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-tr from-[#0A0512] via-[#0A0512]/95 to-violet-950/45" />
         <div className="pointer-events-none absolute -top-[20%] -right-[10%] h-[95%] w-[55%] rounded-full bg-fuchsia-600/18 blur-[120px]" />
         <div className="pointer-events-none absolute -bottom-[25%] -left-[15%] h-[95%] w-[55%] rounded-full bg-violet-600/18 blur-[120px]" />
       </div>
 
-      {/* Logo & Back Link */}
       <div className="relative z-10 mx-auto mb-10 flex w-full max-w-md items-center justify-between">
         <Link href="/" className="group flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 font-black text-white shadow-[0_0_20px_-5px_rgba(139,92,246,0.6)] transition-transform group-hover:scale-[1.03] sm:h-11 sm:w-11">
@@ -124,13 +137,12 @@ export default function LoginPage() {
 
       <div className="relative z-10 mx-auto w-full max-w-md">
         <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#120A20]/85 p-8 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.65)] backdrop-blur-xl sm:p-10">
-          {/* Subtle top glare */}
           <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
           <div className="text-center mb-8">
             <h2 className="text-3xl font-extrabold text-white mb-2 tracking-tight">Welcome Back</h2>
             <p className="text-sm text-gray-400">
-              Sign in to continue your musical journey.
+              Sign in to book artists and manage your events.
             </p>
           </div>
 
@@ -142,7 +154,6 @@ export default function LoginPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Email Field */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1.5 ml-1">
                 Email Address
@@ -164,7 +175,6 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Password Field */}
             <div>
               <div className="flex items-center justify-between mb-1.5 ml-1">
                 <label htmlFor="password" className="block text-sm font-medium text-gray-300">
@@ -198,7 +208,6 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Remember Me */}
             <div className="flex items-center">
               <label className="flex items-center gap-2 cursor-pointer group">
                 <div className="relative flex items-center justify-center">
@@ -218,7 +227,6 @@ export default function LoginPage() {
               </label>
             </div>
 
-            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading || oauthBusy || isFormInvalid}
@@ -232,7 +240,6 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Divider */}
           <div className="mt-8 flex items-center">
             <div className="flex-1 border-t border-white/10"></div>
             <span className="px-3 text-xs text-gray-500 uppercase tracking-wider font-semibold">Or continue with</span>
@@ -260,31 +267,35 @@ export default function LoginPage() {
             </button>
           </div>
 
-          {/* Demo Accounts */}
           <div className="mt-6 grid grid-cols-2 gap-3">
-             <button
-               type="button"
-               onClick={() => { setEmail("client@test.com"); setPassword("Client123!@"); }}
-               className="flex items-center justify-center p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-violet-500/30 transition-all text-sm font-medium text-gray-300 gap-2"
-             >
-               <span className="text-violet-400">👤</span>
-               Fill Client Demo
-             </button>
-             <button
-               type="button"
-               onClick={() => { setEmail("artist@test.com"); setPassword("Artist123!@"); }}
-               className="flex items-center justify-center p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-fuchsia-500/30 transition-all text-sm font-medium text-gray-300 gap-2"
-             >
-               <span className="text-fuchsia-400">🎸</span>
-               Fill Artist Demo
-             </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEmail("client@test.com");
+                setPassword("Client123!@");
+              }}
+              className="flex items-center justify-center p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-violet-500/30 transition-all text-sm font-medium text-gray-300 gap-2"
+            >
+              <span className="text-violet-400">👤</span>
+              Fill Client Demo
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEmail("artist@test.com");
+                setPassword("Artist123!@");
+              }}
+              className="flex items-center justify-center p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-fuchsia-500/30 transition-all text-sm font-medium text-gray-300 gap-2"
+            >
+              <span className="text-fuchsia-400">🎸</span>
+              Fill Artist Demo
+            </button>
           </div>
 
-          {/* Sign Up Link */}
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-400">
               Don{"'"}t have an account?{" "}
-              <Link href="/auth/register" className="font-bold text-violet-400 hover:text-violet-300 transition-colors">
+              <Link href={registerHref} className="font-bold text-violet-400 hover:text-violet-300 transition-colors">
                 Create Account
               </Link>
             </p>
@@ -292,5 +303,19 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0A0512] flex items-center justify-center text-gray-400 text-sm font-medium">
+          Loading…
+        </div>
+      }
+    >
+      <LoginInner />
+    </Suspense>
   );
 }

@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/contexts";
 import { API_BASE_URL } from "@/lib/api";
 import { isSingleGigPerDayCategory } from "@/lib/artistCalendarMode";
+import { bookingLoginUrl, bookingRegisterUrl } from "@/lib/bookingAuthRedirect";
 
 interface ArtistDetail {
   _id: string;
@@ -61,9 +62,11 @@ interface Review {
 export default function ArtistDetail() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const pathname = usePathname();
+  const { user, loading: authLoading } = useAuth();
   const artistId = params.id as string;
 
+  const bookingReturnPath = pathname || `/artists/${artistId}`;
   const [artist, setArtist] = useState<ArtistDetail | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
@@ -142,11 +145,20 @@ export default function ArtistDetail() {
     }
   }, [artist, singleGigPerDay, bookingDate, availabilitySlots]);
 
+  const openBookingFlow = () => {
+    if (authLoading) return;
+    if (!user?.id && !user?._id) {
+      router.push(bookingLoginUrl(bookingReturnPath));
+      return;
+    }
+    setShowBooking(true);
+  };
+
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!user) {
-      router.push("/login");
+    if (!user?.id && !user?._id) {
+      router.push(bookingLoginUrl(bookingReturnPath));
       return;
     }
 
@@ -468,7 +480,7 @@ export default function ArtistDetail() {
 
                 {!showBooking ? (
                   <button
-                    onClick={() => setShowBooking(true)}
+                    onClick={openBookingFlow}
                     className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-lg transition"
                   >
                     Request Booking
@@ -583,16 +595,22 @@ export default function ArtistDetail() {
                       </button>
                     </div>
 
-                    {!user && (
+                    {!user?.id && !user?._id && (
                       <p className="text-xs text-gray-600 text-center mt-2">
-                        You need to{" "}
                         <Link
-                          href="/login"
+                          href={bookingLoginUrl(bookingReturnPath)}
                           className="text-purple-600 hover:underline"
                         >
-                          login
+                          Sign in
+                        </Link>
+                        {" or "}
+                        <Link
+                          href={bookingRegisterUrl(bookingReturnPath)}
+                          className="text-purple-600 hover:underline"
+                        >
+                          create an account
                         </Link>{" "}
-                        to book this artist
+                        to book this artist.
                       </p>
                     )}
                   </form>

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts";
 import Link from "next/link";
 import { User, Mail, Lock, Eye, EyeOff, Music, Briefcase, ArrowRight } from "lucide-react";
@@ -11,6 +11,7 @@ import {
   signInWithFacebook,
   signInWithGoogle,
 } from "@/lib/firebaseSocialAuth";
+import { sanitizePostAuthRedirect } from "@/lib/bookingAuthRedirect";
 
 interface SignupData {
   name: string;
@@ -19,7 +20,14 @@ interface SignupData {
   role: "client" | "artist";
 }
 
-export default function RegisterPage() {
+function RegisterInner() {
+  const searchParams = useSearchParams();
+  const redirectAfterRegister = sanitizePostAuthRedirect(searchParams.get("redirect"));
+  const loginHref =
+    redirectAfterRegister != null
+      ? `/auth/login?redirect=${encodeURIComponent(redirectAfterRegister)}`
+      : "/auth/login";
+
   const [formData, setFormData] = useState<SignupData>({
     name: "",
     email: "",
@@ -32,6 +40,14 @@ export default function RegisterPage() {
   const [oauthProvider, setOauthProvider] = useState<"google" | "facebook" | null>(null);
   const router = useRouter();
   const { signup, loginWithFirebaseIdToken } = useAuth();
+
+  const goAfterSignup = (roleIsArtist: boolean) => {
+    if (redirectAfterRegister) {
+      router.push(redirectAfterRegister);
+      return;
+    }
+    router.push(roleIsArtist ? "/home/artist" : "/home/client");
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -52,8 +68,7 @@ export default function RegisterPage() {
 
     try {
       const result = await signup(formData);
-      const redirectPath = result.user.role === "artist" ? "/home/artist" : "/home/client";
-      router.push(redirectPath);
+      goAfterSignup(result.user.role === "artist");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Registration failed. Please try again.");
     } finally {
@@ -73,8 +88,7 @@ export default function RegisterPage() {
     try {
       const idToken = await signInWithGoogle();
       await loginWithFirebaseIdToken(idToken, formData.role);
-      const redirectPath = formData.role === "artist" ? "/home/artist" : "/home/client";
-      router.push(redirectPath);
+      goAfterSignup(formData.role === "artist");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Google sign-in failed.";
       setError(message);
@@ -95,8 +109,7 @@ export default function RegisterPage() {
     try {
       const idToken = await signInWithFacebook();
       await loginWithFirebaseIdToken(idToken, formData.role);
-      const redirectPath = formData.role === "artist" ? "/home/artist" : "/home/client";
-      router.push(redirectPath);
+      goAfterSignup(formData.role === "artist");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Facebook sign-in failed.";
       setError(message);
@@ -293,7 +306,7 @@ export default function RegisterPage() {
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-400">
               Already have an account?{" "}
-              <Link href="/auth/login" className="font-bold text-violet-400 hover:text-violet-300 transition-colors">
+              <Link href={loginHref} className="font-bold text-violet-400 hover:text-violet-300 transition-colors">
                 Sign In
               </Link>
             </p>
@@ -301,5 +314,19 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0A0512] flex items-center justify-center text-gray-400 text-sm font-medium">
+          Loading…
+        </div>
+      }
+    >
+      <RegisterInner />
+    </Suspense>
   );
 }
