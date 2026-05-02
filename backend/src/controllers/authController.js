@@ -60,6 +60,9 @@ class AuthController {
           email: user.email,
           role: user.role,
           status: user.status,
+          profileImage: user.profileImage,
+          phone: user.phone,
+          location: user.location,
         },
       });
     } catch (error) {
@@ -165,6 +168,9 @@ class AuthController {
           email: user.email,
           role: user.role,
           status: user.status,
+          profileImage: user.profileImage,
+          phone: user.phone,
+          location: user.location,
         },
       });
     } catch (error) {
@@ -214,6 +220,7 @@ class AuthController {
           status: user.status,
           profileImage: user.profileImage,
           phone: user.phone,
+          location: user.location,
         },
       };
 
@@ -243,7 +250,7 @@ class AuthController {
         });
       }
 
-      const { name, email, phone } = req.body;
+      const { name, email, phone, location, profileImage } = req.body;
       const updates = {};
 
       if (typeof name === "string" && name.trim()) {
@@ -271,6 +278,14 @@ class AuthController {
         updates.phone = phone.trim();
       }
 
+      if (typeof location === "string") {
+        updates.location = location.trim();
+      }
+
+      if (typeof profileImage === "string") {
+        updates.profileImage = profileImage.trim();
+      }
+
       const user = await User.findByIdAndUpdate(userId, updates, {
         new: true,
         runValidators: true,
@@ -294,6 +309,7 @@ class AuthController {
           status: user.status,
           profileImage: user.profileImage,
           phone: user.phone,
+          location: user.location,
         },
       });
     } catch (error) {

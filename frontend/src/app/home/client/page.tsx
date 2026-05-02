@@ -9,7 +9,6 @@ import { API_BASE_URL } from "@/lib/api";
 import { getAllArtistsFromFirestore } from "@/lib/firebaseBookingAPI";
 import {
   Search,
-  MapPin,
   Calendar,
   Star,
   ChevronDown,
@@ -26,13 +25,13 @@ import {
   User,
   ChevronRight,
   CheckCircle2,
-  XCircle,
   ArrowRight,
   LayoutDashboard,
   LogOut,
   Info,
   Settings,
-  Trash2
+  Trash2,
+  Sparkles
 } from "lucide-react";
 
 interface Booking {
@@ -58,6 +57,21 @@ interface Stats {
   completed: number;
   cancelled: number;
   totalRevenue: number;
+}
+
+interface RecommendedArtist {
+  id?: string;
+  _id?: string;
+  name?: string;
+  stageName?: string;
+  category?: string;
+  location?: string;
+  hourlyRate?: number;
+  profileImage?: string;
+  coverImage?: string;
+  rating?: number;
+  genres?: string[];
+  availability?: boolean | string;
 }
 
 const CATEGORIES = [
@@ -129,7 +143,8 @@ function ClientHomeContent() {
 
   const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
   const [notificationBookings, setNotificationBookings] = useState<Booking[]>([]);
-  const [recommendedArtists, setRecommendedArtists] = useState<any[]>([]);
+  const [recommendedArtists, setRecommendedArtists] = useState<RecommendedArtist[]>([]);
+  const [searchableArtists, setSearchableArtists] = useState<RecommendedArtist[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Search states
@@ -172,7 +187,9 @@ function ClientHomeContent() {
         // Fetch recommended artists
         const firestoreArtists = await getAllArtistsFromFirestore();
         if (firestoreArtists && firestoreArtists.length > 0) {
-          setRecommendedArtists(firestoreArtists.slice(0, 3));
+          const artists = firestoreArtists as RecommendedArtist[];
+          setSearchableArtists(artists);
+          setRecommendedArtists(artists.slice(0, 3));
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -241,6 +258,45 @@ function ClientHomeContent() {
     router.push("/sign-in");
   };
 
+  const handleSearchSubmit = (event?: React.FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+
+    const params = new URLSearchParams();
+    const query = searchQuery.trim();
+    if (query) params.set("q", query);
+    if (categoryFilter) params.set("category", categoryFilter);
+
+    router.push(`/search${params.toString() ? `?${params.toString()}` : ""}`);
+  };
+
+  const artistMatchesSearch = (artist: RecommendedArtist) => {
+    const query = searchQuery.trim().toLowerCase();
+    const selectedCategory = categoryFilter.toLowerCase();
+    const searchableText = [
+      artist.name,
+      artist.stageName,
+      artist.category,
+      artist.location,
+      ...(artist.genres || []),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    const matchesQuery = !query || searchableText.includes(query);
+    const matchesCategory =
+      !selectedCategory ||
+      (artist.category || "").toLowerCase().includes(selectedCategory) ||
+      (artist.genres || []).some((genre) => genre.toLowerCase().includes(selectedCategory));
+
+    return matchesQuery && matchesCategory;
+  };
+
+  const searchSuggestions =
+    searchQuery.trim() || categoryFilter
+      ? searchableArtists.filter(artistMatchesSearch).slice(0, 5)
+      : [];
+
   return (
     <div className="min-h-screen bg-[#0A0512] text-white selection:bg-violet-500/30 selection:text-violet-200">
       {/* STICKY NAVBAR */}
@@ -288,7 +344,17 @@ function ClientHomeContent() {
                     pathname === '/messages' ? 'bg-white/10 text-white shadow-inner' : 'text-gray-400 hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  Messages
+                  Notifications
+                </Link>
+                <Link
+                  href="/ai-support"
+                  className={`px-4 py-2 rounded-full text-sm font-semibold transition-all inline-flex items-center gap-1.5 ${
+                    pathname === '/ai-support'
+                      ? 'bg-gradient-to-r from-violet-600/40 to-fuchsia-600/40 text-white shadow-inner border border-violet-400/30'
+                      : 'text-violet-200 hover:text-white hover:bg-violet-500/10 border border-transparent hover:border-violet-400/20'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" /> AI Support
                 </Link>
                 <Link
                   href="/about"
@@ -310,7 +376,7 @@ function ClientHomeContent() {
                     setIsProfileOpen(false);
                   }}
                   className="relative w-10 h-10 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-gray-300 hover:text-white transition-all"
-                  title="Messages"
+                  title="Notifications"
                 >
                   <MessageSquare className="w-5 h-5" />
                   {unreadNotificationCount > 0 && (
@@ -325,7 +391,7 @@ function ClientHomeContent() {
                     <div className="fixed inset-0 z-40" onClick={() => setIsNotificationsOpen(false)}></div>
                     <div className="absolute right-0 mt-3 w-80 bg-[#120A20] border border-white/10 rounded-2xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] z-50 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-200">
                       <div className="px-4 py-3 border-b border-white/5 bg-white/5">
-                        <p className="text-white font-bold">Messages</p>
+                        <p className="text-white font-bold">Notifications</p>
                         <p className="text-gray-400 text-xs">{unreadNotificationCount} new update{unreadNotificationCount === 1 ? "" : "s"}</p>
                       </div>
                       <div className="max-h-80 overflow-y-auto p-2">
@@ -355,7 +421,7 @@ function ClientHomeContent() {
                         ) : (
                           <div className="py-8 text-center">
                             <MessageSquare className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                            <p className="text-sm font-bold text-white">No messages</p>
+                            <p className="text-sm font-bold text-white">No notifications</p>
                             <p className="text-xs text-gray-500 mt-1">Booking updates will appear here.</p>
                           </div>
                         )}
@@ -366,7 +432,7 @@ function ClientHomeContent() {
                           onClick={() => setIsNotificationsOpen(false)}
                           className="flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold transition-colors"
                         >
-                          View all messages <ChevronRight className="w-3.5 h-3.5" />
+                          View all notifications <ChevronRight className="w-3.5 h-3.5" />
                         </Link>
                       </div>
                     </div>
@@ -488,7 +554,7 @@ function ClientHomeContent() {
         {/* INLINE SEARCH & FILTER SECTION */}
         <section className="relative -mt-28 z-20 max-w-5xl mx-auto px-4 sm:px-0">
           <div className="bg-[#120A20]/90 backdrop-blur-2xl border border-white/10 rounded-3xl p-4 sm:p-6 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)] ring-1 ring-white/5">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="relative col-span-1 md:col-span-2">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                 <input
@@ -498,6 +564,38 @@ function ClientHomeContent() {
                   placeholder="Who are you looking for?"
                   className="w-full bg-black/50 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-white font-medium focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all placeholder:text-gray-600 shadow-inner"
                 />
+                {searchSuggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-3 z-30 rounded-2xl border border-white/10 bg-[#120A20]/95 backdrop-blur-2xl shadow-2xl shadow-black/40 overflow-hidden">
+                    <div className="px-4 py-2 border-b border-white/5 text-[11px] uppercase tracking-[0.2em] text-violet-300 font-bold">
+                      Suitable artists
+                    </div>
+                    {searchSuggestions.map((artist) => {
+                      const artistName = artist.stageName || artist.name || "Unknown Artist";
+                      const artistId = artist.id || artist._id;
+
+                      return (
+                        <button
+                          key={artistId || artistName}
+                          type="button"
+                          onClick={() => {
+                            if (artistId) router.push(`/artist/${artistId}`);
+                          }}
+                          className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/5 transition-colors"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-white truncate">{artistName}</p>
+                            <p className="text-xs text-gray-400 truncate">
+                              {[artist.category, artist.location].filter(Boolean).join(" - ") || "Artist profile"}
+                            </p>
+                          </div>
+                          <span className="shrink-0 text-[10px] font-black uppercase tracking-wider text-fuchsia-300 bg-fuchsia-500/10 border border-fuchsia-500/20 rounded-full px-2.5 py-1">
+                            View
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
               <div className="relative">
                 <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
@@ -517,16 +615,12 @@ function ClientHomeContent() {
                 </div>
               </div>
               <button
-                onClick={() =>
-                  router.push(
-                    `/search?q=\${searchQuery}&category=\${categoryFilter}`
-                  )
-                }
+                type="submit"
                 className="w-full bg-white hover:bg-gray-200 text-gray-950 font-bold rounded-2xl py-4 flex items-center justify-center gap-2 transition-colors shadow-[0_0_20px_-5px_rgba(255,255,255,0.5)] active:scale-[0.98]"
               >
                 Search Now <ArrowRight className="w-4 h-4" />
               </button>
-            </div>
+            </form>
           </div>
         </section>
 
@@ -733,7 +827,7 @@ function ClientHomeContent() {
                   No active bookings
                 </h4>
                 <p className="text-gray-400 max-w-xs mb-8 text-sm leading-relaxed font-medium">
-                  You haven't booked any artists yet. Ready to make your next
+                  You haven&apos;t booked any artists yet. Ready to make your next
                   event memorable?
                 </p>
                 <Link
@@ -964,7 +1058,7 @@ function ClientHomeContent() {
                     href="/messages"
                     className="hover:text-fuchsia-400 transition-colors flex items-center gap-2"
                   >
-                    <ChevronRight className="w-3 h-3" /> Messages
+                    <ChevronRight className="w-3 h-3" /> Notifications
                   </Link>
                 </li>
                 <li>

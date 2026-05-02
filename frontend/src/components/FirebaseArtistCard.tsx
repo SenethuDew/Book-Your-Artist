@@ -2,11 +2,26 @@ import React from 'react';
 import Link from 'next/link';
 import { MapPin, Star, Clock } from 'lucide-react';
 
-interface FirebaseArtistCardProps {
-  artist: any;
+interface FirebaseArtist {
+  id?: string;
+  _id?: string;
+  name?: string;
+  stageName?: string;
+  category?: string;
+  profileImage?: string;
+  hourlyRate?: number;
+  basePrice?: number;
+  rating?: number;
+  location?: string;
+  availability?: boolean | string;
 }
 
-export function FirebaseArtistCard({ artist }: FirebaseArtistCardProps) {
+interface FirebaseArtistCardProps {
+  artist: FirebaseArtist;
+  compact?: boolean;
+}
+
+export function FirebaseArtistCard({ artist, compact = false }: FirebaseArtistCardProps) {
   // Fallbacks for profile image based on category
   const profileImage = artist.profileImage || 
     (artist.category === 'DJ' 
@@ -22,7 +37,7 @@ export function FirebaseArtistCard({ artist }: FirebaseArtistCardProps) {
       <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
       
       {/* Image Area */}
-      <div className="relative h-56 sm:h-64 w-full overflow-hidden">
+      <div className={`relative ${compact ? 'h-44 sm:h-48' : 'h-56 sm:h-64'} w-full overflow-hidden`}>
          <div 
            className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
            style={{ backgroundImage: `url(${profileImage})` }}
@@ -30,28 +45,28 @@ export function FirebaseArtistCard({ artist }: FirebaseArtistCardProps) {
          <div className="absolute inset-0 bg-gradient-to-t from-[#1E112A] via-[#1E112A]/40 to-transparent opacity-90" />
          
          {/* Category Badge */}
-         <div className="absolute top-4 left-4 bg-white/10 backdrop-blur-md border border-white/20 px-4 py-1.5 rounded-full text-xs font-semibold tracking-wider text-[#E8B638] shadow-lg flex items-center gap-2">
+         <div className={`absolute top-4 left-4 bg-white/10 backdrop-blur-md border border-white/20 ${compact ? 'px-3 py-1 text-[10px]' : 'px-4 py-1.5 text-xs'} rounded-full font-semibold tracking-wider text-[#E8B638] shadow-lg flex items-center gap-2`}>
            <span className="w-1.5 h-1.5 rounded-full bg-[#E8B638] animate-pulse"></span>
            {artist.category || 'Artist'}
          </div>
          
          {/* Price Tag */}
-         <div className="absolute top-4 right-4 bg-gradient-to-r from-[#E8B638] to-yellow-600 px-4 py-1.5 rounded-full text-xs font-bold text-[#1E112A] shadow-lg flex items-center transform transition-transform group-hover:scale-105">
-           <span className="text-sm border-r border-[#1E112A]/20 pr-1.5 mr-1.5">$</span>
+         <div className={`absolute top-4 right-4 bg-gradient-to-r from-[#E8B638] to-yellow-600 ${compact ? 'px-3 py-1 text-[10px]' : 'px-4 py-1.5 text-xs'} rounded-full font-bold text-[#1E112A] shadow-lg flex items-center transform transition-transform group-hover:scale-105`}>
+           <span className={`${compact ? 'text-xs' : 'text-sm'} border-r border-[#1E112A]/20 pr-1.5 mr-1.5`}>$</span>
            {hourlyRate}
            <span className="text-[10px] font-medium ml-1 opacity-80 uppercase tracking-tighter">/hr</span>
          </div>
       </div>
 
       {/* Content Area */}
-      <div className="p-6 flex flex-col flex-1 relative z-10 -mt-8">
-        <h3 className="text-2xl font-bold text-white mb-4 line-clamp-1 drop-shadow-md group-hover:text-[#E8B638] transition-colors">
+      <div className={`${compact ? 'p-4 -mt-6' : 'p-6 -mt-8'} flex flex-col flex-1 relative z-10`}>
+        <h3 className={`${compact ? 'text-xl mb-3' : 'text-2xl mb-4'} font-bold text-white line-clamp-1 drop-shadow-md group-hover:text-[#E8B638] transition-colors`}>
           {artist.stageName || artist.name || 'Unknown Artist'}
         </h3>
         
-        <div className="flex flex-col gap-3 mb-6 bg-white/5 p-4 rounded-xl border border-white/5">
+        <div className={`${compact ? 'gap-2 mb-4 p-3' : 'gap-3 mb-6 p-4'} flex flex-col bg-white/5 rounded-xl border border-white/5`}>
           {/* Rating */}
-          <div className="flex items-center gap-2 text-sm font-semibold text-[#E8B638]">
+          <div className={`${compact ? 'text-xs' : 'text-sm'} flex items-center gap-2 font-semibold text-[#E8B638]`}>
             <div className="bg-[#E8B638]/20 p-1.5 rounded-md">
               <Star size={14} fill="currentColor" /> 
             </div>
@@ -59,7 +74,7 @@ export function FirebaseArtistCard({ artist }: FirebaseArtistCardProps) {
           </div>
 
           {/* Location */}
-          <div className="flex items-center gap-2 text-sm text-gray-300">
+          <div className={`${compact ? 'text-xs' : 'text-sm'} flex items-center gap-2 text-gray-300`}>
             <div className="bg-purple-500/20 p-1.5 rounded-md text-purple-400">
               <MapPin size={14} />
             </div>
@@ -67,7 +82,7 @@ export function FirebaseArtistCard({ artist }: FirebaseArtistCardProps) {
           </div>
 
           {/* Availability */}
-          <div className="flex items-center gap-2 text-sm">
+          <div className={`${compact ? 'text-xs' : 'text-sm'} flex items-center gap-2`}>
             <div className={`p-1.5 rounded-md ${artist.availability === 'false' ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
               <Clock size={14} />
             </div>
@@ -81,7 +96,7 @@ export function FirebaseArtistCard({ artist }: FirebaseArtistCardProps) {
           {/* View Profile Button */}
           <Link 
             href={`/artist/${artist.id || artist._id}`}
-            className="w-full flex items-center justify-center gap-2 py-3 bg-white/10 hover:bg-[#E8B638] text-white hover:text-[#1E112A] rounded-xl transition-all duration-300 font-bold text-sm tracking-wide group/btn border border-white/10 hover:border-transparent cursor-pointer relative overflow-hidden"
+            className={`w-full flex items-center justify-center gap-2 ${compact ? 'py-2.5 text-xs' : 'py-3 text-sm'} bg-white/10 hover:bg-[#E8B638] text-white hover:text-[#1E112A] rounded-xl transition-all duration-300 font-bold tracking-wide group/btn border border-white/10 hover:border-transparent cursor-pointer relative overflow-hidden`}
           >
             <span className="relative z-10 flex items-center gap-2">
               View Profile

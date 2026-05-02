@@ -6,8 +6,8 @@ import { getArtistFromFirestore, getArtistBookings } from '@/lib/firebaseBooking
 import { API_BASE_URL } from '@/lib/api';
 import { FirebaseBookingForm } from '@/components/FirebaseBookingForm';
 import { useAuth } from '@/contexts';
-import { MapPin, Star, Mic2, Calendar, Music2, ArrowLeft, CalendarCheck, CheckCircle2, Zap, Video, UserCheck, ShieldCheck } from 'lucide-react';
-import { FaInstagram } from 'react-icons/fa';
+import { MapPin, Star, Mic2, Calendar, Music2, ArrowLeft, CalendarCheck, CheckCircle2, Zap, UserCheck, ShieldCheck } from 'lucide-react';
+import { FaInstagram, FaSpotify, FaYoutube } from 'react-icons/fa';
 
 interface ArtistProfileData {
   id?: string;
@@ -27,6 +27,8 @@ interface ArtistProfileData {
   bio?: string;
   socialLinks?: {
     instagram?: string;
+    youtube?: string;
+    spotify?: string;
   };
   experience?: string;
   yearsOfExperience?: string;
@@ -285,46 +287,61 @@ export default function ArtistProfilePage() {
     };
   };
 
-  const mapUrl = selectedBookedSlot
-    ? `https://maps.google.com/maps?q=${encodeURIComponent(selectedBookedSlot.location)}&output=embed`
-    : "";
+  const defaultMapLocation = artist.location || "Sri Lanka";
+  const activeMapLocation = selectedBookedSlot?.location || defaultMapLocation;
+  const activeMapTitle = selectedBookedSlot?.title || `${artist.stageName || artist.name} Location`;
+  const activeMapSubtitle = selectedBookedSlot
+    ? `${selectedBookedSlot.date} - ${selectedBookedSlot.time}`
+    : "Artist location preview";
+  const mapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(activeMapLocation)}&output=embed`;
 
   return (
-    <div className="min-h-screen bg-gray-900 pb-20">
+    <div className="min-h-screen bg-[#07040f] pb-20 relative overflow-hidden">
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute -top-32 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-violet-600/20 blur-[120px]" />
+        <div className="absolute top-64 -left-24 h-80 w-80 rounded-full bg-fuchsia-600/10 blur-[110px]" />
+        <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-cyan-500/10 blur-[120px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.025)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.025)_1px,transparent_1px)] bg-[size:48px_48px]" />
+      </div>
       <div 
-        className="w-full h-64 md:h-80 lg:h-[420px] bg-cover bg-center relative"
+        className="w-full h-56 md:h-72 lg:h-[360px] bg-cover bg-center relative"
         style={{ backgroundImage: `url(${coverImage})` }}
       >
-        <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-900/60 to-transparent"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-[#07040f] via-[#120A20]/80 to-black/30"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-violet-950/70 via-transparent to-fuchsia-950/50 mix-blend-screen"></div>
         
-        <button onClick={() => router.back()} className="absolute top-6 left-6 w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white hover:text-black transition-colors z-10 shadow-lg">
+        <button onClick={() => router.back()} className="absolute top-6 left-6 w-10 h-10 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-violet-600 transition-colors z-10 shadow-lg border border-white/10">
           <ArrowLeft size={20} />
         </button>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-32 relative z-10">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-24 relative z-10">
         {/* Main Identity Card */}
-        <div className="bg-gray-900/95 backdrop-blur-2xl border border-gray-700/50 rounded-3xl shadow-2xl p-6 sm:p-8 flex flex-col md:flex-row gap-6 md:gap-8 items-start ring-1 ring-white/10">
+        <div className="bg-white/[0.06] backdrop-blur-2xl border border-white/10 rounded-[2rem] shadow-2xl shadow-violet-950/40 p-5 sm:p-6 flex flex-col md:flex-row gap-5 md:gap-6 items-start ring-1 ring-white/5 relative overflow-hidden">
+          <div className="absolute -top-24 -right-24 w-64 h-64 bg-fuchsia-500/10 rounded-full blur-3xl" />
+          <div className="absolute -bottom-24 left-20 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl" />
           
-          <div className="flex-shrink-0 w-32 h-32 md:w-48 md:h-48 rounded-2xl overflow-hidden border-4 border-gray-800 shadow-2xl bg-gray-700 relative">
+          <div className="flex-shrink-0 w-28 h-28 md:w-40 md:h-40 rounded-3xl overflow-hidden border-4 border-violet-500/20 shadow-2xl shadow-black/40 bg-gray-700 relative">
             <img src={profileImage} alt={artist.stageName || artist.name} className="w-full h-full object-cover" />
-            <div className="absolute top-2 right-2 bg-green-500 rounded-full w-4 h-4 border-2 border-gray-800 shadow-sm" title="Online or Active recently"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" />
+            <div className="absolute top-3 right-3 bg-emerald-400 rounded-full w-4 h-4 border-2 border-gray-950 shadow-[0_0_16px_rgba(52,211,153,0.8)]" title="Online or Active recently"></div>
           </div>
 
-           <div className="flex-1 pt-2 w-full">
+           <div className="flex-1 pt-2 w-full relative z-10">
             <div className="flex flex-col md:flex-row justify-between items-start lg:items-center gap-4 mb-4">
               <div>
-                <h1 className="text-3xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-400 mb-2 flex items-center gap-3">
+                <p className="text-[11px] uppercase tracking-[0.28em] text-violet-300 font-black mb-2">Featured Artist</p>
+                <h1 className="text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white via-violet-100 to-fuchsia-300 mb-2 flex items-center gap-3">
                   {artist.stageName || artist.name}
-                  <ShieldCheck className="text-blue-400 w-6 h-6 sm:w-8 sm:h-8" />
+                  <ShieldCheck className="text-fuchsia-300 w-6 h-6 sm:w-8 sm:h-8" />
                 </h1>
                 
                 <div className="flex flex-wrap items-center gap-3 text-sm text-gray-300 font-medium mt-3">
                   {artist.category && (
-                    <span className="flex items-center gap-1.5 bg-gray-800/80 px-3 py-1 rounded-full border border-gray-700"><Mic2 size={14} className="text-violet-400" /> {artist.category}</span>
+                    <span className="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full border border-white/10"><Mic2 size={14} className="text-violet-300" /> {artist.category}</span>
                   )}
                   {artist.location && (
-                    <span className="flex items-center gap-1.5 bg-gray-800/80 px-3 py-1 rounded-full border border-gray-700"><MapPin size={14} className="text-red-400" /> {artist.location}</span>
+                    <span className="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full border border-white/10"><MapPin size={14} className="text-fuchsia-300" /> {artist.location}</span>
                   )}
                   {artist.rating !== undefined && (
                     <div className="flex items-center gap-1 ml-1 text-yellow-500 font-bold">
@@ -335,37 +352,23 @@ export default function ArtistProfilePage() {
                   )}
                 </div>
               </div>
-              
-              <div className="flex flex-col items-stretch md:items-end w-full md:w-auto p-4 bg-gray-800/50 rounded-2xl border border-gray-700/50">
-                <div className="text-gray-400 text-sm font-medium mb-1 uppercase tracking-wider">Starting at</div>
-                <div className="text-3xl font-black text-white mb-4 flex items-baseline">
-                   ${artist.hourlyRate || artist.price || 150}
-                   <span className="text-sm text-gray-400 ml-1 font-normal">/ hour</span>
-                </div>
-                <button 
-                  onClick={() => setShowBookingForm(true)}
-                  className="w-full md:w-auto px-8 py-3.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white rounded-xl font-bold shadow-lg shadow-violet-600/25 transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
-                >
-                  <CalendarCheck size={18} /> Request Booking
-                </button>
-              </div>
             </div>
 
             {/* Quick Stats Banner */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-700/50">
-              <div className="flex flex-col">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5 pt-5 border-t border-white/10">
+              <div className="flex flex-col rounded-2xl bg-white/[0.04] border border-white/10 p-2.5">
                 <span className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Bookings</span>
                 <span className="text-lg text-white font-bold flex items-center gap-1.5"><CheckCircle2 size={16} className="text-green-400"/> {mockStats.totalBookings}+</span>
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col rounded-2xl bg-white/[0.04] border border-white/10 p-2.5">
                 <span className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Response Time</span>
                 <span className="text-lg text-white font-bold flex items-center gap-1.5"><Zap size={16} className="text-yellow-400"/> {mockStats.responseTime}</span>
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col rounded-2xl bg-white/[0.04] border border-white/10 p-2.5">
                 <span className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Experience</span>
                 <span className="text-lg text-white font-bold flex items-center gap-1.5"><UserCheck size={16} className="text-blue-400"/> {artist.experience || '3+ Years'}</span>
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col rounded-2xl bg-white/[0.04] border border-white/10 p-2.5">
                 <span className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Status</span>
                 <span className="text-lg text-white font-bold flex items-center gap-1.5">
                   <span className={`w-2.5 h-2.5 rounded-full ${artist.availability !== false ? 'bg-green-500' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]'}`}></span> 
@@ -379,39 +382,54 @@ export default function ArtistProfilePage() {
         {/* Content Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
           
-           {/* Left Column - Details & Portfolio */}
-           <div className="lg:col-span-2 space-y-6">
-            <section className="bg-gray-900 border border-gray-800 rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-violet-500/10 to-fuchsia-500/5 rounded-bl-full pointer-events-none transition-transform group-hover:scale-110 duration-700"></div>
-              <h2 className="text-2xl font-bold text-white mb-5 flex items-center gap-3">
-                <Music2 className="text-fuchsia-400 w-6 h-6" /> About {artist.stageName || artist.name}
+           {/* Left Column - Details */}
+           <div className="contents">
+            <section className="lg:col-span-2 h-full bg-white/[0.05] border border-white/10 rounded-3xl p-5 sm:p-6 shadow-xl shadow-black/20 relative overflow-hidden group backdrop-blur-xl">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-violet-500/15 to-fuchsia-500/10 rounded-bl-full pointer-events-none transition-transform group-hover:scale-110 duration-700 blur-2xl"></div>
+              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
+                <Music2 className="text-fuchsia-400 w-5 h-5" /> About {artist.stageName || artist.name}
               </h2>
               
-              <p className="text-gray-300 leading-relaxed max-w-prose whitespace-pre-wrap text-[15px] sm:text-base font-light mb-6">
+              <p className="text-gray-300 leading-relaxed max-w-prose whitespace-pre-wrap text-sm sm:text-[15px] font-light mb-5">
                 {artist.biography || "No biography provided yet. But this artist's talent speaks for itself! Get ready to be amazed by the ultimate performance. Let the music take control and connect with the vibe."}
               </p>
               
-              <div className="mt-4 bg-gray-800/30 border border-gray-700/50 p-4 rounded-xl inline-block min-w-[200px]">
-                <p className="text-sm font-medium text-gray-400 mb-2 uppercase tracking-wide">Instagram</p>
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <a
                   href={artist.socialLinks?.instagram || "https://instagram.com/yohanimusic"}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2.5 text-pink-500 hover:text-pink-400 hover:underline transition-all"
+                  className="flex items-center gap-2.5 bg-gray-950/60 border border-white/10 p-3 rounded-2xl text-pink-400 hover:text-pink-300 hover:border-pink-400/40 transition-all"
                 >
-                  <FaInstagram className="w-6 h-6" />
-                  <span className="font-semibold text-[17px]">
-                    @{artist.socialLinks?.instagram ? artist.socialLinks.instagram.split('/').filter((p: string) => p).pop() : "yohanimusic"}
-                  </span>
+                  <FaInstagram className="w-5 h-5" />
+                  <span className="font-semibold text-sm">Instagram</span>
+                </a>
+                <a
+                  href={artist.socialLinks?.youtube || "https://youtube.com"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2.5 bg-gray-950/60 border border-white/10 p-3 rounded-2xl text-red-400 hover:text-red-300 hover:border-red-400/40 transition-all"
+                >
+                  <FaYoutube className="w-5 h-5" />
+                  <span className="font-semibold text-sm">YouTube</span>
+                </a>
+                <a
+                  href={artist.socialLinks?.spotify || "https://spotify.com"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2.5 bg-gray-950/60 border border-white/10 p-3 rounded-2xl text-emerald-400 hover:text-emerald-300 hover:border-emerald-400/40 transition-all"
+                >
+                  <FaSpotify className="w-5 h-5" />
+                  <span className="font-semibold text-sm">Spotify</span>
                 </a>
               </div>
 
-              <div className="mt-8">
-                <h3 className="text-sm uppercase tracking-wider font-bold text-gray-500 mb-3">Musical DNA</h3>
+              <div className="mt-5">
+                <h3 className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-3">Musical DNA</h3>
                 <div className="flex flex-wrap gap-2">
                   {artist.genres && artist.genres.length > 0 ? (
                     artist.genres.map((g: string, i: number) => (
-                      <span key={i} className="px-5 py-2 bg-gray-800 border border-gray-700 hover:border-violet-500/50 text-gray-300 rounded-full text-sm font-semibold hover:shadow-lg hover:shadow-violet-500/10 transition-all cursor-default">
+                      <span key={i} className="px-4 py-1.5 bg-violet-500/10 border border-violet-500/20 hover:border-fuchsia-400/50 text-gray-200 rounded-full text-xs font-semibold hover:shadow-lg hover:shadow-violet-500/10 transition-all cursor-default">
                         {g}
                       </span>
                     ))
@@ -422,42 +440,37 @@ export default function ArtistProfilePage() {
               </div>
             </section>
 
-            {/* Mock Portfolio Area */}
-            <section className="bg-gray-900 border border-gray-800 rounded-3xl p-6 sm:p-8 shadow-xl overflow-hidden">
-              <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                <Video className="text-blue-400 w-6 h-6" /> Performance Previews
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="group relative aspect-video bg-gray-800 rounded-xl overflow-hidden cursor-pointer">
-                  <div className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1470229722913-7c090be5f5ae?w=800')" }}></div>
-                  <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors"></div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/30 group-hover:scale-110 transition-transform">
-                      <div className="w-0 h-0 border-t-8 border-t-transparent border-l-[14px] border-l-white border-b-8 border-b-transparent ml-1"></div>
-                    </div>
+            {/* Right Column - Quick Booking */}
+            <div className="space-y-6 h-full">
+              <section className="bg-white/[0.05] border border-white/10 rounded-3xl p-5 shadow-xl shadow-black/20 h-full backdrop-blur-xl flex flex-col justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                    <CalendarCheck className="text-violet-400" /> {id.startsWith('intl-') ? 'Reserve Travel Plan' : 'Quick Booking'}
+                  </h2>
+                  <p className="text-sm font-medium text-gray-500 mb-4">{id.startsWith('intl-') ? 'Start your international booking process.' : 'Select a custom schedule for your event.'}</p>
+                </div>
+                
+                <div className="border-t border-white/10 pt-5 mt-2">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-gray-400 font-medium">{id.startsWith('intl-') ? 'Starting Rate' : 'Standard Rate'}</span>
+                    <span className="text-2xl font-black text-white">$ {artist.hourlyRate || 250}{!id.startsWith('intl-') && <span className="text-sm font-normal text-gray-500">/hr</span>}</span>
                   </div>
-                  <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-gray-900 to-transparent pt-8">
-                     <span className="text-white font-semibold text-sm">Live in Concert 2025</span>
+                  <button
+                    onClick={() => openInteractiveModal()}
+                    className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-bold text-base hover:from-violet-500 hover:to-fuchsia-500 transition-all shadow-[0_0_40px_-10px_rgba(168,85,247,0.5)] hover:shadow-[0_0_60px_-10px_rgba(168,85,247,0.7)] group transform hover:-translate-y-1"
+                  >
+                    <Calendar className="w-5 h-5 group-hover:animate-pulse" /> {id.startsWith('intl-') ? 'Request Travel Itinerary' : 'Custom Request Details'}
+                  </button>
+                  <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-500">
+                    <ShieldCheck className="w-4 h-4 text-emerald-500" /> Safe & Secure Payments via Stripe
                   </div>
                 </div>
-                <div className="group relative aspect-video bg-gray-800 rounded-xl overflow-hidden cursor-pointer">
-                  <div className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800')" }}></div>
-                  <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors"></div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/30 group-hover:scale-110 transition-transform">
-                       <span className="text-white font-bold text-xs tracking-wider">AUDIO</span>
-                    </div>
-                  </div>
-                  <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-gray-900 to-transparent pt-8 text-right">
-                     <span className="text-white font-semibold text-sm">Acoustic Session</span>
-                  </div>
-                </div>
-              </div>
-            </section>
+              </section>
+            </div>
 
             {/* Live Availability Engine MOVED to Main Column Conditionally */}
             {id.startsWith('intl-') ? (
-              <section className="bg-gray-900 border border-gray-800 rounded-3xl p-6 sm:p-8 shadow-xl overflow-hidden relative">
+              <section className="lg:col-span-3 bg-white/[0.05] border border-white/10 rounded-3xl p-6 sm:p-8 shadow-xl shadow-black/20 overflow-hidden relative backdrop-blur-xl">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-indigo-500/10 to-blue-500/5 rounded-bl-full pointer-events-none"></div>
                 <div className="relative z-10">
                   <div className="flex items-center gap-3 mb-6">
@@ -473,14 +486,14 @@ export default function ArtistProfilePage() {
                   </div>
 
                   <div className="grid sm:grid-cols-2 gap-6 mb-8">
-                    <div className="bg-gray-800/50 rounded-2xl p-4 border border-gray-800">
+                    <div className="bg-gray-950/50 rounded-2xl p-4 border border-white/10">
                       <h3 className="text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                         Destination
                       </h3>
                       <p className="text-lg font-semibold text-white">Sri Lanka</p>
                     </div>
-                    <div className="bg-gray-800/50 rounded-2xl p-4 border border-gray-800">
+                    <div className="bg-gray-950/50 rounded-2xl p-4 border border-white/10">
                       <h3 className="text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         Performance Type
@@ -512,32 +525,33 @@ export default function ArtistProfilePage() {
                 </div>
               </section>
             ) : (
-            <section className="bg-gray-900 border border-gray-800 rounded-3xl p-6 sm:p-8 shadow-xl overflow-hidden">
-              <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
-                <CalendarCheck className="text-violet-400 w-6 h-6" /> Booking Calendar
+            <section className="lg:col-span-3 bg-white/[0.05] border border-white/10 rounded-3xl p-4 sm:p-6 shadow-xl shadow-black/20 overflow-hidden backdrop-blur-xl">
+              <h2 className="text-xl font-bold text-white mb-1 flex items-center gap-3">
+                <CalendarCheck className="text-violet-400 w-5 h-5" /> Booking Calendar
               </h2>
-              <p className="text-sm font-medium text-gray-500 mb-6">Upcoming slots available to book.</p>
+              <p className="text-xs font-medium text-gray-500 mb-4">Upcoming slots available to book.</p>
               
-              <div className="flex flex-col gap-2 pb-2">
-                <table className="w-full text-left border-collapse table-fixed">
+              <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4">
+                <div className="flex flex-col gap-2 pb-2 overflow-x-auto">
+                <table className="w-full min-w-[620px] text-left border-collapse table-fixed">
                   <thead>
                     <tr>
-                      <th className="p-1 sm:p-2 bg-gray-800/80 border-b border-gray-700/50 text-gray-400 font-semibold uppercase text-[9px] sm:text-[10px] w-14 sm:w-20 lg:w-24">Date</th>
+                      <th className="p-1 sm:p-2 bg-gray-950/70 border-b border-white/10 text-gray-400 font-semibold uppercase text-[9px] sm:text-[10px] w-14 sm:w-20 lg:w-24">Date</th>
                       {TIME_SLOTS.map((slot, i) => (
-                        <th key={i} className="p-1 sm:p-2 bg-gray-800/80 border-b border-gray-700/50 text-gray-400 font-semibold uppercase text-[9px] sm:text-[10px] text-center border-l border-gray-700/30 w-[18%] sm:w-1/4">
+                        <th key={i} className="p-1 sm:p-2 bg-gray-950/70 border-b border-white/10 text-gray-400 font-semibold uppercase text-[9px] sm:text-[10px] text-center border-l border-white/10 w-[18%] sm:w-1/4">
                           {slot.label}
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="bg-gray-900/40 divide-y divide-gray-800/60">
+                  <tbody className="bg-gray-950/30 divide-y divide-white/10">
                     {upcomingDates.map((date, idx) => {
                       const dateString = formatYYYYMMDD(date);
                       const isToday = dateString === formatYYYYMMDD(today);
                       
                       return (
-                        <tr key={idx} className={isToday ? "bg-gray-800/40" : "hover:bg-gray-800/20 transition-colors"}>
-                          <td className="p-1 sm:p-2 border-r border-gray-700/30">
+                        <tr key={idx} className={isToday ? "bg-violet-500/10" : "hover:bg-white/[0.03] transition-colors"}>
+                          <td className="p-1 sm:p-2 border-r border-white/10">
                             <div className="flex flex-col">
                               <span className={`font-bold text-[10px] sm:text-xs leading-tight ${isToday ? 'text-yellow-400' : 'text-gray-200'}`}>
                                 {date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' })}
@@ -555,7 +569,7 @@ export default function ArtistProfilePage() {
                             const canShowBookedLocation = (publishedSlot?.status === 'Booked' || isBooked) && !!bookedSlotDetails;
                             
                             return (
-                              <td key={sIdx} className="p-1 sm:p-2 border-r border-gray-700/30 align-top overflow-hidden">
+                              <td key={sIdx} className="p-1 border-r border-white/10 align-top overflow-hidden">
                                 {isBooked || isReserved ? (
                                   <button
                                     type="button"
@@ -601,7 +615,7 @@ export default function ArtistProfilePage() {
                                     </button>
                                   </div>
                                 ) : (
-                                  <div className="flex flex-col items-center justify-center p-1 sm:p-2 rounded bg-gray-800/60 border border-gray-700/50 h-full text-center">
+                                  <div className="flex flex-col items-center justify-center p-1 sm:p-2 rounded bg-gray-950/60 border border-white/10 h-full text-center">
                                     <span className="inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5 sm:mb-1">
                                       <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-gray-600" /> Unavailable
                                     </span>
@@ -616,87 +630,31 @@ export default function ArtistProfilePage() {
                     })}
                   </tbody>
                 </table>
-              </div>
+                </div>
 
-              {selectedBookedSlot ? (
-                <div className="mt-6 rounded-2xl overflow-hidden border border-violet-500/20 bg-gray-950/60">
-                  <div className="p-4 border-b border-gray-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="rounded-2xl overflow-hidden border border-violet-500/20 bg-gray-950/60 h-full min-h-[300px] flex flex-col">
+                  <div className="p-3 border-b border-white/10 flex flex-col gap-2">
                     <div>
-                      <p className="text-xs uppercase tracking-wider text-violet-300 font-bold">Booked Slot Location</p>
-                      <h3 className="text-white font-bold mt-1">{selectedBookedSlot.title}</h3>
-                      <p className="text-sm text-gray-400 mt-1">{selectedBookedSlot.date} - {selectedBookedSlot.time}</p>
+                      <p className="text-xs uppercase tracking-wider text-violet-300 font-bold">Location Map</p>
+                      <h3 className="text-white font-bold mt-1">{activeMapTitle}</h3>
+                      <p className="text-xs text-gray-400 mt-1">{activeMapSubtitle}</p>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-300 sm:max-w-xs">
+                    <div className="flex items-center gap-2 text-xs text-gray-300">
                       <MapPin className="w-4 h-4 text-fuchsia-400 shrink-0" />
-                      <span className="truncate" title={selectedBookedSlot.location}>{selectedBookedSlot.location}</span>
+                      <span className="truncate" title={activeMapLocation}>{activeMapLocation}</span>
                     </div>
                   </div>
                   <iframe
-                    title={`Map for ${selectedBookedSlot.location}`}
+                    title={`Map for ${activeMapLocation}`}
                     src={mapUrl}
-                    className="w-full h-72 border-0"
+                    className="w-full flex-1 min-h-60 border-0"
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
                   />
                 </div>
-              ) : (
-                <div className="mt-6 rounded-2xl border border-gray-800 bg-gray-950/50 p-4 text-sm text-gray-500 flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-gray-600" />
-                  Click a booked slot to preview its event location on the map.
-                </div>
-              )}
-            </section>
-            )}
-          </div>
-
-          {/* Right Column - Schedule & Socials */}
-          <div className="space-y-6">
-            <section className="bg-gray-900 border border-gray-800 rounded-3xl p-6 shadow-xl sticky top-6">
-              <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                <CalendarCheck className="text-violet-400" /> {id.startsWith('intl-') ? 'Reserve Travel Plan' : 'Quick Booking'}
-              </h2>
-              <p className="text-sm font-medium text-gray-500 mb-6">{id.startsWith('intl-') ? 'Start your international booking process.' : 'Select a custom schedule for your event.'}</p>
-              
-              <div className="border-t border-gray-800 pt-6 mt-2">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-gray-400 font-medium">{id.startsWith('intl-') ? 'Starting Rate' : 'Standard Rate'}</span>
-                  <span className="text-2xl font-black text-white">$ {artist.hourlyRate || 250}{!id.startsWith('intl-') && <span className="text-sm font-normal text-gray-500">/hr</span>}</span>
-                </div>
-                <button
-                  onClick={() => openInteractiveModal()}
-                  className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-bold text-lg hover:from-violet-500 hover:to-fuchsia-500 transition-all shadow-[0_0_40px_-10px_rgba(168,85,247,0.5)] hover:shadow-[0_0_60px_-10px_rgba(168,85,247,0.7)] group transform hover:-translate-y-1"
-                >
-                  <Calendar className="w-5 h-5 group-hover:animate-pulse" /> {id.startsWith('intl-') ? 'Request Travel Itinerary' : 'Custom Request Details'}
-                </button>
-                <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-500">
-                  <ShieldCheck className="w-4 h-4 text-emerald-500" /> Safe & Secure Payments via Stripe
-                </div>
               </div>
             </section>
-            
-            <section className="bg-gray-900 border border-gray-800 rounded-3xl p-6 shadow-xl">
-               <h3 className="text-lg font-bold text-white mb-4">You Might Also Like</h3>
-               <div className="flex flex-col gap-3">
-                 <div className="flex items-center gap-4 group cursor-pointer hover:bg-gray-800 p-2 rounded-xl transition-colors">
-                    <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-700 flex-shrink-0">
-                      <img src="https://images.unsplash.com/photo-1598387993441-a364f854c3e1?w=400" className="w-full h-full object-cover group-hover:scale-110 transition-transform"/>
-                    </div>
-                    <div>
-                      <h4 className="text-white font-semibold">Neon Shadows</h4>
-                      <p className="text-xs text-gray-400">Synthwave DJ</p>
-                    </div>
-                 </div>
-                 <div className="flex items-center gap-4 group cursor-pointer hover:bg-gray-800 p-2 rounded-xl transition-colors">
-                    <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-700 flex-shrink-0">
-                      <img src="https://images.unsplash.com/photo-1621360841013-c76831f1228e?w=400" className="w-full h-full object-cover group-hover:scale-110 transition-transform"/>
-                    </div>
-                    <div>
-                      <h4 className="text-white font-semibold">Acoustic Dreamers</h4>
-                      <p className="text-xs text-gray-400">Indie Folk Band</p>
-                    </div>
-                 </div>
-               </div>
-            </section>
+            )}
           </div>
         </div>
       </div>

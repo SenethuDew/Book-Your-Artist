@@ -10,6 +10,7 @@ const paymentController = require("../controllers/paymentController");
 const reviewController = require("../controllers/reviewController");
 const messageController = require("../controllers/messageController");
 const adminController = require("../controllers/adminController");
+const aiController = require("../controllers/aiController");
 
 // Import middleware (auth middleware should already exist)
 const auth = require("../middleware/auth"); // Assuming this exists
@@ -88,5 +89,8 @@ router.put("/admin/artists/:artistId/reject", auth, adminController.rejectArtist
 router.get("/admin/stats", auth, adminController.getStats);
 router.put("/admin/users/:userId/suspend", auth, adminController.suspendUser);
 router.put("/admin/users/:userId/unsuspend", auth, adminController.unsuspendUser);
+
+// ===== AI SUPPORT ROUTE =====
+router.post("/ai/chat", aiController.chat);
 
 module.exports = router;

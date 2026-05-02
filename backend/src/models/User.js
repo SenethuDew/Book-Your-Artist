@@ -19,6 +19,7 @@ const userSchema = new mongoose.Schema(
       required: true,
     },
     phone: String,
+    location: String,
     profileImage: String,
     bio: String,
     role: {
