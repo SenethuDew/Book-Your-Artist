@@ -184,6 +184,147 @@ class AuthController {
   }
 
   /**
+   * Firebase social sign-in (Google / Facebook via Firebase Auth on the client).
+   * Verifies the ID token with Google Identity Toolkit, then creates a Mongo user
+   * if needed and returns the same JWT as email/password login.
+   *
+   * POST /auth/firebase
+   * Body: { idToken: string, role?: "client" | "artist" } — role applies only when creating a new user.
+   */
+  async firebaseLogin(req, res) {
+    try {
+      const axios = require("axios");
+      const bcryptjs = require("bcryptjs");
+      const crypto = require("crypto");
+
+      const { getFirebaseWebApiKey } = require("../config/firebaseWebEnv");
+      const { idToken, role: requestedRole } = req.body || {};
+      const apiKey = getFirebaseWebApiKey();
+
+      if (!idToken || typeof idToken !== "string") {
+        return res.status(400).json({
+          success: false,
+          message: "Missing sign-in token. Please try signing in again.",
+        });
+      }
+
+      if (!apiKey) {
+        return res.status(503).json({
+          success: false,
+          message:
+            "Social sign-in is not configured on the server. Add FIREBASE_WEB_API_KEY to the backend .env (same value as your Firebase Web API key).",
+        });
+      }
+
+      let lookup;
+      try {
+        const { data } = await axios.post(
+          `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`,
+          { idToken },
+          { headers: { "Content-Type": "application/json" }, timeout: 15000 }
+        );
+        lookup = data;
+      } catch (err) {
+        console.error("[auth] Firebase token verify failed:", err.response?.data || err.message);
+        return res.status(401).json({
+          success: false,
+          message: "Invalid or expired social sign-in. Please try again.",
+        });
+      }
+
+      const fbUser = lookup?.users?.[0];
+      if (!fbUser?.email) {
+        return res.status(401).json({
+          success: false,
+          message: "Your social account did not share an email. Try another provider or sign up with email.",
+        });
+      }
+
+      const email = String(fbUser.email).trim().toLowerCase();
+      const name =
+        (fbUser.displayName && String(fbUser.displayName).trim()) ||
+        (email.includes("@") ? email.split("@")[0] : "User");
+
+      const role = requestedRole === "artist" ? "artist" : "client";
+
+      const profileImage =
+        fbUser.photoUrl && String(fbUser.photoUrl).trim() ? String(fbUser.photoUrl).trim() : "";
+
+      let user = await User.findOne({ email });
+
+      if (!user) {
+        const randomPw = crypto.randomBytes(32).toString("hex");
+        const salt = bcryptjs.genSaltSync(10);
+        user = new User({
+          name,
+          email,
+          role,
+          status: "active",
+          profileImage: profileImage || undefined,
+          password: bcryptjs.hashSync(randomPw, salt),
+        });
+        await user.save();
+      } else {
+        if (profileImage && !(user.profileImage && String(user.profileImage).trim())) {
+          user.profileImage = profileImage;
+          await user.save();
+        }
+      }
+
+      if (user.role === "artist" && user.status === "pending") {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Your artist account is pending approval. Please wait for admin approval.",
+          user: {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            status: user.status,
+          },
+        });
+      }
+
+      if (user.status === "suspended") {
+        return res.status(403).json({
+          success: false,
+          message: "Your account has been suspended",
+        });
+      }
+
+      const token = jwt.sign(
+        { id: user._id, email: user.email, role: user.role, status: user.status },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      return res.json({
+        success: true,
+        message: "Signed in successfully",
+        token,
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          status: user.status,
+          profileImage: user.profileImage,
+          phone: user.phone,
+          location: user.location,
+        },
+      });
+    } catch (error) {
+      console.error("Firebase login error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Social sign-in failed",
+        error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  /**
    * Get current user
    * GET /auth/me
    */

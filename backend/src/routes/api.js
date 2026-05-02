@@ -11,13 +11,18 @@ const reviewController = require("../controllers/reviewController");
 const messageController = require("../controllers/messageController");
 const adminController = require("../controllers/adminController");
 const aiController = require("../controllers/aiController");
+const firebaseConfigController = require("../controllers/firebaseConfigController");
 
 // Import middleware (auth middleware should already exist)
 const auth = require("../middleware/auth"); // Assuming this exists
 
+// Public Firebase web config for client OAuth popups (no secret here)
+router.get("/config/firebase-public", firebaseConfigController.getPublicFirebaseWebConfig);
+
 // ===== AUTH ROUTES =====
 router.post("/auth/register", authController.register);
 router.post("/auth/login", authController.login);
+router.post("/auth/firebase", authController.firebaseLogin);
 // Add logging
 const fs = require("fs");
 router.use((req, res, next) => {

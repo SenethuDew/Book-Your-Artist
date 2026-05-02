@@ -21,6 +21,7 @@ export interface AuthContextType {
   login: (email: string, password: string) => Promise<{ user: User }>;
   logout: () => Promise<void>;
   signup: (data: SignupData) => Promise<{ user: User }>;
+  loginWithFirebaseIdToken: (idToken: string, role?: "client" | "artist") => Promise<{ user: User }>;
   refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
 }
@@ -125,9 +126,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthToken(data.token);
       setUser(normalizeUser(data.user));
       return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[Auth] Login error:', error);
-      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+      if (error instanceof Error && error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
         throw new Error(`Cannot connect to server. Unable to reach backend at ${getApiBaseUrl()}. Please ensure the backend is running.`);
       }
       throw error;
@@ -164,6 +165,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loginWithFirebaseIdToken = async (idToken: string, role?: "client" | "artist") => {
+    try {
+      const apiUrl = getApiBaseUrl();
+      const response = await fetch(`${apiUrl}/api/auth/firebase`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(role ? { idToken, role } : { idToken }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        let errorMessage = "Social sign-in failed";
+        try {
+          const errObj = JSON.parse(text) as { message?: string };
+          errorMessage = errObj.message || errorMessage;
+        } catch {
+          errorMessage = text || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await parseJsonResponse<{ user: User; token: string }>(response);
+      if (!data?.token || !data.user) {
+        throw new Error("Invalid response from server");
+      }
+
+      setAuthToken(data.token);
+      setUser(normalizeUser(data.user));
+      return { user: data.user };
+    } catch (error: unknown) {
+      console.error("[Auth] Firebase sign-in error:", error);
+      if (error instanceof Error && error.name === "TypeError" && error.message.includes("Failed to fetch")) {
+        throw new Error(`Cannot connect to server at ${getApiBaseUrl()}.`);
+      }
+      throw error;
+    }
+  };
+
   const signup = async (data: SignupData) => {
     try {
       const apiUrl = getApiBaseUrl();
@@ -196,9 +235,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthToken(result.token);
       setUser(normalizeUser(result.user));
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[Auth] Signup error:', error);
-      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+      if (error instanceof Error && error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
         throw new Error(`Cannot connect to server. Unable to reach backend at ${getApiBaseUrl()}.`);
       }
       throw error;
@@ -213,6 +252,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         signup,
+        loginWithFirebaseIdToken,
         refreshUser,
         isAuthenticated: !!user,
       }}

@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts";
 import Link from "next/link";
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { FaFacebookF, FaGoogle } from "react-icons/fa";
+import {
+  isFirebaseSocialAuthAvailable,
+  signInWithFacebook,
+  signInWithGoogle,
+} from "@/lib/firebaseSocialAuth";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -14,9 +20,55 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, loginWithFirebaseIdToken } = useAuth();
+
+  const [oauthProvider, setOauthProvider] = useState<"google" | "facebook" | null>(null);
+
+  const oauthBusy = oauthProvider !== null;
 
   const isFormInvalid = !email.trim() || !password.trim();
+
+  const handleSocialGoogle = async () => {
+    if (!isFirebaseSocialAuthAvailable()) {
+      setError(
+        "Social sign-in could not resolve your API URL. Set NEXT_PUBLIC_API_URL or valid NEXT_PUBLIC_FIREBASE_* in `.env.local`, then retry."
+      );
+      return;
+    }
+    setError("");
+    setOauthProvider("google");
+    try {
+      const idToken = await signInWithGoogle();
+      const result = await loginWithFirebaseIdToken(idToken);
+      const redirectPath = result.user.role === "artist" ? "/home/artist" : "/home/client";
+      router.push(redirectPath);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Google sign-in failed.");
+    } finally {
+      setOauthProvider(null);
+    }
+  };
+
+  const handleSocialFacebook = async () => {
+    if (!isFirebaseSocialAuthAvailable()) {
+      setError(
+        "Social sign-in could not resolve your API URL. Set NEXT_PUBLIC_API_URL or valid Firebase env in `.env.local`, then retry."
+      );
+      return;
+    }
+    setError("");
+    setOauthProvider("facebook");
+    try {
+      const idToken = await signInWithFacebook();
+      const result = await loginWithFirebaseIdToken(idToken);
+      const redirectPath = result.user.role === "artist" ? "/home/artist" : "/home/client";
+      router.push(redirectPath);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Facebook sign-in failed.");
+    } finally {
+      setOauthProvider(null);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,7 +215,7 @@ export default function LoginPage() {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading || isFormInvalid}
+              disabled={loading || oauthBusy || isFormInvalid}
               className="group relative w-full flex justify-center py-3.5 px-4 border border-transparent rounded-xl text-sm font-bold text-white bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-violet-500/25 transition-all outline-none overflow-hidden"
             >
               <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out disabled:hidden" />
@@ -179,6 +231,27 @@ export default function LoginPage() {
             <div className="flex-1 border-t border-white/10"></div>
             <span className="px-3 text-xs text-gray-500 uppercase tracking-wider font-semibold">Or continue with</span>
             <div className="flex-1 border-t border-white/10"></div>
+          </div>
+
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={handleSocialGoogle}
+              disabled={loading || oauthBusy}
+              className="flex items-center justify-center gap-2 py-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-violet-500/30 transition-all text-sm font-bold text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FaGoogle className="w-4 h-4 text-red-400 shrink-0" />
+              {oauthProvider === "google" ? "Google…" : "Google"}
+            </button>
+            <button
+              type="button"
+              onClick={handleSocialFacebook}
+              disabled={loading || oauthBusy}
+              className="flex items-center justify-center gap-2 py-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-blue-500/30 transition-all text-sm font-bold text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FaFacebookF className="w-4 h-4 text-blue-400 shrink-0" />
+              {oauthProvider === "facebook" ? "Facebook…" : "Facebook"}
+            </button>
           </div>
 
           {/* Demo Accounts */}
@@ -204,7 +277,7 @@ export default function LoginPage() {
           {/* Sign Up Link */}
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-400">
-              Don't have an account?{" "}
+              Don{"'"}t have an account?{" "}
               <Link href="/auth/register" className="font-bold text-violet-400 hover:text-violet-300 transition-colors">
                 Create Account
               </Link>

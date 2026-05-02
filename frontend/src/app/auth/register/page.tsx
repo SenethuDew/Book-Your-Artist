@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts";
 import Link from "next/link";
 import { User, Mail, Lock, Eye, EyeOff, Music, Briefcase, ArrowRight } from "lucide-react";
+import { FaFacebookF, FaGoogle } from "react-icons/fa";
+import {
+  isFirebaseSocialAuthAvailable,
+  signInWithFacebook,
+  signInWithGoogle,
+} from "@/lib/firebaseSocialAuth";
 
 interface SignupData {
   name: string;
@@ -23,8 +29,9 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [oauthProvider, setOauthProvider] = useState<"google" | "facebook" | null>(null);
   const router = useRouter();
-  const { signup } = useAuth();
+  const { signup, loginWithFirebaseIdToken } = useAuth();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -47,12 +54,58 @@ export default function RegisterPage() {
       const result = await signup(formData);
       const redirectPath = result.user.role === "artist" ? "/home/artist" : "/home/client";
       router.push(redirectPath);
-    } catch (err: any) {
-      setError(err.message || "Registration failed. Please try again.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
+
+  const handleSocialGoogle = async () => {
+    if (!isFirebaseSocialAuthAvailable()) {
+      setError(
+        "Social sign-in could not resolve your API URL. Set NEXT_PUBLIC_API_URL (or NEXT_PUBLIC_FIREBASE_* in .env.local), then retry."
+      );
+      return;
+    }
+    setError("");
+    setOauthProvider("google");
+    try {
+      const idToken = await signInWithGoogle();
+      await loginWithFirebaseIdToken(idToken, formData.role);
+      const redirectPath = formData.role === "artist" ? "/home/artist" : "/home/client";
+      router.push(redirectPath);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Google sign-in failed.";
+      setError(message);
+    } finally {
+      setOauthProvider(null);
+    }
+  };
+
+  const handleSocialFacebook = async () => {
+    if (!isFirebaseSocialAuthAvailable()) {
+      setError(
+        "Facebook sign-in requires Firebase keys and Facebook enabled in Firebase Console. Add FIREBASE_WEB_API_KEY to backend .env."
+      );
+      return;
+    }
+    setError("");
+    setOauthProvider("facebook");
+    try {
+      const idToken = await signInWithFacebook();
+      await loginWithFirebaseIdToken(idToken, formData.role);
+      const redirectPath = formData.role === "artist" ? "/home/artist" : "/home/client";
+      router.push(redirectPath);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Facebook sign-in failed.";
+      setError(message);
+    } finally {
+      setOauthProvider(null);
+    }
+  };
+
+  const oauthBusy = oauthProvider !== null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-purple-950 to-gray-950 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans overflow-hidden relative">
@@ -184,7 +237,7 @@ export default function RegisterPage() {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading || isFormInvalid}
+              disabled={loading || oauthBusy || isFormInvalid}
               className="group pt-2 relative w-full flex justify-center py-3.5 px-4 border border-transparent rounded-xl text-sm font-bold text-white bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-violet-500/25 transition-all outline-none overflow-hidden mt-6"
             >
               <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out disabled:hidden" />
@@ -202,17 +255,33 @@ export default function RegisterPage() {
             <div className="flex-1 border-t border-white/10"></div>
           </div>
           
-          <div className="mt-6 flex justify-center opacity-50 cursor-not-allowed">
-            {/* Disabled mock social buttons for layout preview */}
-             <div className="flex gap-4 w-full">
-               <div className="flex-1 flex justify-center items-center py-2.5 rounded-xl border border-white/10 bg-white/5">
-                 <span className="font-bold text-sm text-gray-300">Google</span>
-               </div>
-               <div className="flex-1 flex justify-center items-center py-2.5 rounded-xl border border-white/10 bg-white/5">
-                 <span className="font-bold text-sm text-gray-300">Facebook</span>
-               </div>
-             </div>
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={handleSocialGoogle}
+              disabled={loading || oauthBusy}
+              className="flex items-center justify-center gap-2 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-violet-500/40 transition-all text-sm font-bold text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FaGoogle className="w-4 h-4 text-red-400 shrink-0" />
+              {oauthProvider === "google" ? "Google…" : "Google"}
+            </button>
+            <button
+              type="button"
+              onClick={handleSocialFacebook}
+              disabled={loading || oauthBusy}
+              className="flex items-center justify-center gap-2 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-blue-500/40 transition-all text-sm font-bold text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FaFacebookF className="w-4 h-4 text-blue-400 shrink-0" />
+              {oauthProvider === "facebook" ? "Facebook…" : "Facebook"}
+            </button>
           </div>
+          {!isFirebaseSocialAuthAvailable() && (
+            <p className="mt-3 text-[11px] text-center text-amber-200/90 leading-relaxed">
+              Set valid <span className="font-mono">NEXT_PUBLIC_FIREBASE_*</span> in frontend <span className="font-mono">.env.local</span>, or add Firebase web variables to backend <span className="font-mono">.env</span> (starting with{" "}
+              <span className="font-mono">FIREBASE_WEB_API_KEY</span>) — the client loads config from{" "}
+              <span className="font-mono">/api/config/firebase-public</span> when the frontend still has placeholders.
+            </p>
+          )}
 
           {/* Sign In Link */}
           <div className="mt-8 text-center">

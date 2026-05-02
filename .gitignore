@@ -1,3 +1,6 @@
 
 .env*
 node_modules/
+
+# Optional local Firebase client config for OAuth (never commit secrets)
+backend/firebase-web-client.json
