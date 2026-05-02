@@ -400,10 +400,22 @@ export default function CalendarBuilderPage() {
                                       </p>
                                     )}
                                     <div className="flex justify-center gap-1 mt-1">
-                                      <button onClick={(e) => handleBookingAction(slot.bookingId._id, "confirmed", e)} className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 rounded text-[9px] text-white font-bold">
+                                      <button
+                                        onClick={(e) =>
+                                          slot.bookingId?._id &&
+                                          handleBookingAction(slot.bookingId._id, "confirmed", e)
+                                        }
+                                        className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 rounded text-[9px] text-white font-bold"
+                                      >
                                         Accept
                                       </button>
-                                      <button onClick={(e) => handleBookingAction(slot.bookingId._id, "cancelled", e)} className="px-2 py-1 bg-red-600 hover:bg-red-500 rounded text-[9px] text-white font-bold">
+                                      <button
+                                        onClick={(e) =>
+                                          slot.bookingId?._id &&
+                                          handleBookingAction(slot.bookingId._id, "cancelled", e)
+                                        }
+                                        className="px-2 py-1 bg-red-600 hover:bg-red-500 rounded text-[9px] text-white font-bold"
+                                      >
                                         Reject
                                       </button>
                                     </div>

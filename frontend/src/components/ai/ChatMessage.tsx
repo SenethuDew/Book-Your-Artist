@@ -3,8 +3,15 @@
 import { useRouter } from "next/navigation";
 import { Bot, User as UserIcon, Copy, Check, Calendar } from "lucide-react";
 import { useState } from "react";
-import ArtistCard from "./ArtistCard";
-import type { CatalogArtist } from "@/lib/artistCatalog";
+import ArtistRecommendationCard from "./ArtistRecommendationCard";
+import BookingSummaryCard from "./BookingSummaryCard";
+import ProfileChecklistCard from "./ProfileChecklistCard";
+import type {
+  AssistantIntent,
+  BookingSummaryPayload,
+  ProfileChecklistPayload,
+  RecommendedArtist,
+} from "@/lib/ai/types";
 
 export interface ChatAction {
   label: string;
@@ -18,16 +25,22 @@ export interface UIMessage {
   role: "user" | "assistant";
   content: string;
   ts: number;
-  artists?: CatalogArtist[];
+  artists?: RecommendedArtist[];
   actions?: ChatAction[];
+  intent?: AssistantIntent;
+  bookingSummary?: BookingSummaryPayload;
+  profileChecklist?: ProfileChecklistPayload;
 }
 
 interface Props {
   msg: UIMessage;
   onPrompt?: (text: string) => void;
+  onBookArtist?: (artist: RecommendedArtist) => void;
+  onSummaryConfirm?: (summary: BookingSummaryPayload) => void;
+  onSummaryEdit?: () => void;
+  onSummaryCancel?: () => void;
 }
 
-/* -------- Markdown-lite inline renderer -------- */
 const renderInline = (text: string) => {
   const parts: Array<string | { type: "b" | "i" | "code"; value: string }> = [];
   const re = /\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`/g;
@@ -96,7 +109,14 @@ const Markdown = ({ text }: { text: string }) => {
 const formatTime = (ts: number) =>
   new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-export default function ChatMessage({ msg, onPrompt }: Props) {
+export default function ChatMessage({
+  msg,
+  onPrompt,
+  onBookArtist,
+  onSummaryConfirm,
+  onSummaryEdit,
+  onSummaryCancel,
+}: Props) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
   const isUser = msg.role === "user";
@@ -124,7 +144,7 @@ export default function ChatMessage({ msg, onPrompt }: Props) {
         </div>
       )}
 
-      <div className={`max-w-[82%] flex flex-col gap-2 ${isUser ? "items-end" : "items-start"}`}>
+      <div className={`max-w-[min(100%,42rem)] flex flex-col gap-2 ${isUser ? "items-end" : "items-start"}`}>
         <div
           className={`rounded-2xl border px-4 py-3 text-sm w-full ${
             isUser
@@ -134,10 +154,31 @@ export default function ChatMessage({ msg, onPrompt }: Props) {
         >
           <Markdown text={msg.content} />
 
+          {msg.profileChecklist && (
+            <ProfileChecklistCard payload={msg.profileChecklist} />
+          )}
+
+          {msg.bookingSummary && (
+            <BookingSummaryCard
+              summary={msg.bookingSummary}
+              onConfirm={
+                onSummaryConfirm && msg.bookingSummary.selectedArtistId
+                  ? () => onSummaryConfirm(msg.bookingSummary as BookingSummaryPayload)
+                  : undefined
+              }
+              onEdit={onSummaryEdit}
+              onCancel={onSummaryCancel}
+            />
+          )}
+
           {!!msg.artists?.length && (
             <div className="mt-3 grid sm:grid-cols-2 gap-2">
               {msg.artists.map((a) => (
-                <ArtistCard key={a.id} artist={a} compact />
+                <ArtistRecommendationCard
+                  key={a.id}
+                  artist={a}
+                  onBookNow={(artist) => onBookArtist?.(artist)}
+                />
               ))}
             </div>
           )}
@@ -163,7 +204,7 @@ export default function ChatMessage({ msg, onPrompt }: Props) {
 
           <div className="mt-2 flex items-center justify-between gap-3">
             <span className="text-[10px] uppercase tracking-wider text-gray-500">
-              {isUser ? "You" : "Concierge"} · {formatTime(msg.ts)}
+              {isUser ? "You" : "Assistant"} · {formatTime(msg.ts)}
             </span>
             {!isUser && msg.id !== "intro" && (
               <button

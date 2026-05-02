@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -134,7 +134,7 @@ export default function ArtistProfilePage() {
         }
 
         setArtist(artistData);
-        setBookings((bookingData || []) as BookingSlotData[]);
+        setBookings((bookingData || []) as unknown as BookingSlotData[]);
 
         // Pull published availability from backend so only published slots are bookable.
         if (!id.startsWith('intl-')) {
@@ -662,7 +662,7 @@ export default function ArtistProfilePage() {
       {showBookingForm && (
         <FirebaseBookingForm 
           artistId={artist.id || artist._id || id} 
-          artistName={artist.stageName || artist.name} 
+          artistName={artist.stageName || artist.name || "Artist"} 
           hourlyRate={artist.hourlyRate || 250}
           onClose={() => setShowBookingForm(false)} 
           clientId={authUser?.id || authUser?._id || authUser?.uid} 

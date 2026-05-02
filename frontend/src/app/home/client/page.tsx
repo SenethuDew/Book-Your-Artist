@@ -59,7 +59,7 @@ interface Stats {
   totalRevenue: number;
 }
 
-interface RecommendedArtist {
+interface HomeFeaturedArtist {
   id?: string;
   _id?: string;
   name?: string;
@@ -143,8 +143,8 @@ function ClientHomeContent() {
 
   const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
   const [notificationBookings, setNotificationBookings] = useState<Booking[]>([]);
-  const [recommendedArtists, setRecommendedArtists] = useState<RecommendedArtist[]>([]);
-  const [searchableArtists, setSearchableArtists] = useState<RecommendedArtist[]>([]);
+  const [recommendedArtists, setRecommendedArtists] = useState<HomeFeaturedArtist[]>([]);
+  const [searchableArtists, setSearchableArtists] = useState<HomeFeaturedArtist[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Search states
@@ -187,7 +187,7 @@ function ClientHomeContent() {
         // Fetch recommended artists
         const firestoreArtists = await getAllArtistsFromFirestore();
         if (firestoreArtists && firestoreArtists.length > 0) {
-          const artists = firestoreArtists as RecommendedArtist[];
+          const artists = firestoreArtists as HomeFeaturedArtist[];
           setSearchableArtists(artists);
           setRecommendedArtists(artists.slice(0, 3));
         }
@@ -269,7 +269,7 @@ function ClientHomeContent() {
     router.push(`/search${params.toString() ? `?${params.toString()}` : ""}`);
   };
 
-  const artistMatchesSearch = (artist: RecommendedArtist) => {
+  const artistMatchesSearch = (artist: HomeFeaturedArtist) => {
     const query = searchQuery.trim().toLowerCase();
     const selectedCategory = categoryFilter.toLowerCase();
     const searchableText = [
@@ -347,9 +347,9 @@ function ClientHomeContent() {
                   Notifications
                 </Link>
                 <Link
-                  href="/ai-support"
+                  href="/client/ai-assistant"
                   className={`px-4 py-2 rounded-full text-sm font-semibold transition-all inline-flex items-center gap-1.5 ${
-                    pathname === '/ai-support'
+                    pathname === '/client/ai-assistant'
                       ? 'bg-gradient-to-r from-violet-600/40 to-fuchsia-600/40 text-white shadow-inner border border-violet-400/30'
                       : 'text-violet-200 hover:text-white hover:bg-violet-500/10 border border-transparent hover:border-violet-400/20'
                   }`}
@@ -861,10 +861,10 @@ function ClientHomeContent() {
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-16 h-16 bg-black/50 rounded-2xl overflow-hidden border border-white/10 shrink-0 shadow-inner group-hover:scale-105 transition-transform">
-                        {artist.profileImage || artist.profileImageUrl ? (
+                        {artist.profileImage ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
-                            src={artist.profileImage || artist.profileImageUrl}
+                            src={artist.profileImage}
                             alt={artist.name || artist.stageName}
                             className="w-full h-full object-cover"
                           />
@@ -887,7 +887,7 @@ function ClientHomeContent() {
                         </div>
                       </div>
                       <div className="text-base font-black text-fuchsia-400 text-right">
-                        ${artist.hourlyRate || artist.price || 0}
+                        ${artist.hourlyRate ?? 0}
                         <span className="text-xs text-gray-500 block font-medium">/hr</span>
                       </div>
                     </div>

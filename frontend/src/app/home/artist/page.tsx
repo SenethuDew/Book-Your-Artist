@@ -9,7 +9,8 @@ import { API_BASE_URL } from "@/lib/api";
 import { 
   Bell, Calendar as CalendarIcon, DollarSign, User, 
   LogOut, CheckCircle, TrendingUp, LayoutDashboard, Check, X,
-  MapPin, Activity, Wallet, Settings, Eye, Users, ChevronRight, Briefcase, AlertTriangle, Edit2, Trash2
+  MapPin, Activity, Wallet, Settings, Eye, Users, ChevronRight, Briefcase, AlertTriangle, Edit2, Trash2,
+  Sparkles
 } from "lucide-react";
 
 interface Booking {
@@ -301,6 +302,7 @@ function ArtistDashboardContent() {
               <NavItem href="/artist/messages" icon={Bell} label="Notifications" />
                <NavItem href="/artist/earnings" icon={Wallet} label="Earnings" />
                <NavItem href="/artist/profile" icon={Settings} label="Profile Settings" />
+               <NavItem href="/artist/ai-assistant" icon={Sparkles} label="AI Support" />
              </div>
 
              {/* Right Utilities */}
