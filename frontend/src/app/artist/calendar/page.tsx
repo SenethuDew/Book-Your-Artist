@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { 
-  CalendarIcon, Briefcase, Wallet, Settings, Bell, LayoutDashboard, Plus, Trash2, Check, ExternalLink, CalendarDays, Clock, FileText, Upload, RefreshCw, X, Save, Pause, Eye
+  CalendarIcon, Briefcase, Wallet, Settings, Bell, LayoutDashboard, Plus, Trash2, Check, ExternalLink, CalendarDays, Clock, FileText, Upload, RefreshCw, X, Save, Pause, Eye, MapPin
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api";
 
@@ -23,7 +23,20 @@ interface Slot {
   endTime: string;
   status: "Available" | "Requested" | "Booked" | "Blocked" | "Draft";
   isPublished: boolean;
-  bookingId?: any;
+  bookingId?: {
+    _id: string;
+    clientId?: {
+      name?: string;
+      email?: string;
+      phone?: string;
+    };
+    eventLocation?: {
+      venue?: string;
+      address?: string;
+      city?: string;
+      country?: string;
+    };
+  };
 }
 
 export default function CalendarBuilderPage() {
@@ -194,6 +207,15 @@ export default function CalendarBuilderPage() {
     return new Date(d.getTime() - tzOffset).toISOString().split('T')[0];
   };
 
+  const formatBookingLocation = (slot?: Slot) => {
+    const location = slot?.bookingId?.eventLocation;
+    if (!location) return "";
+
+    return [location.venue, location.address, location.city, location.country]
+      .filter(Boolean)
+      .join(", ");
+  };
+
   // Summaries
   const stats = {
     total: slots.length,
@@ -334,6 +356,7 @@ export default function CalendarBuilderPage() {
                       </td>
                       {TIME_SLOTS.map((slotTime, sIdx) => {
                         const slot = getSlotForCell(dateObj, slotTime.start, slotTime.end);
+                        const bookingLocation = formatBookingLocation(slot);
 
                         return (
                           <td key={sIdx} className="p-2 sm:p-3 border-r border-gray-700/30 align-top h-24 sm:h-28 relative group/cell">
@@ -370,6 +393,12 @@ export default function CalendarBuilderPage() {
                                     <p className="text-[10px] text-white font-bold truncate max-w-[120px]">
                                       {slot.bookingId.clientId?.name || "Client request"}
                                     </p>
+                                    {bookingLocation && (
+                                      <p className="mt-1 flex items-center justify-center gap-1 text-[9px] text-gray-300 truncate max-w-[130px]" title={bookingLocation}>
+                                        <MapPin className="w-2.5 h-2.5 shrink-0 text-fuchsia-300" />
+                                        <span className="truncate">{bookingLocation}</span>
+                                      </p>
+                                    )}
                                     <div className="flex justify-center gap-1 mt-1">
                                       <button onClick={(e) => handleBookingAction(slot.bookingId._id, "confirmed", e)} className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 rounded text-[9px] text-white font-bold">
                                         Accept
@@ -379,6 +408,13 @@ export default function CalendarBuilderPage() {
                                       </button>
                                     </div>
                                   </div>
+                                )}
+
+                                {slot.status === "Booked" && bookingLocation && (
+                                  <p className="flex items-center justify-center gap-1 px-2 text-[9px] text-gray-200 truncate max-w-[135px]" title={bookingLocation}>
+                                    <MapPin className="w-2.5 h-2.5 shrink-0 text-fuchsia-300" />
+                                    <span className="truncate">{bookingLocation}</span>
+                                  </p>
                                 )}
 
                                 <div className="absolute top-1 sm:top-2 right-1 sm:right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

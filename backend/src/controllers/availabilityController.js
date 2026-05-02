@@ -358,6 +358,10 @@ const getArtistAvailability = async (req, res) => {
       isPublished: true,
       status: { $in: ["Available", "Requested", "Booked"] },
     })
+      .populate({
+        path: "bookingId",
+        select: "eventLocation eventType eventDate startTime endTime status",
+      })
       .sort({ date: 1, startTime: 1 })
       .lean();
 

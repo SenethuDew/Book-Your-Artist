@@ -6,21 +6,90 @@ import { getArtistFromFirestore, getArtistBookings } from '@/lib/firebaseBooking
 import { API_BASE_URL } from '@/lib/api';
 import { FirebaseBookingForm } from '@/components/FirebaseBookingForm';
 import { useAuth } from '@/contexts';
-import { MapPin, Star, Clock, Globe, Mic2, Tag, Calendar, Music2, Share2, ArrowLeft, CalendarCheck, CheckCircle2, Zap, Image as ImageIcon, Video, UserCheck, ShieldCheck } from 'lucide-react';
-import Link from 'next/link';
+import { MapPin, Star, Mic2, Calendar, Music2, ArrowLeft, CalendarCheck, CheckCircle2, Zap, Video, UserCheck, ShieldCheck } from 'lucide-react';
 import { FaInstagram } from 'react-icons/fa';
+
+interface ArtistProfileData {
+  id?: string;
+  _id?: string;
+  name?: string;
+  stageName?: string;
+  category?: string;
+  artistType?: string;
+  location?: string;
+  hourlyRate?: number;
+  price?: number;
+  rating?: number;
+  genres?: string[];
+  profileImage?: string;
+  coverImage?: string;
+  biography?: string;
+  bio?: string;
+  socialLinks?: {
+    instagram?: string;
+  };
+  experience?: string;
+  yearsOfExperience?: string;
+  availability?: boolean;
+  user?: {
+    name?: string;
+    profileImage?: string;
+  };
+}
+
+interface BookingSlotData {
+  eventDate: string;
+  status?: string;
+  paymentStatus?: string;
+  startTime: string;
+  endTime: string;
+  eventTitle?: string;
+  location?: string;
+}
+
+interface BookingLocation {
+  venue?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+}
+
+interface PublishedAvailabilitySlot {
+  _id?: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status?: string;
+  bookingId?: {
+    eventLocation?: BookingLocation;
+    eventType?: string;
+  };
+}
+
+interface AuthUserWithIds {
+  id?: string;
+  _id?: string;
+  uid?: string;
+}
 
 export default function ArtistProfilePage() {
   const params = useParams();
   const id = params?.id as string;
   const router = useRouter();
   const { user } = useAuth();
-  const [artist, setArtist] = useState<any>(null);
-  const [bookings, setBookings] = useState<any[]>([]);
-  const [publishedAvailability, setPublishedAvailability] = useState<any[]>([]);
+  const authUser = user as AuthUserWithIds | null | undefined;
+  const [artist, setArtist] = useState<ArtistProfileData | null>(null);
+  const [bookings, setBookings] = useState<BookingSlotData[]>([]);
+  const [publishedAvailability, setPublishedAvailability] = useState<PublishedAvailabilitySlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{date: string, start: string, end: string} | null>(null);
+  const [selectedBookedSlot, setSelectedBookedSlot] = useState<{
+    title: string;
+    date: string;
+    time: string;
+    location: string;
+  } | null>(null);
 
   useEffect(() => {
     async function loadArtist() {
@@ -30,13 +99,13 @@ export default function ArtistProfilePage() {
           getArtistFromFirestore(id),
           getArtistBookings(id)
         ]);
-        let artistData = firebaseArtistData;
+        let artistData = firebaseArtistData as ArtistProfileData | null;
 
         // Fallback to backend artist profile for newly registered local artists.
         if (!artistData && !id.startsWith('intl-')) {
           try {
             const profileRes = await fetch(`${API_BASE_URL}/api/artists/${id}`);
-            const profileData = await profileRes.json();
+            const profileData: { success?: boolean; artist?: ArtistProfileData } = await profileRes.json();
             if (profileRes.ok && profileData?.success && profileData?.artist) {
               const backendArtist = profileData.artist;
               artistData = {
@@ -63,7 +132,7 @@ export default function ArtistProfilePage() {
         }
 
         setArtist(artistData);
-        setBookings(bookingData || []);
+        setBookings((bookingData || []) as BookingSlotData[]);
 
         // Pull published availability from backend so only published slots are bookable.
         if (!id.startsWith('intl-')) {
@@ -71,7 +140,7 @@ export default function ArtistProfilePage() {
             const res = await fetch(`${API_BASE_URL}/api/availability/artist/${id}`);
             const data = await res.json();
             if (res.ok && data?.success && Array.isArray(data.availability)) {
-              setPublishedAvailability(data.availability);
+              setPublishedAvailability(data.availability as PublishedAvailabilitySlot[]);
             } else {
               setPublishedAvailability([]);
             }
@@ -103,7 +172,7 @@ export default function ArtistProfilePage() {
     return (
       <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-6 text-center">
         <h1 className="text-4xl text-white font-bold mb-4">Artist Not Found</h1>
-        <p className="text-gray-400 mb-8 text-lg">This stage is empty. The artist you're looking for doesn't exist.</p>
+        <p className="text-gray-400 mb-8 text-lg">This stage is empty. The artist you&apos;re looking for doesn&apos;t exist.</p>
         <button onClick={() => router.back()} className="px-6 py-3 bg-yellow-600 hover:bg-yellow-500 rounded-lg text-white font-bold transition-colors">
           Return Home
         </button>
@@ -164,7 +233,7 @@ export default function ArtistProfilePage() {
       if (b.eventDate !== dateStr || b.status === "cancelled" || b.paymentStatus === "refunded") return false;
       
       const bStart = b.startTime;
-      let bEnd = b.endTime === "00:00" ? "24:00" : b.endTime;
+      const bEnd = b.endTime === "00:00" ? "24:00" : b.endTime;
       let bEndVal = parseFloat(bEnd.replace(':', '.'));
       if (bEndVal < parseFloat(bStart.replace(':', '.'))) bEndVal += 24;
 
@@ -189,6 +258,36 @@ export default function ArtistProfilePage() {
       return slotDate === dateStr && slot.startTime === start && slot.endTime === end;
     });
   };
+
+  const formatBackendBookingLocation = (slot?: PublishedAvailabilitySlot) => {
+    const location = slot?.bookingId?.eventLocation;
+    if (!location) return "";
+
+    return [location.venue, location.address, location.city, location.country]
+      .filter(Boolean)
+      .join(", ");
+  };
+
+  const getBookedSlotDetails = (
+    booking: BookingSlotData | undefined,
+    publishedSlot: PublishedAvailabilitySlot | undefined,
+    dateString: string,
+    slot: { start: string; end: string }
+  ) => {
+    const location = booking?.location || formatBackendBookingLocation(publishedSlot);
+    if (!location) return null;
+
+    return {
+      title: booking?.eventTitle || publishedSlot?.bookingId?.eventType || "Booked event",
+      date: dateString,
+      time: `${slot.start} - ${slot.end}`,
+      location,
+    };
+  };
+
+  const mapUrl = selectedBookedSlot
+    ? `https://maps.google.com/maps?q=${encodeURIComponent(selectedBookedSlot.location)}&output=embed`
+    : "";
 
   return (
     <div className="min-h-screen bg-gray-900 pb-20">
@@ -398,7 +497,7 @@ export default function ArtistProfilePage() {
                     <ul className="space-y-2 text-amber-200/80 text-sm">
                       <li className="flex items-start gap-2">
                         <span className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                        Reservations require coordinating travel dates strictly with the artist's management.
+                        Reservations require coordinating travel dates strictly with the artist&apos;s management.
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-amber-500"></span>
@@ -452,11 +551,25 @@ export default function ArtistProfilePage() {
                             const isBooked = !!booking;
                             const isPublished = isPublishedAvailableSlot(dateString, slot.start, slot.end);
                             const isReserved = publishedSlot?.status === 'Requested' || publishedSlot?.status === 'Booked';
+                            const bookedSlotDetails = getBookedSlotDetails(booking, publishedSlot, dateString, slot);
+                            const canShowBookedLocation = (publishedSlot?.status === 'Booked' || isBooked) && !!bookedSlotDetails;
                             
                             return (
                               <td key={sIdx} className="p-1 sm:p-2 border-r border-gray-700/30 align-top overflow-hidden">
                                 {isBooked || isReserved ? (
-                                  <div className="flex flex-col items-center justify-center p-1 sm:p-2 rounded bg-red-500/5 border border-red-500/10 h-full text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (canShowBookedLocation && bookedSlotDetails) {
+                                        setSelectedBookedSlot(bookedSlotDetails);
+                                      }
+                                    }}
+                                    disabled={!canShowBookedLocation}
+                                    title={canShowBookedLocation ? `View booked location: ${bookedSlotDetails?.location}` : "Booked"}
+                                    className={`flex flex-col items-center justify-center p-1 sm:p-2 rounded bg-red-500/5 border border-red-500/10 h-full text-center w-full transition-colors ${
+                                      canShowBookedLocation ? "hover:bg-red-500/10 cursor-pointer" : "cursor-default"
+                                    }`}
+                                  >
                                     <span className="inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-bold text-red-400 uppercase tracking-wider mb-0.5 sm:mb-1">
                                       <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-red-500" /> Booked
                                     </span>
@@ -470,7 +583,12 @@ export default function ArtistProfilePage() {
                                         <MapPin size={10} className="w-2 h-2 sm:w-2.5 sm:h-2.5" /> {booking.location.split(',')[0]}
                                       </span>
                                     )}
-                                  </div>
+                                    {canShowBookedLocation && !booking?.location && (
+                                      <span className="text-[8px] sm:text-[10px] text-gray-500 truncate w-full flex items-center justify-center gap-0.5 mt-0.5 px-0.5">
+                                        <MapPin size={10} className="w-2 h-2 sm:w-2.5 sm:h-2.5" /> {bookedSlotDetails?.location.split(',')[0]}
+                                      </span>
+                                    )}
+                                  </button>
                                 ) : isPublished ? (
                                   <div className="flex flex-col items-center justify-center p-1 sm:p-2 rounded bg-emerald-500/5 border border-emerald-500/10 h-full hover:bg-emerald-500/10 transition-colors group cursor-pointer" onClick={() => openInteractiveModal(dateString, slot.start, slot.end)}>
                                     <span className="inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-bold text-emerald-400 uppercase tracking-wider mb-0.5 sm:mb-1">
@@ -499,6 +617,34 @@ export default function ArtistProfilePage() {
                   </tbody>
                 </table>
               </div>
+
+              {selectedBookedSlot ? (
+                <div className="mt-6 rounded-2xl overflow-hidden border border-violet-500/20 bg-gray-950/60">
+                  <div className="p-4 border-b border-gray-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-wider text-violet-300 font-bold">Booked Slot Location</p>
+                      <h3 className="text-white font-bold mt-1">{selectedBookedSlot.title}</h3>
+                      <p className="text-sm text-gray-400 mt-1">{selectedBookedSlot.date} - {selectedBookedSlot.time}</p>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-300 sm:max-w-xs">
+                      <MapPin className="w-4 h-4 text-fuchsia-400 shrink-0" />
+                      <span className="truncate" title={selectedBookedSlot.location}>{selectedBookedSlot.location}</span>
+                    </div>
+                  </div>
+                  <iframe
+                    title={`Map for ${selectedBookedSlot.location}`}
+                    src={mapUrl}
+                    className="w-full h-72 border-0"
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                </div>
+              ) : (
+                <div className="mt-6 rounded-2xl border border-gray-800 bg-gray-950/50 p-4 text-sm text-gray-500 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-gray-600" />
+                  Click a booked slot to preview its event location on the map.
+                </div>
+              )}
             </section>
             )}
           </div>
@@ -561,7 +707,7 @@ export default function ArtistProfilePage() {
           artistName={artist.stageName || artist.name} 
           hourlyRate={artist.hourlyRate || 250}
           onClose={() => setShowBookingForm(false)} 
-          clientId={(user as any)?.id || user?._id || (user as any)?.uid} 
+          clientId={authUser?.id || authUser?._id || authUser?.uid} 
           availableSlots={publishedAvailability}
           prefilledSlot={selectedSlot || undefined}
         />
