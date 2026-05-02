@@ -2,8 +2,8 @@
 
 /**
  * Google / Facebook sign-in via Firebase Auth (popup).
- * Config: valid NEXT_PUBLIC_FIREBASE_* in .env.local, or public config served by
- * GET /api/config/firebase-public when the frontend still has placeholders.
+ * Uses validated NEXT_PUBLIC_* when present, otherwise GET /api/config/firebase-public
+ * so backend and SPA share one Firebase web project without duplicating secrets in the browser bundle.
  */
 
 import type { FirebaseOptions } from "firebase/app";
@@ -19,53 +19,12 @@ import {
   type UserCredential,
 } from "firebase/auth";
 import { getApiBaseUrl } from "@/lib/api";
+import {
+  SHARED_FIREBASE_OAUTH_APP_NAME,
+  getValidatedFirebasePublicOptionsFromEnv,
+} from "@/lib/firebasePublicWebConfig";
 
-const SOCIAL_APP_NAME = "book-your-artist-social-auth";
-
-const PLACEHOLDER_MARKERS = [
-  "YOUR_",
-  "CHANGE_ME",
-  "REPLACE",
-  "<your",
-];
-
-function looksLikePlaceholder(raw: string | undefined): boolean {
-  const s = raw?.trim() ?? "";
-  if (!s) return true;
-  const lower = s.toLowerCase();
-  return PLACEHOLDER_MARKERS.some((m) => lower.includes(m.toLowerCase()));
-}
-
-/** Full web config built from NEXT_PUBLIC_* when values are non-placeholder */
-function firebaseConfigFromEnv(): FirebaseOptions | null {
-  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.trim();
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID?.trim();
-  const authDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN?.trim();
-  const storageBucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim();
-  const messagingSenderId =
-    process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID?.trim();
-  const appId = process.env.NEXT_PUBLIC_FIREBASE_APP_ID?.trim();
-
-  if (
-    looksLikePlaceholder(apiKey) ||
-    looksLikePlaceholder(projectId) ||
-    looksLikePlaceholder(authDomain) ||
-    looksLikePlaceholder(storageBucket) ||
-    looksLikePlaceholder(messagingSenderId) ||
-    looksLikePlaceholder(appId)
-  ) {
-    return null;
-  }
-
-  return {
-    apiKey: apiKey as string,
-    authDomain,
-    projectId,
-    storageBucket,
-    messagingSenderId,
-    appId,
-  };
-}
+const SOCIAL_APP_NAME = SHARED_FIREBASE_OAUTH_APP_NAME;
 
 async function fetchPublicFirebaseWebConfig(): Promise<FirebaseOptions> {
   const base = getApiBaseUrl().replace(/\/$/, "");
@@ -75,7 +34,7 @@ async function fetchPublicFirebaseWebConfig(): Promise<FirebaseOptions> {
   });
   const text = await response.text();
   const fallbackMessage =
-    "Firebase client config was not loaded from the backend. Add FIREBASE_WEB_API_KEY, FIREBASE_PROJECT_ID, FIREBASE_AUTH_DOMAIN, FIREBASE_APP_ID, FIREBASE_STORAGE_BUCKET, and FIREBASE_MESSAGING_SENDER_ID to backend `.env`, then restart the API.";
+    "Firebase is not configured on the server yet. Follow backend/.env.example, then restart the API (and frontend if you updated .env.local).";
   let parsed: {
     apiKey?: string;
     authDomain?: string;
@@ -84,6 +43,7 @@ async function fetchPublicFirebaseWebConfig(): Promise<FirebaseOptions> {
     messagingSenderId?: string;
     appId?: string;
     message?: string;
+    code?: string;
   };
   try {
     parsed = JSON.parse(text);
@@ -121,7 +81,7 @@ async function fetchPublicFirebaseWebConfig(): Promise<FirebaseOptions> {
 }
 
 async function resolveFirebaseWebConfig(): Promise<FirebaseOptions> {
-  const fromEnv = firebaseConfigFromEnv();
+  const fromEnv = getValidatedFirebasePublicOptionsFromEnv();
   if (fromEnv) return fromEnv;
   return fetchPublicFirebaseWebConfig();
 }
@@ -148,9 +108,9 @@ async function ensureSocialFirebaseAuth(): Promise<ReturnType<typeof getAuth>> {
   return ensureSocialFirebasePromise;
 }
 
-/** True when Firebase can be initialized from env OR when the SPA can reach the API for fallback config */
+/** True when env is complete or the SPA can reach the backend for bootstrap config */
 export function isFirebaseSocialAuthAvailable(): boolean {
-  if (firebaseConfigFromEnv()) return true;
+  if (getValidatedFirebasePublicOptionsFromEnv()) return true;
   return Boolean(getApiBaseUrl().trim());
 }
 

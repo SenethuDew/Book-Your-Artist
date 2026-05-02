@@ -1,6 +1,18 @@
 
-.env*
+# Local env overrides (committed templates stay available as *.env.example)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
 node_modules/
+
+# User-uploaded assets (local dev)
+backend/public/uploads/
+
+# Local debug logs
+backend/route.log
 
 # Optional local Firebase client config for OAuth (never commit secrets)
 backend/firebase-web-client.json

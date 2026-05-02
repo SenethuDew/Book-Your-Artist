@@ -41,7 +41,7 @@ export default function HomeRouter() {
   }, [loading, isAuthenticated, user, router]);
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+    <div className="flex min-h-screen items-center justify-center bg-[#0A0512] text-white selection:bg-violet-500/30 selection:text-violet-200">
       <div className="animate-pulse text-center">
         <div className="animate-pulse-glow rounded-full h-16 w-16 border-2 border-violet-500 mx-auto mb-4" />
         <p className="text-gray-400">Redirecting to your dashboard...</p>

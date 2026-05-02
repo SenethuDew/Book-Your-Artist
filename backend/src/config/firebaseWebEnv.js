@@ -1,6 +1,8 @@
 /**
- * Resolves Firebase **web** options (public client config) and the Web API key from several sources.
- * Order: FIREBASE_WEB_CONFIG_JSON → backend env vars → optional firebase-web-client.json → dev: frontend/.env.local
+ * Resolves Firebase **web** options (public client config) and Web API key.
+ * Sources (first match wins): FIREBASE_WEB_CONFIG_JSON → individual FIREBASE_* →
+ * firebase-web-client.json → (dev only) frontend/.env.local NEXT_PUBLIC_FIREBASE_*.
+ * Does not expose API keys outside HTTP responses intentionally limited to `/api/config/firebase-public`.
  */
 
 const fs = require("fs");
@@ -15,7 +17,8 @@ function isPlaceholder(val) {
     low.includes("your_") ||
     low.includes("<your") ||
     low === "change_me" ||
-    low.startsWith("replace_")
+    low.startsWith("replace_") ||
+    low.startsWith("paste-")
   );
 }
 
@@ -75,12 +78,28 @@ function normalizeOptions(raw) {
   };
 }
 
+/**
+ * Parses FIREBASE_WEB_CONFIG_JSON from dotenv (.env quoting often wraps JSON).
+ */
 function tryParseConfigJson(str) {
   if (!str || !String(str).trim()) return null;
+  let s = String(str).trim();
+  if (
+    (s.startsWith('"') && s.endsWith('"') && s.length > 1) ||
+    (s.startsWith("'") && s.endsWith("'") && s.length > 1)
+  ) {
+    s = s.slice(1, -1).replace(/\\"/g, '"').replace(/\\n/g, "\n").trim();
+  }
   try {
-    const obj = JSON.parse(str);
+    const obj = JSON.parse(s);
     return normalizeOptions(obj);
-  } catch {
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(
+        "[Firebase] FIREBASE_WEB_CONFIG_JSON is set but not valid JSON. Fix backend/.env.",
+        String(err.message || err),
+      );
+    }
     return null;
   }
 }
@@ -116,8 +135,8 @@ function tryReadFrontendEnvLocal() {
       };
       const opt = normalizeOptions(raw);
       if (opt) {
-        if (process.env.NODE_ENV === "development") {
-          console.log("[firebase] Using web config from", p);
+        if (process.env.NODE_ENV !== "production") {
+          console.log("[firebase] Using web client config sourced from frontend env:", p);
         }
         return opt;
       }
@@ -176,8 +195,29 @@ function getFirebaseWebApiKey() {
   return fallback;
 }
 
+function isFirebaseWebConfigured() {
+  return !!getFirebaseWebOptions();
+}
+
+/** Logs once whether `/api/auth/firebase` + `/api/config/firebase-public` can work. Never prints secrets. */
+function logFirebaseBootstrap() {
+  const ok = isFirebaseWebConfigured();
+  if (ok) {
+    const o = getFirebaseWebOptions();
+    console.log("[Firebase]", "OAuth + public web config:", "READY", "| project:", o.projectId);
+  } else {
+    console.warn(
+      "[Firebase]",
+      "OAuth (/api/auth/firebase) DISABLED until configured.",
+      "Copy backend/.env.example → backend/.env, add Firebase vars, restart the API.",
+    );
+  }
+}
+
 module.exports = {
   getFirebaseWebOptions,
   getFirebaseWebApiKey,
+  isFirebaseWebConfigured,
   isPlaceholder,
+  logFirebaseBootstrap,
 };

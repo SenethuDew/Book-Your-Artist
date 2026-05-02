@@ -2,7 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { MapPin, Star, Clock } from 'lucide-react';
 
-interface FirebaseArtist {
+export interface FirebaseArtist {
   id?: string;
   _id?: string;
   name?: string;

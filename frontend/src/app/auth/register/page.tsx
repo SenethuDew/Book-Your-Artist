@@ -108,28 +108,34 @@ export default function RegisterPage() {
   const oauthBusy = oauthProvider !== null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-purple-950 to-gray-950 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans overflow-hidden relative">
-      {/* Background Orbs */}
-      <div className="absolute top-0 right-1/4 w-96 h-96 bg-violet-600/20 rounded-full blur-[100px] -z-10 mix-blend-screen" />
-      <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-fuchsia-600/20 rounded-full blur-[100px] -z-10 mix-blend-screen" />
+    <div className="relative isolate min-h-screen flex flex-col justify-center overflow-hidden bg-[#0A0512] py-12 px-4 font-sans text-white selection:bg-violet-500/30 selection:text-violet-200 sm:px-6 lg:px-8">
+      {/* Match client home: deep plum base + violet wash */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 z-0">
+        <div className="absolute inset-0 bg-gradient-to-tr from-[#0A0512] via-[#0A0512]/95 to-violet-950/45" />
+        <div className="pointer-events-none absolute -top-[15%] -right-[15%] h-[92%] w-[52%] rounded-full bg-fuchsia-600/18 blur-[120px]" />
+        <div className="pointer-events-none absolute -bottom-[22%] -left-[18%] h-[92%] w-[54%] rounded-full bg-violet-600/18 blur-[120px]" />
+      </div>
 
       {/* Logo & Back Link */}
-      <div className="mx-auto w-full max-w-md flex justify-between items-center mb-8">
-        <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center font-bold text-sm shadow-lg shadow-violet-500/20 group-hover:shadow-violet-500/40 transition-all text-white">
-            ♪
+      <div className="relative z-10 mx-auto mb-10 flex w-full max-w-md items-center justify-between">
+        <Link href="/" className="group flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 font-black text-white shadow-[0_0_20px_-5px_rgba(139,92,246,0.6)] transition-transform group-hover:scale-[1.03] sm:h-11 sm:w-11">
+            <Music className="h-[22px] w-[22px] text-white sm:h-6 sm:w-6" />
           </div>
-          <span className="text-lg font-bold tracking-tight text-white">
-            <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">Book</span>YourArtist
+          <span className="text-lg font-extrabold tracking-tight sm:text-2xl">
+            Book Your <span className="text-violet-400">Artist</span>
           </span>
         </Link>
-        <Link href="/" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">
+        <Link
+          href="/"
+          className="shrink-0 text-sm font-medium text-gray-400 transition-colors hover:text-white"
+        >
           Back to Home
         </Link>
       </div>
 
-      <div className="mx-auto w-full max-w-md">
-        <div className="bg-[#1E112A]/60 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl p-8 sm:p-10 relative overflow-hidden">
+      <div className="relative z-10 mx-auto w-full max-w-md">
+        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#120A20]/85 p-8 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.65)] backdrop-blur-xl sm:p-10">
           {/* Subtle top glare */}
           <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 

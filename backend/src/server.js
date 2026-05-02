@@ -7,6 +7,9 @@ require("dotenv").config({
   override: true,
 });
 
+const { logFirebaseBootstrap } = require("./config/firebaseWebEnv");
+logFirebaseBootstrap();
+
 const connectDB = require("./config/db");
 const apiRoutes = require("./routes/api"); // Consolidated API routes
 const paymentController = require("./controllers/paymentController"); // Move webhook here

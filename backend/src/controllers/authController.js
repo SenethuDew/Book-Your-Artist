@@ -211,8 +211,9 @@ class AuthController {
       if (!apiKey) {
         return res.status(503).json({
           success: false,
+          code: "firebase_not_configured",
           message:
-            "Social sign-in is not configured on the server. Add FIREBASE_WEB_API_KEY to the backend .env (same value as your Firebase Web API key).",
+            "Firebase token verification has no Web API key. Add Firebase settings to backend `.env` — see backend/.env.example — then restart the API.",
         });
       }
 
