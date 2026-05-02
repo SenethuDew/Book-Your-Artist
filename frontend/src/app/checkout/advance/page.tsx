@@ -19,13 +19,28 @@ export default function AdvanceCheckoutPage() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const q = new URLSearchParams(window.location.search);
-      setBookingId(q.get("bookingId"));
+      const bid = q.get("bookingId");
+      const aid = q.get("artistId");
+      setBookingId(bid);
+
+      // Legacy / mistaken links passed only artistId; advance checkout needs a Firestore booking id.
+      if (!bid && aid) {
+        setIsLoading(false);
+        setError(
+          'This checkout link needs a booking. Open the artist profile to create a booking, then use "Pay now" from your booking details (or Book & pay from the dashboard).'
+        );
+      }
     }
   }, []);
 
   useEffect(() => {
     if (!bookingId) {
       if (typeof window !== "undefined" && window.location.search) {
+        const q = new URLSearchParams(window.location.search);
+        // artistId-only URLs are handled in the first effect with a clearer message
+        if (q.get("artistId") && !q.get("bookingId")) {
+          return;
+        }
         setIsLoading(false);
         setError("Invalid Booking session.");
       }

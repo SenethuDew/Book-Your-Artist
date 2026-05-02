@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/contexts";
 import { API_BASE_URL } from "@/lib/api";
+import { isSingleGigPerDayCategory } from "@/lib/artistCalendarMode";
 
 interface ArtistDetail {
   _id: string;
@@ -33,6 +34,15 @@ interface ArtistDetail {
     totalReviews: number;
     verified: boolean;
   };
+  category?: string;
+  artistType?: string;
+}
+
+interface PublishedAvailabilityLite {
+  date: string;
+  startTime: string;
+  endTime: string;
+  status?: string;
 }
 
 interface Review {
@@ -64,14 +74,29 @@ export default function ArtistDetail() {
   const [eventType, setEventType] = useState("");
   const [eventDetails, setEventDetails] = useState("");
   const [bookingLoading, setBookingLoading] = useState(false);
+  const [availabilitySlots, setAvailabilitySlots] = useState<PublishedAvailabilityLite[]>([]);
 
   useEffect(() => {
     const fetchArtistDetail = async () => {
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/artists/${artistId}`
-        );
-        const data = await response.json();
+        const [detailRes, availRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/artists/${artistId}`),
+          fetch(`${API_BASE_URL}/api/availability/artist/${artistId}`),
+        ]);
+        const data = await detailRes.json();
+        try {
+          const availData = await availRes.json();
+          if (
+            availData?.success &&
+            Array.isArray(availData.availability)
+          ) {
+            setAvailabilitySlots(availData.availability);
+          } else {
+            setAvailabilitySlots([]);
+          }
+        } catch {
+          setAvailabilitySlots([]);
+        }
 
         if (data.success) {
           setArtist(data.artist);
@@ -88,6 +113,34 @@ export default function ArtistDetail() {
       fetchArtistDetail();
     }
   }, [artistId]);
+
+  const singleGigPerDay =
+    !!artist &&
+    isSingleGigPerDayCategory(artist.category, artist.artistType);
+
+  const slotDayKey = (dateVal: string) => {
+    const d = new Date(dateVal);
+    const y = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, "0");
+    const da = String(d.getDate()).padStart(2, "0");
+    return `${y}-${mo}-${da}`;
+  };
+
+  useEffect(() => {
+    if (!artist || !singleGigPerDay || !bookingDate) return;
+    const picked = availabilitySlots.find(
+      (s) =>
+        slotDayKey(s.date) === bookingDate &&
+        (s.status === undefined || s.status === "Available"),
+    );
+    if (picked) {
+      setStartTime(picked.startTime);
+      setEndTime(picked.endTime);
+    } else {
+      setStartTime("");
+      setEndTime("");
+    }
+  }, [artist, singleGigPerDay, bookingDate, availabilitySlots]);
 
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -422,6 +475,11 @@ export default function ArtistDetail() {
                   </button>
                 ) : (
                   <form onSubmit={handleBooking} className="space-y-4">
+                    {singleGigPerDay && (
+                      <p className="text-sm text-purple-900 bg-purple-50 border border-purple-100 rounded-lg px-3 py-2">
+                        This act books <strong>one show per calendar day</strong>. Choose a date with a published availability slot — start and end times are set automatically from that slot.
+                      </p>
+                    )}
                     {/* Event Date */}
                     <div>
                       <label className="block text-sm font-semibold mb-1">
@@ -431,7 +489,13 @@ export default function ArtistDetail() {
                         type="date"
                         required
                         value={bookingDate}
-                        onChange={(e) => setBookingDate(e.target.value)}
+                        onChange={(e) => {
+                          setBookingDate(e.target.value);
+                          if (singleGigPerDay) {
+                            setStartTime("");
+                            setEndTime("");
+                          }
+                        }}
                         className="w-full border rounded px-3 py-2"
                         min={new Date().toISOString().split("T")[0]}
                       />
@@ -440,11 +504,12 @@ export default function ArtistDetail() {
                     {/* Start Time */}
                     <div>
                       <label className="block text-sm font-semibold mb-1">
-                        Start Time *
+                        Start Time {singleGigPerDay ? "(from slot)" : "*"}
                       </label>
                       <input
                         type="time"
                         required
+                        disabled={singleGigPerDay}
                         value={startTime}
                         onChange={(e) => setStartTime(e.target.value)}
                         className="w-full border rounded px-3 py-2"
@@ -454,11 +519,12 @@ export default function ArtistDetail() {
                     {/* End Time */}
                     <div>
                       <label className="block text-sm font-semibold mb-1">
-                        End Time *
+                        End Time {singleGigPerDay ? "(from slot)" : "*"}
                       </label>
                       <input
                         type="time"
                         required
+                        disabled={singleGigPerDay}
                         value={endTime}
                         onChange={(e) => setEndTime(e.target.value)}
                         className="w-full border rounded px-3 py-2"

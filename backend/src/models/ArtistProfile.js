@@ -74,6 +74,15 @@ const artistProfileSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    /** Payout destination (owner-only via /api/artists/me/payout-bank — never expose in public listings) */
+    payoutBank: {
+      accountHolderName: { type: String, trim: true },
+      bankName: { type: String, trim: true },
+      country: { type: String, trim: true },
+      routingNumber: { type: String, trim: true },
+      accountNumber: { type: String, trim: true },
+      swiftBic: { type: String, trim: true },
+    },
   },
   { timestamps: true }
 );

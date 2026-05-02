@@ -726,6 +726,12 @@ function ClientHomeContent() {
               <div className="relative z-10">
                 <p className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-1">Total Spent</p>
                 <p className="text-4xl font-black text-white">{loading ? "..." : `$${stats.totalRevenue.toFixed(0)}`}</p>
+                <Link
+                  href="/bookings"
+                  className="mt-4 inline-flex text-sm font-bold text-violet-300 hover:text-violet-200 transition-colors"
+                >
+                  Manage payments →
+                </Link>
               </div>
             </div>
           </div>
@@ -893,18 +899,16 @@ function ClientHomeContent() {
                     </div>
                     <div className="flex items-center gap-3 mt-2">
                       <Link
-                        href={`/artists/${artist.id || artist._id}`}
+                        href={`/artist/${artist.id || artist._id}`}
                         className="flex-1 text-center border border-white/10 hover:bg-white/5 text-white font-bold py-2.5 rounded-xl text-sm transition-all"
                       >
                         View Profile
                       </Link>
                       <Link
-                        href={`/checkout/advance?artistId=${
-                          artist.id || artist._id
-                        }`}
+                        href={`/artist/${artist.id || artist._id}`}
                         className="flex-1 text-center bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white font-bold py-2.5 rounded-xl text-sm transition-all shadow-md group-hover:shadow-[0_5px_15px_-3px_rgba(168,85,247,0.4)]"
                       >
-                        Book Now
+                        Book &amp; pay
                       </Link>
                     </div>
                   </div>

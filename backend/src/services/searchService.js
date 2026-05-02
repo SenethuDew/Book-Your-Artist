@@ -71,11 +71,14 @@ class SearchService {
 
       return {
         success: true,
-        artists: artists.map((artist) => ({
-          ...artist,
+        artists: artists.map((artist) => {
+          const { payoutBank: _omitPb, ...safe } = artist;
+          return {
+          ...safe,
           user: artist.userId,
           userId: undefined, // Avoid duplication
-        })),
+        };
+        }),
         pagination: { total, page, limit, pages },
       };
     } catch (error) {
@@ -98,6 +101,8 @@ class SearchService {
         throw new Error("Artist not found");
       }
 
+      const { payoutBank: _omitPb, ...artistPublic } = artist;
+
       // Get reviews
       const reviews = await Review.find({ artistId })
         .populate("clientId", "name profileImage")
@@ -117,13 +122,13 @@ class SearchService {
       return {
         success: true,
         artist: {
-          ...artist,
-          user: artist.userId,
+          ...artistPublic,
+          user: artistPublic.userId,
           userId: undefined,
           reviewStats: {
             averageRating: avgRating,
             totalReviews: allReviews.length,
-            verified: artist.verified,
+            verified: artistPublic.verified,
           },
         },
         reviews: reviews.map((review) => ({
@@ -205,11 +210,14 @@ class SearchService {
 
       return {
         success: true,
-        artists: artists.map((artist) => ({
-          ...artist,
-          user: artist.userId,
-          userId: undefined,
-        })),
+        artists: artists.map((artist) => {
+          const { payoutBank: _omitPb, ...safe } = artist;
+          return {
+            ...safe,
+            user: artist.userId,
+            userId: undefined,
+          };
+        }),
       };
     } catch (error) {
       throw new Error(`Get featured artists error: ${error.message}`);
@@ -245,7 +253,9 @@ class SearchService {
       return {
         success: true,
         artists: trendingArtists.map((item) => {
-          const artist = item.artistInfo[0];
+          const raw = item.artistInfo[0];
+          if (!raw) return { recentBookings: item.bookingCount };
+          const { payoutBank: _omitPb, ...artist } = raw;
           return {
             ...artist,
             recentBookings: item.bookingCount,

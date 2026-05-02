@@ -2,6 +2,65 @@ const Availability = require("../models/Availability");
 const User = require("../models/User");
 const { z } = require("zod");
 
+/** Interval overlap helper for Mongo availability docs (exclude one _id during updates). */
+function availabilityRangesOverlap(
+  slotDate,
+  startTime,
+  endTime,
+  otherSlot,
+  { excludeId } = {}
+) {
+  if (excludeId && otherSlot._id.toString() === excludeId.toString()) {
+    return false;
+  }
+
+  const startParts = startTime.split(":").map(Number);
+  const endParts = endTime.split(":").map(Number);
+  const startMinutes = startParts[0] * 60 + startParts[1];
+  const endMinutes = endParts[0] * 60 + endParts[1];
+
+  const existingStart = otherSlot.startTime.split(":").map(Number);
+  const existingEnd = otherSlot.endTime.split(":").map(Number);
+  const existingStartMinutes = existingStart[0] * 60 + existingStart[1];
+  const existingEndMinutes = existingEnd[0] * 60 + existingEnd[1];
+
+  const existingSlotDate = new Date(otherSlot.date);
+  existingSlotDate.setHours(0, 0, 0, 0);
+
+  const slotDateNorm = new Date(slotDate);
+  slotDateNorm.setHours(0, 0, 0, 0);
+
+  const slotStartDateTime = new Date(slotDateNorm);
+  slotStartDateTime.setHours(startParts[0], startParts[1], 0, 0);
+
+  const slotEndDateTime = new Date(slotDateNorm);
+  slotEndDateTime.setHours(endParts[0], endParts[1], 0, 0);
+  if (endMinutes <= startMinutes) {
+    slotEndDateTime.setDate(slotEndDateTime.getDate() + 1);
+  }
+
+  const existingStartDateTime = new Date(existingSlotDate);
+  existingStartDateTime.setHours(existingStart[0], existingStart[1], 0, 0);
+
+  const existingEndDateTime = new Date(existingSlotDate);
+  existingEndDateTime.setHours(existingEnd[0], existingEnd[1], 0, 0);
+  if (existingEndMinutes <= existingStartMinutes) {
+    existingEndDateTime.setDate(existingEndDateTime.getDate() + 1);
+  }
+
+  const sameCalendarDay =
+    existingSlotDate.getTime() === slotDateNorm.getTime() &&
+    otherSlot.startTime === startTime &&
+    otherSlot.endTime === endTime;
+  if (sameCalendarDay) {
+    return true;
+  }
+
+  return (
+    slotStartDateTime < existingEndDateTime && slotEndDateTime > existingStartDateTime
+  );
+}
+
 /**
  * Get availability slots for authenticated artist
  * GET /api/availability/me
@@ -120,17 +179,6 @@ const createAvailability = async (req, res) => {
       });
     }
 
-    // Build absolute interval [startDateTime, endDateTime)
-    const slotStartDateTime = new Date(slotDate);
-    slotStartDateTime.setHours(startParts[0], startParts[1], 0, 0);
-
-    const slotEndDateTime = new Date(slotDate);
-    slotEndDateTime.setHours(endParts[0], endParts[1], 0, 0);
-    if (endMinutes <= startMinutes) {
-      // Overnight slot (e.g. 23:30 -> 01:00)
-      slotEndDateTime.setDate(slotEndDateTime.getDate() + 1);
-    }
-
     // Check for overlapping slots (same day plus adjacent days for overnight overlap)
     const previousDay = new Date(slotDate);
     previousDay.setDate(previousDay.getDate() - 1);
@@ -147,40 +195,9 @@ const createAvailability = async (req, res) => {
     }).lean();
 
     // Check for overlap or duplicate
-    const hasConflict = existingSlots.some((slot) => {
-      const existingStart = slot.startTime.split(":").map(Number);
-      const existingEnd = slot.endTime.split(":").map(Number);
-      const existingStartMinutes = existingStart[0] * 60 + existingStart[1];
-      const existingEndMinutes = existingEnd[0] * 60 + existingEnd[1];
-
-      const existingSlotDate = new Date(slot.date);
-      existingSlotDate.setHours(0, 0, 0, 0);
-
-      const existingStartDateTime = new Date(existingSlotDate);
-      existingStartDateTime.setHours(existingStart[0], existingStart[1], 0, 0);
-
-      const existingEndDateTime = new Date(existingSlotDate);
-      existingEndDateTime.setHours(existingEnd[0], existingEnd[1], 0, 0);
-      if (existingEndMinutes <= existingStartMinutes) {
-        existingEndDateTime.setDate(existingEndDateTime.getDate() + 1);
-      }
-
-      // Check for exact duplicate
-      if (
-        existingSlotDate.getTime() === slotDate.getTime() &&
-        slot.startTime === startTime &&
-        slot.endTime === endTime
-      ) {
-        return true;
-      }
-
-      // Interval overlap check: [A.start < B.end] && [A.end > B.start]
-      if (slotStartDateTime < existingEndDateTime && slotEndDateTime > existingStartDateTime) {
-        return true;
-      }
-
-      return false;
-    });
+    const hasConflict = existingSlots.some((s) =>
+      availabilityRangesOverlap(slotDate, startTime, endTime, s, {})
+    );
 
     if (hasConflict) {
       return res.status(400).json({
@@ -190,13 +207,15 @@ const createAvailability = async (req, res) => {
       });
     }
 
-    // Create new availability
+    // Create new availability (clients only see slots after Publish unless isPublished: true explicitly)
     const availability = new Availability({
       artistId: userId,
       date: slotDate,
       startTime,
       endTime,
-      status: req.body.status || 'Available',
+      status: req.body.status || "Available",
+      isPublished:
+        typeof req.body.isPublished === "boolean" ? req.body.isPublished : false,
     });
 
     await availability.save();
@@ -280,7 +299,7 @@ const updateAvailability = async (req, res) => {
   try {
     const userId = req.user?.id;
     const { id } = req.params;
-    const { isPublished, status } = req.body;
+    const { isPublished, status, date, startTime, endTime } = req.body;
 
     if (!userId) {
       return res.status(401).json({
@@ -311,9 +330,71 @@ const updateAvailability = async (req, res) => {
       });
     }
 
+    const nextStart = startTime !== undefined ? startTime : slot.startTime;
+    const nextEnd = endTime !== undefined ? endTime : slot.endTime;
+    const nextDateRaw = date !== undefined ? date : slot.date;
+
+    const timeRegex = /^\d{2}:\d{2}$/;
+    if (!timeRegex.test(nextStart) || !timeRegex.test(nextEnd)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid time format. Use HH:MM",
+      });
+    }
+
+    const slotDate = new Date(nextDateRaw);
+    slotDate.setHours(0, 0, 0, 0);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (slotDate < today) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot move availability to a past date",
+      });
+    }
+
+    const startParts = nextStart.split(":").map(Number);
+    const endParts = nextEnd.split(":").map(Number);
+    const startMinutes = startParts[0] * 60 + startParts[1];
+    const endMinutes = endParts[0] * 60 + endParts[1];
+    if (endMinutes === startMinutes) {
+      return res.status(400).json({
+        success: false,
+        message: "End time must be different from start time",
+      });
+    }
+
+    const previousDay = new Date(slotDate);
+    previousDay.setDate(previousDay.getDate() - 1);
+    const nextDay = new Date(slotDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    const neighborSlots = await Availability.find({
+      artistId: userId,
+      date: {
+        $gte: previousDay,
+        $lt: new Date(nextDay.getTime() + 24 * 60 * 60 * 1000),
+      },
+    }).lean();
+
+    const hasConflict = neighborSlots.some((s) =>
+      availabilityRangesOverlap(slotDate, nextStart, nextEnd, s, { excludeId: id })
+    );
+    if (hasConflict) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This time slot overlaps with or duplicates another slot",
+      });
+    }
+
     const updateData = {};
     if (isPublished !== undefined) updateData.isPublished = isPublished;
     if (status !== undefined) updateData.status = status;
+    if (date !== undefined) updateData.date = slotDate;
+    if (startTime !== undefined) updateData.startTime = nextStart;
+    if (endTime !== undefined) updateData.endTime = nextEnd;
 
     const updatedSlot = await Availability.findByIdAndUpdate(id, updateData, { new: true });
 
@@ -332,12 +413,7 @@ const updateAvailability = async (req, res) => {
   }
 };
 
-module.exports = {
-  getMyAvailability,
-  createAvailability,
-  deleteAvailability,
-  updateAvailability,
-};
+
 
 /**
  * Get availability slots for a specific artist (public)

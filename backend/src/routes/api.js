@@ -38,6 +38,9 @@ router.post("/auth/logout", auth, authController.logout);
 // ===== ARTIST PROFILE ROUTES (Auth Required) - MUST BE BEFORE /:id =====
 router.get("/artists/me", auth, artistController.getMyProfile);
 router.put("/artists/me", auth, artistController.updateProfile);
+router.get("/artists/me/stats", auth, artistController.getStats);
+router.get("/artists/me/payout-bank", auth, artistController.getPayoutBank);
+router.put("/artists/me/payout-bank", auth, artistController.updatePayoutBank);
 
 // ===== ARTIST SEARCH & BROWSE ROUTES =====
 router.get("/artists/genres", artistController.getGenres);
@@ -47,7 +50,6 @@ router.get("/artists/trending", artistController.getTrendingArtists);
 router.get("/artists/search", artistController.searchArtists);
 router.get("/artists/:id", artistController.getArtistDetail);
 router.put("/artists/profile", auth, artistController.updateProfile);
-router.get("/artists/me/stats", auth, artistController.getStats);
 
 // ===== AVAILABILITY ROUTES =====
 router.get("/availability/me", auth, availabilityController.getMyAvailability);

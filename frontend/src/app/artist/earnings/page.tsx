@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import toast from "react-hot-toast";
 import { 
   Wallet, DollarSign, ArrowUpRight, CheckCircle, TrendingUp, LayoutDashboard, Briefcase, CalendarIcon, Settings, Bell, Download, Zap
@@ -41,7 +42,7 @@ interface TransactionRow {
   client: string;
   date: string;
   amount: number;
-  status: "pending_clearance" | "completed" | "pending_payment";
+  status: "pending_clearance" | "completed" | "pending_payment" | "processed";
 }
 
 interface EarningsSummary {
@@ -136,10 +137,78 @@ function buildTransactions(bookings: ArtistBookingRow[]): TransactionRow[] {
     }));
 }
 
+interface PayoutMaskApi {
+  accountHolderName: string;
+  bankName: string;
+  country: string;
+  swiftBic: string;
+  accountNumberMasked: string;
+  routingNumberMasked: string;
+  isComplete: boolean;
+}
+
+function escapeCsvCell(val: string | number): string {
+  const s = String(val);
+  if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function transactionExportLabel(tx: TransactionRow): string {
+  const s = tx.status;
+  if (s === "completed" || s === "processed") return "Processed";
+  return "Pending";
+}
+
+function downloadArtistEarningsCsv(opts: {
+  artistName: string;
+  earnings: EarningsSummary;
+  transactions: TransactionRow[];
+}) {
+  const { artistName, earnings, transactions } = opts;
+  const stamp = new Date().toISOString().slice(0, 10);
+  const lines: string[][] = [
+    ["Book Your Artist — Earnings statement"],
+    ["Generated (UTC)", new Date().toISOString()],
+    ["Artist", artistName],
+    [],
+    ["Summary"],
+    ["Net revenue (confirmed + completed)", earnings.netRevenue.toFixed(2)],
+    ["This month", earnings.thisMonth.toFixed(2)],
+    ["Pending escrow", earnings.pendingEscrow.toFixed(2)],
+    ["Completed payouts", earnings.completedPayouts.toFixed(2)],
+    ["Next payout amount", earnings.nextPayoutAmount.toFixed(2)],
+    ["Scheduled / next event date", earnings.nextPayoutDate ? formatDate(earnings.nextPayoutDate) : ""],
+    ["Payout destination", earnings.paymentMethod],
+    ["Est. platform fee (display)", earnings.processingFee.toFixed(2)],
+    [],
+    ["Transactions"],
+    ["Event", "Client", "Date", "Amount USD", "Status"],
+    ...transactions.map((t) => [
+      t.event,
+      t.client,
+      t.date,
+      t.amount.toFixed(2),
+      transactionExportLabel(t),
+    ]),
+  ];
+  const csv = lines.map((row) => row.map(escapeCsvCell).join(",")).join("\r\n");
+  const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `bya-earnings-${stamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export default function EarningsPage() {
+  const pathname = usePathname();
   const { user, loading } = useAuth();
   const [bookings, setBookings] = useState<ArtistBookingRow[]>([]);
   const [earningsLoading, setEarningsLoading] = useState(true);
+  const [payoutMask, setPayoutMask] = useState<PayoutMaskApi | null>(null);
   
   useEffect(() => {
     let cancelled = false;
@@ -185,9 +254,43 @@ export default function EarningsPage() {
     };
   }, [loading, user]);
 
+  useEffect(() => {
+    if (!user || isDemoArtist(user)) {
+      setPayoutMask(null);
+      return;
+    }
+    let cancelled = false;
+    const loadPayout = async () => {
+      try {
+        const token = getAuthToken();
+        const res = await fetch(`${API_BASE_URL}/api/artists/me/payout-bank`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        const data = (await res.json()) as { success?: boolean; payout?: PayoutMaskApi };
+        if (!cancelled && data.success && data.payout) setPayoutMask(data.payout);
+      } catch {
+        /* non-blocking */
+      }
+    };
+    void loadPayout();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, pathname]);
+
   // Demo artist keeps sample data; real artists are computed from live bookings.
-  const displayTransactions = isDemoArtist(user) ? DEMO_TRANSACTIONS : buildTransactions(bookings);
-  const earnings = isDemoArtist(user) ? DEMO_EARNINGS : buildEarningsSummary(bookings);
+  const displayTransactions: TransactionRow[] = isDemoArtist(user)
+    ? (DEMO_TRANSACTIONS as unknown as TransactionRow[])
+    : buildTransactions(bookings);
+  const baseEarnings = isDemoArtist(user) ? DEMO_EARNINGS : buildEarningsSummary(bookings);
+  const earnings: EarningsSummary = {
+    ...baseEarnings,
+    paymentMethod: isDemoArtist(user)
+      ? baseEarnings.paymentMethod
+      : payoutMask?.isComplete
+        ? `${payoutMask.bankName} ${payoutMask.accountNumberMasked}`.trim()
+        : "Not set — add in Manage payout",
+  };
 
   const monthLabel = new Date().toLocaleDateString("en-US", {
     month: "long",
@@ -252,7 +355,22 @@ export default function EarningsPage() {
                 : "Track your revenue, payouts, and financial growth."}
             </p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm font-bold transition-colors">
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                downloadArtistEarningsCsv({
+                  artistName: user?.name || "Artist",
+                  earnings,
+                  transactions: displayTransactions,
+                });
+                toast.success("Statement downloaded");
+              } catch {
+                toast.error("Could not generate statement");
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm font-bold transition-colors"
+          >
             <Download className="w-4 h-4" /> Download Statement
           </button>
         </div>
@@ -313,9 +431,9 @@ export default function EarningsPage() {
                        <td className="p-4 text-right font-black text-white">${tx.amount.toFixed(2)}</td>
                        <td className="p-4 pr-6 text-right">
                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
-                           tx.status === 'processed' || tx.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
+                           tx.status === "processed" || tx.status === "completed" ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"
                          }`}>
-                           {tx.status === 'processed' || tx.status === 'completed' ? 'Processed' : 'Pending'}
+                           {tx.status === "processed" || tx.status === "completed" ? "Processed" : "Pending"}
                          </span>
                        </td>
                      </tr>
@@ -332,25 +450,47 @@ export default function EarningsPage() {
                 <ArrowUpRight className="w-6 h-6" />
               </div>
               <h2 className="text-xl font-bold text-white mb-2">Next Payout</h2>
-              
+
               {isDemoArtist(user) || earnings.nextPayoutAmount > 0 ? (
                 <>
                   <p className="text-3xl font-black text-white mb-6">${earnings.nextPayoutAmount.toFixed(2)}</p>
-                  
+
                   <div className="space-y-4 mb-8">
-                    <div className="flex justify-between items-center text-sm border-b border-white/10 pb-4">
-                      <span className="text-gray-400">Scheduled Date</span>
-                      <span className="font-bold text-white">
+                    <div className="flex justify-between items-center gap-4 text-sm border-b border-white/10 pb-4">
+                      <span className="text-gray-400 shrink-0">Scheduled Date</span>
+                      <span className="font-bold text-white text-right">
                         {earnings.nextPayoutDate ? formatDate(earnings.nextPayoutDate) : "After event completion"}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center text-sm border-b border-white/10 pb-4">
-                      <span className="text-gray-400">Payment Method</span>
-                      <span className="font-bold flex items-center gap-2">
-                        <span className="w-8 h-5 bg-white/10 rounded flex items-center justify-center text-[10px] border border-white/20">Bank</span>
-                        {earnings.paymentMethod.split(" ").pop() || "Not set"}
-                      </span>
+
+                    <div className="flex justify-between gap-4 items-start text-sm border-b border-white/10 pb-4">
+                      <span className="text-gray-400 shrink-0 pt-0.5">Payment Method</span>
+                      <div className="min-w-0 text-right flex-1">
+                        {isDemoArtist(user) ? (
+                          <div className="flex flex-wrap items-start justify-end gap-2 font-bold">
+                            <span className="inline-flex h-5 shrink-0 items-center justify-center rounded border border-white/20 bg-white/10 px-1.5 text-[10px] text-white">
+                              Bank
+                            </span>
+                            <span className="text-xs font-bold leading-snug text-white">{DEMO_EARNINGS.paymentMethod}</span>
+                          </div>
+                        ) : payoutMask?.isComplete ? (
+                          <div className="space-y-1 text-xs font-semibold">
+                            <p className="text-sm font-bold text-white">{payoutMask.bankName}</p>
+                            <p className="font-mono text-emerald-200/95">{payoutMask.accountNumberMasked}</p>
+                            {payoutMask.routingNumberMasked ? (
+                              <p className="text-[11px] text-gray-400">Routing {payoutMask.routingNumberMasked}</p>
+                            ) : null}
+                            <p className="text-[11px] font-medium text-gray-300">{payoutMask.accountHolderName}</p>
+                            {payoutMask.country ? (
+                              <p className="text-[11px] text-gray-500">{payoutMask.country}</p>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="text-xs font-bold leading-snug text-amber-200/90">{earnings.paymentMethod}</span>
+                        )}
+                      </div>
                     </div>
+
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-gray-400">Estimated Platform Fee</span>
                       <span className="font-bold text-red-400">${earnings.processingFee.toFixed(2)}</span>
@@ -358,12 +498,37 @@ export default function EarningsPage() {
                   </div>
                 </>
               ) : (
-                <p className="text-gray-400 text-sm mb-8">No payout scheduled yet. Complete bookings to earn money.</p>
+                <div className="mb-8 space-y-4">
+                  <p className="text-gray-400 text-sm">
+                    No payout scheduled yet. Once you have confirmed bookings, the next payout amount will appear above.
+                  </p>
+                  <div className="flex justify-between gap-4 items-start text-sm border-b border-white/10 pb-4">
+                    <span className="text-gray-400 shrink-0 pt-0.5">Payment Method</span>
+                    <div className="min-w-0 text-right flex-1">
+                      {payoutMask?.isComplete ? (
+                        <div className="space-y-1 text-xs font-semibold">
+                          <p className="text-sm font-bold text-white">{payoutMask.bankName}</p>
+                          <p className="font-mono text-emerald-200/95">{payoutMask.accountNumberMasked}</p>
+                          {payoutMask.routingNumberMasked ? (
+                            <p className="text-[11px] text-gray-400">Routing {payoutMask.routingNumberMasked}</p>
+                          ) : null}
+                          <p className="text-[11px] font-medium text-gray-300">{payoutMask.accountHolderName}</p>
+                          {payoutMask.country ? <p className="text-[11px] text-gray-500">{payoutMask.country}</p> : null}
+                        </div>
+                      ) : (
+                        <span className="text-xs font-bold leading-snug text-amber-200/90">{earnings.paymentMethod}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               )}
 
-              <button className="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-xl py-3.5 transition-all outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 flex justify-center items-center gap-2">
+              <Link
+                href="/artist/payout-settings"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-3.5 font-bold text-white outline-none transition-all hover:bg-violet-500 focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 focus:ring-offset-gray-950"
+              >
                  Manage Payout Methods
-              </button>
+              </Link>
            </div>
 
         </div>

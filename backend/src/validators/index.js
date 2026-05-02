@@ -47,6 +47,26 @@ const artistProfileSchema = z.object({
   }).optional(),
 }).passthrough();
 
+// Artist payout bank (use PUT /api/artists/me/payout-bank only — never via generic profile update)
+const payoutBankSchema = z
+  .object({
+    accountHolderName: z.string().min(2, "Account name is required").max(120),
+    bankName: z.string().min(2, "Bank name is required").max(120),
+    country: z.string().min(2, "Country is required").max(80),
+    routingNumber: z
+      .preprocess((v) => (v === "" || v === undefined || v === null ? undefined : String(v).trim()),
+        z.string().min(4).max(34).regex(/^[A-Za-z0-9-]+$/).optional()),
+    accountNumber: z
+      .string()
+      .min(4)
+      .max(34)
+      .regex(/^[A-Za-z0-9\s-]+$/, "Use letters, numbers, spaces, or hyphens only"),
+    swiftBic: z
+      .preprocess((v) => (v === "" || v === undefined || v === null ? undefined : String(v).trim().toUpperCase()),
+        z.string().max(11).regex(/^[A-Z0-9]+$/, "SWIFT/BIC uses letters and numbers only").optional()),
+  })
+  .strict();
+
 // Search filters validation
 const searchFiltersSchema = z.object({
   genres: z.array(z.string()).optional(),
@@ -126,6 +146,7 @@ module.exports = {
   registerSchema,
   loginSchema,
   artistProfileSchema,
+  payoutBankSchema,
   searchFiltersSchema,
   bookingSchema,
   reviewSchema,

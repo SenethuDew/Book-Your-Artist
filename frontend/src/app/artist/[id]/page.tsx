@@ -1,10 +1,12 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getArtistFromFirestore, getArtistBookings } from '@/lib/firebaseBookingAPI';
 import { API_BASE_URL } from '@/lib/api';
 import { FirebaseBookingForm } from '@/components/FirebaseBookingForm';
+import { intervalsOverlapHM, resolvePublishedSlotForPresetColumn, slotCalendarDay } from '@/lib/slotIntervals';
+import { isSingleGigPerDayCategory } from '@/lib/artistCalendarMode';
 import { useAuth } from '@/contexts';
 import { MapPin, Star, Mic2, Calendar, Music2, ArrowLeft, CalendarCheck, CheckCircle2, Zap, UserCheck, ShieldCheck } from 'lucide-react';
 import { FaInstagram, FaSpotify, FaYoutube } from 'react-icons/fa';
@@ -103,6 +105,24 @@ export default function ArtistProfilePage() {
         ]);
         let artistData = firebaseArtistData as ArtistProfileData | null;
 
+        /** Merge category/type from Mongo so Bands/DJs get day-based calendars even when a Firestore doc exists. */
+        if (artistData && !id.startsWith("intl-")) {
+          try {
+            const profileRes = await fetch(`${API_BASE_URL}/api/artists/${id}`);
+            const profileData: { success?: boolean; artist?: ArtistProfileData } = await profileRes.json();
+            if (profileRes.ok && profileData?.success && profileData?.artist) {
+              const b = profileData.artist;
+              artistData = {
+                ...artistData,
+                category: artistData.category ?? b.category ?? b.artistType,
+                artistType: artistData.artistType ?? b.artistType ?? b.category,
+              };
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+
         // Fallback to backend artist profile for newly registered local artists.
         if (!artistData && !id.startsWith('intl-')) {
           try {
@@ -116,6 +136,7 @@ export default function ArtistProfilePage() {
                 name: backendArtist?.name || backendArtist?.user?.name,
                 stageName: backendArtist?.name || backendArtist?.user?.name,
                 category: backendArtist?.category || backendArtist?.artistType || 'Musician',
+                artistType: backendArtist?.artistType,
                 location: backendArtist?.location || '',
                 hourlyRate: backendArtist?.hourlyRate || 0,
                 rating: typeof backendArtist?.rating === 'number' ? backendArtist.rating : 0,
@@ -139,7 +160,7 @@ export default function ArtistProfilePage() {
         // Pull published availability from backend so only published slots are bookable.
         if (!id.startsWith('intl-')) {
           try {
-            const res = await fetch(`${API_BASE_URL}/api/availability/artist/${id}`);
+            const res = await fetch(`${API_BASE_URL}/api/availability/artist/${id}?_=${Date.now()}`);
             const data = await res.json();
             if (res.ok && data?.success && Array.isArray(data.availability)) {
               setPublishedAvailability(data.availability as PublishedAvailabilitySlot[]);
@@ -230,34 +251,28 @@ export default function ArtistProfilePage() {
     return `${year}-${month}-${day}`;
   };
 
-  const getBookingForSlot = (dateStr: string, start: string, end: string) => {
-    return bookings.find(b => {
+  const getBookingForSlotWindow = (dateStr: string, start: string, end: string) => {
+    const endAdj = end === "00:00" ? "24:00" : end;
+    return bookings.find((b) => {
       if (b.eventDate !== dateStr || b.status === "cancelled" || b.paymentStatus === "refunded") return false;
-      
-      const bStart = b.startTime;
       const bEnd = b.endTime === "00:00" ? "24:00" : b.endTime;
-      let bEndVal = parseFloat(bEnd.replace(':', '.'));
-      if (bEndVal < parseFloat(bStart.replace(':', '.'))) bEndVal += 24;
-
-      const slotStart = parseFloat(start.replace(':', '.'));
-      let slotEndVal = parseFloat(end.replace(':', '.'));
-      // if end is earlier, it extends into next day
-      if (slotEndVal < slotStart) slotEndVal += 24;
-
-      const compStart = parseFloat(bStart.replace(':', '.'));
-
-      return (compStart < slotEndVal && bEndVal > slotStart);
+      return intervalsOverlapHM(b.startTime, bEnd, start, endAdj);
     });
   };
 
-  const isPublishedAvailableSlot = (dateStr: string, start: string, end: string) => {
-    return getPublishedSlotForCell(dateStr, start, end)?.status === 'Available';
-  };
+  const singleGigPerDay = !id.startsWith("intl-") && isSingleGigPerDayCategory(artist.category, artist.artistType);
 
-  const getPublishedSlotForCell = (dateStr: string, start: string, end: string) => {
+  const getPublishedSlotForDay = (dateStr: string) => {
     return publishedAvailability.find((slot) => {
       const slotDate = formatYYYYMMDD(new Date(slot.date));
-      return slotDate === dateStr && slot.startTime === start && slot.endTime === end;
+      return slotDate === dateStr;
+    });
+  };
+
+  const getBookingForDay = (dateStr: string) => {
+    return bookings.find((b) => {
+      if (b.eventDate !== dateStr || b.status === "cancelled" || b.paymentStatus === "refunded") return false;
+      return true;
     });
   };
 
@@ -282,9 +297,104 @@ export default function ArtistProfilePage() {
     return {
       title: booking?.eventTitle || publishedSlot?.bookingId?.eventType || "Booked event",
       date: dateString,
-      time: `${slot.start} - ${slot.end}`,
+      time: `${publishedSlot ? `${publishedSlot.startTime} - ${publishedSlot.endTime}` : `${slot.start} - ${slot.end}`}`,
       location,
     };
+  };
+
+  /** Client calendar cell: reflects published backend times (not only preset anchors). */
+  const renderClientAvailabilityCell = (
+    dateString: string,
+    publishedSlot: PublishedAvailabilitySlot,
+  ) => {
+    const booking = getBookingForSlotWindow(dateString, publishedSlot.startTime, publishedSlot.endTime);
+    const slotTimes = { start: publishedSlot.startTime, end: publishedSlot.endTime };
+    const isReserved = publishedSlot.status === "Requested" || publishedSlot.status === "Booked";
+    const bookedSlotDetails = getBookedSlotDetails(booking, publishedSlot, dateString, slotTimes);
+    const canShowBookedLocation =
+      !!(publishedSlot.status === "Booked" || booking) && !!bookedSlotDetails;
+
+    if (publishedSlot.status === "Blocked" || publishedSlot.status === "Draft") {
+      return (
+        <div className="flex flex-col items-center justify-center p-1 sm:p-2 rounded bg-gray-950/60 border border-red-500/20 h-full text-center min-h-[4rem]">
+          <span className="inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-bold text-red-300 uppercase tracking-wider">
+            Blocked
+          </span>
+          <span className="text-[9px] text-gray-400 mt-1">{publishedSlot.startTime} – {publishedSlot.endTime}</span>
+        </div>
+      );
+    }
+
+    if (booking || isReserved) {
+      return (
+        <button
+          type="button"
+          onClick={() => {
+            if (canShowBookedLocation && bookedSlotDetails) {
+              setSelectedBookedSlot(bookedSlotDetails);
+            }
+          }}
+          disabled={!canShowBookedLocation}
+          title={canShowBookedLocation ? `View booked location: ${bookedSlotDetails?.location}` : "Booked"}
+          className={`flex flex-col items-center justify-center p-1 sm:p-2 rounded bg-red-500/5 border border-red-500/10 h-full text-center w-full transition-colors min-h-[4rem] ${
+            canShowBookedLocation ? "hover:bg-red-500/10 cursor-pointer" : "cursor-default"
+          }`}
+        >
+          <span className="inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-bold text-red-400 uppercase tracking-wider mb-0.5 sm:mb-1">
+            <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-red-500" /> Booked
+          </span>
+          <span className="text-[9px] text-gray-400">{publishedSlot.startTime} – {publishedSlot.endTime}</span>
+          {booking && (
+            <span className="text-[9px] sm:text-[11px] text-gray-400 font-medium truncate w-full px-0.5" title={`${booking.eventTitle} ${booking.location ? `- ${booking.location}` : ""}`}>
+              {booking.eventTitle}
+            </span>
+          )}
+          {booking?.location && (
+            <span className="text-[8px] sm:text-[10px] text-gray-500 truncate w-full flex items-center justify-center gap-0.5 mt-0.5 px-0.5">
+              <MapPin size={10} className="w-2 h-2 sm:w-2.5 sm:h-2.5" /> {booking.location.split(",")[0]}
+            </span>
+          )}
+          {canShowBookedLocation && !booking?.location && (
+            <span className="text-[8px] sm:text-[10px] text-gray-500 truncate w-full flex items-center justify-center gap-0.5 mt-0.5 px-0.5">
+              <MapPin size={10} className="w-2 h-2 sm:w-2.5 sm:h-2.5" /> {bookedSlotDetails?.location.split(",")[0]}
+            </span>
+          )}
+        </button>
+      );
+    }
+
+    if (publishedSlot.status === "Available" && !booking) {
+      return (
+        <div
+          className="flex flex-col items-center justify-center p-1 sm:p-2 rounded bg-emerald-500/5 border border-emerald-500/10 h-full hover:bg-emerald-500/10 transition-colors group cursor-pointer min-h-[4rem]"
+          onClick={() => openInteractiveModal(dateString, publishedSlot.startTime, publishedSlot.endTime)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") openInteractiveModal(dateString, publishedSlot.startTime, publishedSlot.endTime);
+          }}
+          role="button"
+          tabIndex={0}
+        >
+          <span className="inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-bold text-emerald-400 uppercase tracking-wider mb-0.5 sm:mb-1">
+            <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" /> Free
+          </span>
+          <span className="text-[9px] text-gray-400">{publishedSlot.startTime} – {publishedSlot.endTime}</span>
+          <button
+            type="button"
+            className="mt-0.5 sm:mt-1 px-1 sm:px-2 py-1 sm:py-1.5 bg-emerald-600/80 hover:bg-emerald-500 rounded text-[9px] sm:text-[11px] text-white font-bold transition-all shadow-sm w-full opacity-80 group-hover:opacity-100"
+          >
+            Book Now
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-col items-center justify-center p-1 sm:p-2 rounded bg-gray-950/60 border border-white/10 h-full text-center min-h-[4rem]">
+        <span className="inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5 sm:mb-1">
+          <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-gray-600" /> Unavailable
+        </span>
+      </div>
+    );
   };
 
   const defaultMapLocation = artist.location || "Sri Lanka";
@@ -529,28 +639,57 @@ export default function ArtistProfilePage() {
               <h2 className="text-xl font-bold text-white mb-1 flex items-center gap-3">
                 <CalendarCheck className="text-violet-400 w-5 h-5" /> Booking Calendar
               </h2>
-              <p className="text-xs font-medium text-gray-500 mb-4">Upcoming slots available to book.</p>
+              <p className="text-xs font-medium text-gray-500 mb-4">
+                {singleGigPerDay ? "Bands/DJs publish one slot per calendar day — book the day's advertised show window." : "Upcoming slots available to book."}
+              </p>
               
               <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4">
                 <div className="flex flex-col gap-2 pb-2 overflow-x-auto">
-                <table className="w-full min-w-[620px] text-left border-collapse table-fixed">
+                <table className={`w-full text-left border-collapse table-fixed ${singleGigPerDay ? "min-w-[300px]" : "min-w-[620px]"}`}>
                   <thead>
                     <tr>
                       <th className="p-1 sm:p-2 bg-gray-950/70 border-b border-white/10 text-gray-400 font-semibold uppercase text-[9px] sm:text-[10px] w-14 sm:w-20 lg:w-24">Date</th>
-                      {TIME_SLOTS.map((slot, i) => (
-                        <th key={i} className="p-1 sm:p-2 bg-gray-950/70 border-b border-white/10 text-gray-400 font-semibold uppercase text-[9px] sm:text-[10px] text-center border-l border-white/10 w-[18%] sm:w-1/4">
-                          {slot.label}
+                      {singleGigPerDay ? (
+                        <th className="p-1 sm:p-2 bg-gray-950/70 border-b border-white/10 text-gray-400 font-semibold uppercase text-[9px] sm:text-[10px] text-center border-l border-white/10">
+                          Day availability
                         </th>
-                      ))}
+                      ) : (
+                        TIME_SLOTS.map((slot, i) => (
+                          <th key={i} className="p-1 sm:p-2 bg-gray-950/70 border-b border-white/10 text-gray-400 font-semibold uppercase text-[9px] sm:text-[10px] text-center border-l border-white/10 w-[18%] sm:w-1/4">
+                            {slot.label}
+                          </th>
+                        ))
+                      )}
                     </tr>
                   </thead>
                   <tbody className="bg-gray-950/30 divide-y divide-white/10">
-                    {upcomingDates.map((date, idx) => {
+                    {upcomingDates.map((date) => {
                       const dateString = formatYYYYMMDD(date);
                       const isToday = dateString === formatYYYYMMDD(today);
-                      
+                      const slotsOnDay = publishedAvailability.filter(
+                        (s) => slotCalendarDay(s.date) === dateString,
+                      );
+                      const usedAssign = new Set<string>();
+                      const columnPublished = TIME_SLOTS.map((tp) => {
+                        const p = resolvePublishedSlotForPresetColumn(slotsOnDay, tp.start, tp.end, usedAssign);
+                        if (p?._id) usedAssign.add(String(p._id));
+                        return p;
+                      });
+                      const leftoverPublished = slotsOnDay.filter(
+                        (s) => s._id && !usedAssign.has(String(s._id)),
+                      );
+                      const emptyPresetCell = (
+                        <div className="flex flex-col items-center justify-center p-1 sm:p-2 rounded bg-gray-950/60 border border-white/10 h-full text-center min-h-[4rem]">
+                          <span className="inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5 sm:mb-1">
+                            <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-gray-600" /> Unavailable
+                          </span>
+                          <span className="text-[8px] sm:text-[10px] text-gray-500">Not published</span>
+                        </div>
+                      );
+
                       return (
-                        <tr key={idx} className={isToday ? "bg-violet-500/10" : "hover:bg-white/[0.03] transition-colors"}>
+                        <React.Fragment key={dateString}>
+                        <tr className={isToday ? "bg-violet-500/10" : "hover:bg-white/[0.03] transition-colors"}>
                           <td className="p-1 sm:p-2 border-r border-white/10">
                             <div className="flex flex-col">
                               <span className={`font-bold text-[10px] sm:text-xs leading-tight ${isToday ? 'text-yellow-400' : 'text-gray-200'}`}>
@@ -559,18 +698,58 @@ export default function ArtistProfilePage() {
                               {isToday && <span className="text-[8px] sm:text-[9px] text-yellow-500/70 font-semibold tracking-wider uppercase mt-0.5">Today</span>}
                             </div>
                           </td>
-                          {TIME_SLOTS.map((slot, sIdx) => {
-                            const booking = getBookingForSlot(dateString, slot.start, slot.end);
-                            const publishedSlot = getPublishedSlotForCell(dateString, slot.start, slot.end);
-                            const isBooked = !!booking;
-                            const isPublished = isPublishedAvailableSlot(dateString, slot.start, slot.end);
-                            const isReserved = publishedSlot?.status === 'Requested' || publishedSlot?.status === 'Booked';
-                            const bookedSlotDetails = getBookedSlotDetails(booking, publishedSlot, dateString, slot);
-                            const canShowBookedLocation = (publishedSlot?.status === 'Booked' || isBooked) && !!bookedSlotDetails;
-                            
-                            return (
-                              <td key={sIdx} className="p-1 border-r border-white/10 align-top overflow-hidden">
-                                {isBooked || isReserved ? (
+                          {singleGigPerDay ? (() => {
+                            const publishedSlot = getPublishedSlotForDay(dateString);
+                            const dayBooking = getBookingForDay(dateString);
+                            const slotTimes = publishedSlot ? { start: publishedSlot.startTime, end: publishedSlot.endTime } : TIME_SLOTS[0];
+                            const bookedSlotDetails = getBookedSlotDetails(dayBooking, publishedSlot, dateString, slotTimes);
+                            const canShowBookedLocation =
+                              !!(publishedSlot?.status === "Booked" || dayBooking) && !!bookedSlotDetails;
+
+                            if (!publishedSlot) {
+                              return (
+                                <td className="p-1 border-r border-white/10 align-top overflow-hidden">
+                                  <div className="flex flex-col items-center justify-center p-2 rounded bg-gray-950/60 border border-white/10 h-full text-center min-h-[4.5rem]">
+                                    <span className="inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-bold text-gray-500 uppercase tracking-wider">
+                                      <div className="w-1 h-1 rounded-full bg-gray-600" /> Unavailable
+                                    </span>
+                                    <span className="text-[8px] text-gray-500 mt-1">Not published</span>
+                                  </div>
+                                </td>
+                              );
+                            }
+
+                            if (publishedSlot.status === "Blocked" || publishedSlot.status === "Draft") {
+                              return (
+                                <td className="p-1 border-r border-white/10 align-top overflow-hidden">
+                                  <div className="flex flex-col items-center justify-center p-2 rounded bg-gray-950/60 border border-red-500/20 h-full text-center min-h-[4.5rem]">
+                                    <span className="inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-bold text-red-300 uppercase tracking-wider">
+                                      Blocked
+                                    </span>
+                                    <span className="text-[9px] text-gray-400 mt-1">{publishedSlot.startTime} – {publishedSlot.endTime}</span>
+                                  </div>
+                                </td>
+                              );
+                            }
+
+                            if (publishedSlot.status === "Requested" && !dayBooking) {
+                              return (
+                                <td className="p-1 border-r border-white/10 align-top overflow-hidden">
+                                  <div className="flex flex-col items-center justify-center p-2 rounded bg-amber-500/5 border border-amber-500/20 h-full text-center min-h-[4.5rem]">
+                                    <span className="inline-flex items-center gap-1 text-[8px] font-bold text-amber-400 uppercase tracking-wider">
+                                      Requested
+                                    </span>
+                                    <span className="text-[9px] text-gray-400 mt-1">{publishedSlot.startTime} – {publishedSlot.endTime}</span>
+                                  </div>
+                                </td>
+                              );
+                            }
+
+                            const isBookedCommitted = !!dayBooking || publishedSlot.status === "Booked" || publishedSlot.status === "Requested";
+
+                            if (isBookedCommitted) {
+                              return (
+                                <td key="day" className="p-1 border-r border-white/10 align-top overflow-hidden">
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -579,53 +758,110 @@ export default function ArtistProfilePage() {
                                       }
                                     }}
                                     disabled={!canShowBookedLocation}
-                                    title={canShowBookedLocation ? `View booked location: ${bookedSlotDetails?.location}` : "Booked"}
-                                    className={`flex flex-col items-center justify-center p-1 sm:p-2 rounded bg-red-500/5 border border-red-500/10 h-full text-center w-full transition-colors ${
-                                      canShowBookedLocation ? "hover:bg-red-500/10 cursor-pointer" : "cursor-default"
+                                    title={
+                                      publishedSlot.status === "Requested"
+                                        ? "Booking request pending"
+                                        : canShowBookedLocation
+                                          ? `View booked location: ${bookedSlotDetails?.location}`
+                                          : "Booked"
+                                    }
+                                    className={`flex flex-col items-center justify-center p-1 sm:p-2 rounded border h-full text-center w-full transition-colors min-h-[4.5rem] ${
+                                      publishedSlot.status === "Requested"
+                                        ? "bg-amber-500/5 border-amber-500/20 cursor-default"
+                                        : `bg-red-500/5 border-red-500/10 ${canShowBookedLocation ? "hover:bg-red-500/10 cursor-pointer" : "cursor-default"}`
                                     }`}
                                   >
-                                    <span className="inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-bold text-red-400 uppercase tracking-wider mb-0.5 sm:mb-1">
-                                      <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-red-500" /> Booked
+                                    <span className={`inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider mb-0.5 ${
+                                      publishedSlot.status === "Requested" ? "text-amber-400" : "text-red-400"
+                                    }`}>
+                                      <div className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${publishedSlot.status === "Requested" ? "bg-amber-500" : "bg-red-500"}`} />
+                                      {publishedSlot.status === "Requested" ? "Requested" : "Booked"}
                                     </span>
-                                    {booking && (
-                                      <span className="text-[9px] sm:text-[11px] text-gray-400 font-medium truncate w-full px-0.5" title={`${booking.eventTitle} ${booking.location ? `- ${booking.location}` : ''}`}>
-                                        {booking.eventTitle}
+                                    <span className="text-[9px] text-gray-400">{publishedSlot.startTime} – {publishedSlot.endTime}</span>
+                                    {dayBooking && (
+                                      <span className="text-[9px] sm:text-[11px] text-gray-400 font-medium truncate w-full px-0.5 mt-0.5" title={`${dayBooking.eventTitle}${dayBooking.location ? ` — ${dayBooking.location}` : ""}`}>
+                                        {dayBooking.eventTitle}
                                       </span>
                                     )}
-                                    {booking?.location && (
+                                    {dayBooking?.location && (
                                       <span className="text-[8px] sm:text-[10px] text-gray-500 truncate w-full flex items-center justify-center gap-0.5 mt-0.5 px-0.5">
-                                        <MapPin size={10} className="w-2 h-2 sm:w-2.5 sm:h-2.5" /> {booking.location.split(',')[0]}
+                                        <MapPin size={10} className="w-2 h-2 sm:w-2.5 sm:h-2.5" /> {dayBooking.location.split(",")[0]}
                                       </span>
                                     )}
-                                    {canShowBookedLocation && !booking?.location && (
+                                    {canShowBookedLocation && !dayBooking?.location && bookedSlotDetails?.location && (
                                       <span className="text-[8px] sm:text-[10px] text-gray-500 truncate w-full flex items-center justify-center gap-0.5 mt-0.5 px-0.5">
-                                        <MapPin size={10} className="w-2 h-2 sm:w-2.5 sm:h-2.5" /> {bookedSlotDetails?.location.split(',')[0]}
+                                        <MapPin size={10} className="w-2 h-2 sm:w-2.5 sm:h-2.5" /> {bookedSlotDetails.location.split(",")[0]}
                                       </span>
                                     )}
                                   </button>
-                                ) : isPublished ? (
-                                  <div className="flex flex-col items-center justify-center p-1 sm:p-2 rounded bg-emerald-500/5 border border-emerald-500/10 h-full hover:bg-emerald-500/10 transition-colors group cursor-pointer" onClick={() => openInteractiveModal(dateString, slot.start, slot.end)}>
-                                    <span className="inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-bold text-emerald-400 uppercase tracking-wider mb-0.5 sm:mb-1">
-                                      <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" /> Free
+                                </td>
+                              );
+                            }
+
+                            if (publishedSlot.status === "Available" && !dayBooking) {
+                              return (
+                                <td className="p-1 border-r border-white/10 align-top overflow-hidden">
+                                  <div
+                                    className="flex flex-col items-center justify-center p-2 rounded bg-emerald-500/5 border border-emerald-500/10 h-full hover:bg-emerald-500/10 transition-colors group cursor-pointer min-h-[4.5rem]"
+                                    onClick={() => openInteractiveModal(dateString, publishedSlot.startTime, publishedSlot.endTime)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter" || e.key === " ")
+                                        openInteractiveModal(dateString, publishedSlot.startTime, publishedSlot.endTime);
+                                    }}
+                                    role="button"
+                                    tabIndex={0}
+                                  >
+                                    <span className="inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-bold text-emerald-400 uppercase tracking-wider">
+                                      Available
                                     </span>
-                                    <button 
-                                      className="mt-0.5 sm:mt-1 px-1 sm:px-2 py-1 sm:py-1.5 bg-emerald-600/80 hover:bg-emerald-500 rounded text-[9px] sm:text-[11px] text-white font-bold transition-all shadow-sm w-full opacity-80 group-hover:opacity-100"
+                                    <span className="text-[9px] text-gray-400 mt-0.5">{publishedSlot.startTime} – {publishedSlot.endTime}</span>
+                                    <button
+                                      type="button"
+                                      className="mt-1 px-2 py-1 bg-emerald-600/80 hover:bg-emerald-500 rounded text-[9px] sm:text-[11px] text-white font-bold transition-all shadow-sm w-full max-w-[140px]"
                                     >
                                       Book Now
                                     </button>
                                   </div>
-                                ) : (
-                                  <div className="flex flex-col items-center justify-center p-1 sm:p-2 rounded bg-gray-950/60 border border-white/10 h-full text-center">
-                                    <span className="inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5 sm:mb-1">
-                                      <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-gray-600" /> Unavailable
-                                    </span>
-                                    <span className="text-[8px] sm:text-[10px] text-gray-500">Not published</span>
-                                  </div>
-                                )}
+                                </td>
+                              );
+                            }
+
+                            return (
+                              <td className="p-1 border-r border-white/10 align-top overflow-hidden">
+                                <div className="flex flex-col items-center justify-center p-2 rounded bg-gray-950/60 border border-white/10 h-full text-center min-h-[4.5rem]">
+                                  <span className="text-[8px] font-bold text-gray-500 uppercase">Unavailable</span>
+                                </div>
                               </td>
                             );
-                          })}
+                          })()
+                          : TIME_SLOTS.map((_, sIdx) => {
+                              const slotPub = columnPublished[sIdx];
+                              return (
+                                <td key={sIdx} className="p-1 border-r border-white/10 align-top overflow-hidden">
+                                  {slotPub
+                                    ? renderClientAvailabilityCell(dateString, slotPub)
+                                    : emptyPresetCell}
+                                </td>
+                              );
+                            })}
                         </tr>
+                        {!singleGigPerDay && leftoverPublished.length > 0 ? (
+                          <tr className="bg-gray-950/50 border-t border-white/10">
+                            <td colSpan={5} className="p-2 sm:p-3 border-white/10 align-top">
+                              <div className="flex flex-wrap gap-2 items-stretch">
+                                <span className="text-[9px] uppercase tracking-wide text-violet-300/90 font-semibold w-full shrink-0">
+                                  More published times · {dateString}
+                                </span>
+                                {leftoverPublished.map((p) => (
+                                  <div key={String(p._id)} className="flex-1 min-w-[140px] max-w-[240px]">
+                                    {renderClientAvailabilityCell(dateString, p)}
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        ) : null}
+                        </React.Fragment>
                       );
                     })}
                   </tbody>
@@ -668,6 +904,7 @@ export default function ArtistProfilePage() {
           clientId={authUser?.id || authUser?._id || authUser?.uid} 
           availableSlots={publishedAvailability}
           prefilledSlot={selectedSlot || undefined}
+          singleGigPerDay={singleGigPerDay}
         />
       )}
     </div>

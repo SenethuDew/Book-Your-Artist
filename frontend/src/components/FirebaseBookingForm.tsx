@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createFirestoreBooking, getArtistBookings } from '@/lib/firebaseBookingAPI';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
+import { resolvePublishedSlotForPresetColumn } from '@/lib/slotIntervals';
 
 interface BookingFormProps {
   artistId: string;
@@ -11,9 +12,11 @@ interface BookingFormProps {
   clientId?: string;
   prefilledSlot?: { date: string; start: string; end: string };
   availableSlots?: { date: string; startTime: string; endTime: string; status?: string }[];
+  /** Bands/DJs — one advertised show per day; pickup published window for that date */
+  singleGigPerDay?: boolean;
 }
 
-export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, onClose, clientId, prefilledSlot, availableSlots = [] }: BookingFormProps) {
+export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, onClose, clientId, prefilledSlot, availableSlots = [], singleGigPerDay = false }: BookingFormProps) {
   const router = useRouter();
   const isIntl = artistId?.startsWith('intl-');
   const formatLocalDate = (date: Date) => {
@@ -52,6 +55,18 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
   }, [prefilledSlot]);
 
   useEffect(() => {
+    if (isIntl || !singleGigPerDay || !formData.eventDate) return;
+    const match = availableSlots.find(
+      (s) =>
+        getSlotDateString(s.date) === formData.eventDate &&
+        (s.status === undefined || s.status === "Available"),
+    );
+    setFormData((prev) =>
+      match ? { ...prev, startTime: match.startTime, endTime: match.endTime } : { ...prev, startTime: "", endTime: "" },
+    );
+  }, [isIntl, singleGigPerDay, formData.eventDate, availableSlots]);
+
+  useEffect(() => {
     const fetchBookings = async () => {
       setLoadingDates(true);
       try {
@@ -81,12 +96,31 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
     setFormData(prev => ({ ...prev, startTime: start, endTime: end }));
   };
 
+  const publishedDayAvailableSlot = (): { startTime: string; endTime: string } | null => {
+    if (!formData.eventDate || availableSlots.length === 0) return null;
+    const m = availableSlots.find(
+      (s) =>
+        getSlotDateString(s.date) === formData.eventDate &&
+        (s.status === undefined || s.status === "Available"),
+    );
+    return m ? { startTime: m.startTime, endTime: m.endTime } : null;
+  };
+
+  const isDayTakenForSingleGig = () => {
+    if (!formData.eventDate || !singleGigPerDay) return false;
+    return existingBookings.some(
+      (b) =>
+        b.eventDate === formData.eventDate && b.status !== "cancelled" && b.paymentStatus !== "refunded",
+    );
+  };
+
   const isSlotBooked = (start: string, end: string) => {
     if (!formData.eventDate) return false;
-    
-    // Find any booking on the same date that overlaps this 2-hour slot
+
     return existingBookings.some((booking) => {
       if (booking.eventDate !== formData.eventDate) return false;
+      if (singleGigPerDay) return booking.status !== "cancelled" && booking.paymentStatus !== "refunded";
+
       const bStart = booking.startTime;
       const bEnd = booking.endTime === '00:00' ? '24:00' : booking.endTime;
       
@@ -106,21 +140,17 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
     });
   };
 
-  const isSlotPublished = (start: string, end: string) => {
-    if (!formData.eventDate) return false;
-    if (isIntl) return true;
+  const isSlotPublished = (presetStart: string, presetEnd: string) => {
+    if (!formData.eventDate || isIntl) return isIntl;
 
-    // If availability exists, only those slots are bookable.
     if (availableSlots.length > 0) {
-      return availableSlots.some((slot) => {
-        const slotDate = getSlotDateString(slot.date);
-        return (
-          slotDate === formData.eventDate &&
-          slot.startTime === start &&
-          slot.endTime === end &&
-          (slot.status === undefined || slot.status === 'Available')
-        );
-      });
+      const dayAvail = availableSlots.filter(
+        (s) =>
+          getSlotDateString(s.date) === formData.eventDate &&
+          (s.status === undefined || s.status === "Available"),
+      );
+      const picked = resolvePublishedSlotForPresetColumn(dayAvail, presetStart, presetEnd, new Set());
+      return !!picked;
     }
 
     return false;
@@ -150,7 +180,22 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
         return;
       }
 
-      if (!isSlotPublished(formData.startTime, formData.endTime)) {
+      if (singleGigPerDay && isDayTakenForSingleGig()) {
+        setError("That date already has an active booking for this artist.");
+        return;
+      }
+
+      const publishedOk = singleGigPerDay
+        ? !!availableSlots.some(
+            (slot) =>
+              getSlotDateString(slot.date) === formData.eventDate &&
+              slot.startTime === formData.startTime &&
+              slot.endTime === formData.endTime &&
+              (slot.status === undefined || slot.status === "Available"),
+          )
+        : isSlotPublished(formData.startTime, formData.endTime);
+
+      if (!publishedOk) {
         setError('This slot is not published by the artist. Please select a published slot.');
         return;
       }
@@ -287,47 +332,87 @@ export function FirebaseBookingForm({ artistId, artistName, hourlyRate = 250, on
             {formData.eventDate && !isIntl && (
               <div className="bg-gray-800 border border-gray-700 rounded-xl p-4">
                 <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-white font-medium text-sm">Available Slots (2-Hour Blocks)</h3>
+                  <h3 className="text-white font-medium text-sm">
+                    {singleGigPerDay ? "Day booking (one show)" : "Available Slots (2-Hour Blocks)"}
+                  </h3>
                   {loadingDates && (
                     <span className="text-xs text-yellow-500 animate-pulse">Syncing Calendar...</span>
                   )}
                 </div>
-                
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {TIME_SLOTS.map((slot) => {
-                    const isBooked = isSlotBooked(slot.start, slot.end);
-                    const isPublished = isSlotPublished(slot.start, slot.end);
-                    const isSelected = formData.startTime === slot.start && formData.endTime === slot.end;
 
+                {singleGigPerDay ? (
+                  (() => {
+                    const window = publishedDayAvailableSlot();
+                    const taken = isDayTakenForSingleGig();
+                    if (loadingDates) return null;
+                    if (!window) {
+                      return (
+                        <p className="text-sm text-gray-400">
+                          No published available slot for this date. Pick another date or contact the artist.
+                        </p>
+                      );
+                    }
+                    if (taken) {
+                      return <p className="text-sm text-red-400">This date already has an active booking.</p>;
+                    }
                     return (
-                      <button
-                        type="button"
-                        key={slot.label}
-                        disabled={isBooked || !isPublished}
-                        onClick={() => handleSlotSelect(slot.start, slot.end)}
-                        className={`text-xs py-2 px-1 rounded-lg border transition-all duration-200 text-center font-medium ${
-                          isBooked 
-                            ? 'bg-gray-900 border-red-500/20 text-gray-500 cursor-not-allowed opacity-60' 
-                            : !isPublished
-                              ? 'bg-gray-900 border-gray-700 text-gray-600 cursor-not-allowed opacity-60'
-                            : isSelected
-                              ? 'bg-yellow-600 border-yellow-500 text-white shadow-lg shadow-yellow-600/20'
-                              : 'bg-gray-800 border-gray-600 text-gray-300 hover:border-yellow-500 hover:text-white hover:bg-gray-700'
-                        }`}
-                      >
-                        {slot.label}
-                        {isBooked && <span className="block mt-0.5 text-[10px] text-red-400">Booked</span>}
-                        {!isBooked && !isPublished && <span className="block mt-0.5 text-[10px] text-gray-500">Not published</span>}
-                      </button>
+                      <p className="text-sm text-green-400 flex flex-wrap items-center gap-1">
+                        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                        <span>Show window:</span>
+                        <span className="font-semibold text-white">
+                          {window.startTime} – {window.endTime}
+                        </span>
+                      </p>
                     );
-                  })}
-                </div>
-                
-                {formData.startTime && !loadingDates && (
-                   <p className="mt-3 text-sm text-green-400 flex items-center gap-1.5">
-                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                     Selected: {formData.startTime} - {formData.endTime}
-                   </p>
+                  })()
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {TIME_SLOTS.map((slot) => {
+                        const dayAvail = availableSlots.filter(
+                          (s) =>
+                            getSlotDateString(s.date) === formData.eventDate &&
+                            (s.status === undefined || s.status === "Available"),
+                        );
+                        const picked = resolvePublishedSlotForPresetColumn(dayAvail, slot.start, slot.end, new Set());
+                        const isBooked = isSlotBooked(slot.start, slot.end);
+                        const isPublished = !!picked;
+                        const isSelected = picked
+                          ? formData.startTime === picked.startTime && formData.endTime === picked.endTime
+                          : false;
+
+                        return (
+                          <button
+                            type="button"
+                            key={slot.label}
+                            disabled={isBooked || !isPublished}
+                            onClick={() => picked && handleSlotSelect(picked.startTime, picked.endTime)}
+                            title={picked ? `${picked.startTime}–${picked.endTime} (published)` : slot.label}
+                            className={`text-xs py-2 px-1 rounded-lg border transition-all duration-200 text-center font-medium ${
+                              isBooked
+                                ? "bg-gray-900 border-red-500/20 text-gray-500 cursor-not-allowed opacity-60"
+                                : !isPublished
+                                  ? "bg-gray-900 border-gray-700 text-gray-600 cursor-not-allowed opacity-60"
+                                  : isSelected
+                                    ? "bg-yellow-600 border-yellow-500 text-white shadow-lg shadow-yellow-600/20"
+                                    : "bg-gray-800 border-gray-600 text-gray-300 hover:border-yellow-500 hover:text-white hover:bg-gray-700"
+                            }`}
+                          >
+                            {slot.label}
+                            {isBooked && <span className="block mt-0.5 text-[10px] text-red-400">Booked</span>}
+                            {!isBooked && !isPublished && <span className="block mt-0.5 text-[10px] text-gray-500">Not published</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {formData.startTime && !loadingDates && (
+                      <p className="mt-3 text-sm text-green-400 flex items-center gap-1.5">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                        Selected: {formData.startTime} - {formData.endTime}
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             )}

@@ -3,6 +3,7 @@ const ArtistProfile = require("../models/ArtistProfile");
 const Availability = require("../models/Availability");
 const User = require("../models/User");
 const { bookingSchema } = require("../validators");
+const { isSingleGigPerDayCategory } = require("../utils/artistCalendarMode");
 
 const toObjectIdString = (value) => {
   if (!value) return "";
@@ -127,24 +128,54 @@ class BookingController {
         }
       }
 
-      const availabilitySlot = await Availability.findOne({
-        artistId,
-        date: requestedDate,
-        startTime,
-        endTime,
-        isPublished: true,
-        status: "Available",
-      });
+      const singleGigDay = isSingleGigPerDayCategory(artist);
 
-      if (!availabilitySlot) {
-        const existingSlotBooking = await Booking.findOne({
-          clientId,
+      let availabilitySlot;
+      if (singleGigDay) {
+        availabilitySlot = await Availability.findOne({
           artistId,
-          eventDate: requestedDate,
+          date: requestedDate,
           startTime,
           endTime,
-          status: { $in: ["pending", "confirmed"] },
+          isPublished: true,
+          status: "Available",
         });
+        if (!availabilitySlot) {
+          availabilitySlot = await Availability.findOne({
+            artistId,
+            date: requestedDate,
+            isPublished: true,
+            status: "Available",
+          }).sort({ startTime: 1 });
+        }
+      } else {
+        availabilitySlot = await Availability.findOne({
+          artistId,
+          date: requestedDate,
+          startTime,
+          endTime,
+          isPublished: true,
+          status: "Available",
+        });
+      }
+
+      if (!availabilitySlot) {
+        const existingSlotBookingQuery = singleGigDay
+          ? {
+              clientId,
+              artistId,
+              eventDate: requestedDate,
+              status: { $in: ["pending", "confirmed"] },
+            }
+          : {
+              clientId,
+              artistId,
+              eventDate: requestedDate,
+              startTime,
+              endTime,
+              status: { $in: ["pending", "confirmed"] },
+            };
+        const existingSlotBooking = await Booking.findOne(existingSlotBookingQuery);
 
         if (existingSlotBooking) {
           return res.status(200).json({
@@ -160,9 +191,12 @@ class BookingController {
         });
       }
 
+      const bookStartTime = availabilitySlot.startTime;
+      const bookEndTime = availabilitySlot.endTime;
+
       // Calculate duration and price
-      const start = new Date(`2000-01-01 ${startTime}`);
-      const end = new Date(`2000-01-01 ${endTime}`);
+      const start = new Date(`2000-01-01 ${bookStartTime}`);
+      const end = new Date(`2000-01-01 ${bookEndTime}`);
       if (end <= start) {
         end.setDate(end.getDate() + 1);
       }
@@ -184,8 +218,8 @@ class BookingController {
         clientId,
         artistId,
         eventDate: requestedDate,
-        startTime,
-        endTime,
+        startTime: bookStartTime,
+        endTime: bookEndTime,
         durationHours,
         totalPrice,
         artistPrice,
