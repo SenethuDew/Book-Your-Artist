@@ -68,14 +68,6 @@ const testimonials = [
   },
 ];
 
-/* ─── Stats data ─── */
-const stats = [
-  { label: "Verified Artists", value: "500+", icon: "👥" },
-  { label: "Events Booked", value: "10,000+", icon: "🎉" },
-  { label: "Average Rating", value: "4.8★", icon: "⭐" },
-  { label: "Happy Clients", value: "15,000+", icon: "😊" },
-];
-
 /* ─── Star component ─── */
 function Stars({ rating }: { rating: number }) {
   return (
@@ -306,13 +298,6 @@ export default function Home() {
               <span className="hidden h-px w-8 bg-gradient-to-r from-violet-400/70 via-violet-400 to-transparent sm:inline" aria-hidden />
             </p>
 
-            <div className="animate-fade-in-up mb-2 inline-flex items-center gap-2 rounded-full border border-violet-500/35 bg-gradient-to-r from-violet-500/[0.14] to-fuchsia-500/[0.1] px-4 py-2 backdrop-blur-sm">
-              <span className="animate-pulse text-violet-200" aria-hidden>
-                ◆
-              </span>
-              <span className="text-xs font-semibold text-violet-100 sm:text-sm">Curated talent · Seamless payouts</span>
-            </div>
-
             <h1 className="mt-5 text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-5xl lg:text-[3.35rem] xl:text-[3.85rem]">
               <span className="block text-white drop-shadow-[0_0_40px_rgba(167,139,250,0.15)]">
                 Hear the headline.
@@ -345,24 +330,6 @@ export default function Home() {
               >
                 Go on tour with us → list your talent
               </Link>
-            </div>
-
-            <div className="mx-auto mt-14 grid max-w-lg grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:justify-center sm:gap-4 lg:mx-0 lg:max-w-none lg:justify-start">
-              {stats.map((stat, i) => (
-                <div
-                  key={i}
-                  className={`animate-fade-in-up flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-black/25 px-4 py-3 text-left backdrop-blur-md sm:inline-flex`}
-                  style={{ animationDelay: `${0.25 + i * 0.05}s` }}
-                >
-                  <span className="text-2xl" aria-hidden>
-                    {stat.icon}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-base font-black text-white sm:text-lg">{stat.value}</p>
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-gray-500">{stat.label}</p>
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
 
