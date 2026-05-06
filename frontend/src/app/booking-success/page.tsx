@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +96,7 @@ function SuccessContent() {
               eventDetails: metadata.specialRequest || "",
               paymentStatus: "paid",
               paymentIntentId: sessionId,
+              advanceAmount: Number(metadata.advanceAmount) || undefined,
             }),
           });
           const backendData = await backendRes.json();

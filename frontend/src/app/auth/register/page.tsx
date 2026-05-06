@@ -12,6 +12,7 @@ import {
   signInWithGoogle,
 } from "@/lib/firebaseSocialAuth";
 import { sanitizePostAuthRedirect } from "@/lib/bookingAuthRedirect";
+import { isStrongPassword, isValidEmail } from "@/lib/authValidation";
 
 interface SignupData {
   name: string;
@@ -27,6 +28,10 @@ function RegisterInner() {
     redirectAfterRegister != null
       ? `/auth/login?redirect=${encodeURIComponent(redirectAfterRegister)}`
       : "/auth/login";
+  const forgotPasswordHref =
+    redirectAfterRegister != null
+      ? `/auth/forgot-password?redirect=${encodeURIComponent(redirectAfterRegister)}`
+      : "/auth/forgot-password";
 
   const [formData, setFormData] = useState<SignupData>({
     name: "",
@@ -34,6 +39,8 @@ function RegisterInner() {
     password: "",
     role: "client",
   });
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<"name" | "email" | "password" | "confirmPassword", string>>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -52,17 +59,37 @@ function RegisterInner() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (name === "name" || name === "email" || name === "password") {
+      setFieldErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
   };
 
   const setRole = (role: "client"|"artist") => {
     setFormData((prev) => ({ ...prev, role }));
   }
 
-  const isFormInvalid = !formData.name.trim() || !formData.email.trim() || formData.password.length < 8;
+  const isFormInvalid =
+    !formData.name.trim() ||
+    !isValidEmail(formData.email) ||
+    !isStrongPassword(formData.password) ||
+    formData.password !== confirmPassword;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if(isFormInvalid) return;
+
+    const next: typeof fieldErrors = {};
+    if (!formData.name.trim()) next.name = "Enter your name.";
+    if (!isValidEmail(formData.email)) next.email = "Enter a valid email address.";
+    if (!isStrongPassword(formData.password)) {
+      next.password =
+        "Password must be 8+ characters with upper, lower, number, and special character.";
+    }
+    if (formData.password !== confirmPassword) {
+      next.confirmPassword = "Passwords do not match.";
+    }
+    setFieldErrors(next);
+    if (Object.keys(next).length > 0) return;
+
     setError("");
     setLoading(true);
 
@@ -201,9 +228,13 @@ function RegisterInner() {
                   onChange={handleChange}
                   placeholder="John Doe"
                   required
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 pl-11 text-white placeholder:text-gray-500 transition-all duration-300 focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20 hover:bg-white/10"
+                  autoComplete="name"
+                  className={`w-full bg-white/5 border rounded-xl py-3 px-4 pl-11 text-white placeholder:text-gray-500 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-violet-500/20 hover:bg-white/10 ${
+                    fieldErrors.name ? "border-red-500/50 focus:border-red-500/50" : "border-white/10 focus:border-violet-500/50"
+                  }`}
                 />
               </div>
+              {fieldErrors.name ? <p className="mt-1.5 ml-1 text-xs text-red-300">{fieldErrors.name}</p> : null}
             </div>
 
             {/* Email Field */}
@@ -220,9 +251,15 @@ function RegisterInner() {
                   onChange={handleChange}
                   placeholder="your@email.com"
                   required
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 pl-11 text-white placeholder:text-gray-500 transition-all duration-300 focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20 hover:bg-white/10"
+                  autoComplete="email"
+                  className={`w-full bg-white/5 border rounded-xl py-3 px-4 pl-11 text-white placeholder:text-gray-500 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-violet-500/20 hover:bg-white/10 ${
+                    fieldErrors.email ? "border-red-500/50 focus:border-red-500/50" : "border-white/10 focus:border-violet-500/50"
+                  }`}
                 />
               </div>
+              {fieldErrors.email ? (
+                <p className="mt-1.5 ml-1 text-xs text-red-300">{fieldErrors.email}</p>
+              ) : null}
             </div>
 
             {/* Password Field */}
@@ -237,10 +274,12 @@ function RegisterInner() {
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  placeholder="••••••••"
+                  placeholder="Strong password"
                   required
-                  minLength={8}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 pl-11 pr-12 text-white placeholder:text-gray-500 transition-all duration-300 focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20 hover:bg-white/10"
+                  autoComplete="new-password"
+                  className={`w-full bg-white/5 border rounded-xl py-3 px-4 pl-11 pr-12 text-white placeholder:text-gray-500 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-violet-500/20 hover:bg-white/10 ${
+                    fieldErrors.password ? "border-red-500/50 focus:border-red-500/50" : "border-white/10 focus:border-violet-500/50"
+                  }`}
                 />
                 <button
                   type="button"
@@ -250,10 +289,36 @@ function RegisterInner() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mt-2 ml-1">Must be at least 8 characters</p>
+              {fieldErrors.password ? (
+                <p className="mt-1.5 ml-1 text-xs text-red-300">{fieldErrors.password}</p>
+              ) : null}
             </div>
 
-            {/* Submit Button */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1.5 ml-1">Confirm password</label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500 group-focus-within:text-violet-400 transition-colors">
+                  <Lock className="h-5 w-5" />
+                </div>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setFieldErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                  }}
+                  placeholder="Repeat password"
+                  required
+                  autoComplete="new-password"
+                  className={`w-full bg-white/5 border rounded-xl py-3 px-4 pl-11 text-white placeholder:text-gray-500 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-violet-500/20 hover:bg-white/10 ${
+                    fieldErrors.confirmPassword ? "border-red-500/50 focus:border-red-500/50" : "border-white/10 focus:border-violet-500/50"
+                  }`}
+                />
+              </div>
+              {fieldErrors.confirmPassword ? (
+                <p className="mt-1.5 ml-1 text-xs text-red-300">{fieldErrors.confirmPassword}</p>
+              ) : null}
+            </div>
             <button
               type="submit"
               disabled={loading || oauthBusy || isFormInvalid}
@@ -303,11 +368,16 @@ function RegisterInner() {
           )}
 
           {/* Sign In Link */}
-          <div className="mt-8 text-center">
+          <div className="mt-8 text-center space-y-2">
             <p className="text-sm text-gray-400">
               Already have an account?{" "}
               <Link href={loginHref} className="font-bold text-violet-400 hover:text-violet-300 transition-colors">
                 Sign In
+              </Link>
+            </p>
+            <p className="text-sm text-gray-500">
+              <Link href={forgotPasswordHref} className="font-medium text-violet-400/90 hover:text-violet-300 transition-colors">
+                Forgot password?
               </Link>
             </p>
           </div>

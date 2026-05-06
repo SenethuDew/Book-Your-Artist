@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -219,6 +219,7 @@ export default function ArtistProfilePage() {
   const openInteractiveModal = (dateStr?: string, start?: string, end?: string) => {
     if (authLoading) return;
     if (!authUser?.id && !authUser?._id && !authUser?.uid) {
+      alert("Please sign in to book this artist.");
       router.push(bookingLoginUrl(`/artist/${id}`));
       return;
     }

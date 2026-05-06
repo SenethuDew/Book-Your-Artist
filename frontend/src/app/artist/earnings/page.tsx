@@ -140,11 +140,26 @@ function buildTransactions(bookings: ArtistBookingRow[]): TransactionRow[] {
 interface PayoutMaskApi {
   accountHolderName: string;
   bankName: string;
+  branchName?: string;
   country: string;
   swiftBic: string;
   accountNumberMasked: string;
-  routingNumberMasked: string;
+  verificationStatus?: string;
   isComplete: boolean;
+}
+
+interface WalletApi {
+  balance: number;
+  totalEarned: number;
+  totalRefunded: number;
+  currency: string;
+  recent: Array<{
+    bookingId?: string;
+    type: "credit" | "refund" | "payout";
+    amount: number;
+    note?: string;
+    createdAt?: string;
+  }>;
 }
 
 function escapeCsvCell(val: string | number): string {
@@ -209,6 +224,7 @@ export default function EarningsPage() {
   const [bookings, setBookings] = useState<ArtistBookingRow[]>([]);
   const [earningsLoading, setEarningsLoading] = useState(true);
   const [payoutMask, setPayoutMask] = useState<PayoutMaskApi | null>(null);
+  const [wallet, setWallet] = useState<WalletApi | null>(null);
   
   useEffect(() => {
     let cancelled = false;
@@ -272,11 +288,24 @@ export default function EarningsPage() {
         /* non-blocking */
       }
     };
+    const loadWallet = async () => {
+      try {
+        const token = getAuthToken();
+        const res = await fetch(`${API_BASE_URL}/api/artists/me/wallet`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        const data = (await res.json()) as { success?: boolean; wallet?: WalletApi };
+        if (!cancelled && data.success && data.wallet) setWallet(data.wallet);
+      } catch {
+        /* non-blocking */
+      }
+    };
     void loadPayout();
+    void loadWallet();
     return () => {
       cancelled = true;
     };
-  }, [user, pathname]);
+  }, [user, pathname, bookings]);
 
   // Demo artist keeps sample data; real artists are computed from live bookings.
   const displayTransactions: TransactionRow[] = isDemoArtist(user)
@@ -374,6 +403,28 @@ export default function EarningsPage() {
             <Download className="w-4 h-4" /> Download Statement
           </button>
         </div>
+
+        {/* Wallet Balance (live from backend) */}
+        {wallet && !isDemoArtist(user) && (
+          <div className="bg-gradient-to-br from-violet-700/40 to-fuchsia-700/30 border border-violet-400/30 rounded-2xl p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold tracking-wider uppercase text-violet-200/80">Available wallet balance</p>
+              <h3 className="text-4xl font-black text-white mt-1">${wallet.balance.toFixed(2)}</h3>
+              <p className="text-xs text-violet-100/80 mt-2">
+                Earned ${wallet.totalEarned.toFixed(2)} · Refunded ${wallet.totalRefunded.toFixed(2)}
+              </p>
+              <p className="text-[11px] text-violet-200/70 mt-1">
+                Advances are credited here when you accept a booking, and reversed if you cancel.
+              </p>
+            </div>
+            <Link
+              href="/artist/payout-settings"
+              className="self-start md:self-auto rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 px-5 py-3 text-sm font-bold text-white"
+            >
+              {payoutMask?.isComplete ? "Update bank details" : "Add bank details"}
+            </Link>
+          </div>
+        )}
 
         {/* Global Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
@@ -477,8 +528,8 @@ export default function EarningsPage() {
                           <div className="space-y-1 text-xs font-semibold">
                             <p className="text-sm font-bold text-white">{payoutMask.bankName}</p>
                             <p className="font-mono text-emerald-200/95">{payoutMask.accountNumberMasked}</p>
-                            {payoutMask.routingNumberMasked ? (
-                              <p className="text-[11px] text-gray-400">Routing {payoutMask.routingNumberMasked}</p>
+                            {payoutMask.branchName ? (
+                              <p className="text-[11px] text-gray-400">Branch {payoutMask.branchName}</p>
                             ) : null}
                             <p className="text-[11px] font-medium text-gray-300">{payoutMask.accountHolderName}</p>
                             {payoutMask.country ? (
@@ -509,8 +560,8 @@ export default function EarningsPage() {
                         <div className="space-y-1 text-xs font-semibold">
                           <p className="text-sm font-bold text-white">{payoutMask.bankName}</p>
                           <p className="font-mono text-emerald-200/95">{payoutMask.accountNumberMasked}</p>
-                          {payoutMask.routingNumberMasked ? (
-                            <p className="text-[11px] text-gray-400">Routing {payoutMask.routingNumberMasked}</p>
+                          {payoutMask.branchName ? (
+                            <p className="text-[11px] text-gray-400">Branch {payoutMask.branchName}</p>
                           ) : null}
                           <p className="text-[11px] font-medium text-gray-300">{payoutMask.accountHolderName}</p>
                           {payoutMask.country ? <p className="text-[11px] text-gray-500">{payoutMask.country}</p> : null}

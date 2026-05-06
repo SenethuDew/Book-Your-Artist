@@ -1,12 +1,41 @@
 const { z } = require("zod");
 
+/** Strong password: 8+ chars, upper, lower, number, special */
+const strongPasswordSchema = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .max(128, "Password is too long")
+  .regex(/[a-z]/, "Include at least one lowercase letter")
+  .regex(/[A-Z]/, "Include at least one uppercase letter")
+  .regex(/[0-9]/, "Include at least one number")
+  .regex(/[^A-Za-z0-9]/, "Include at least one special character (!@#$%^&*...)");
+
 // Register validation
 const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
+  email: z
+    .string()
+    .trim()
+    .min(1, "Email is required")
+    .email("Enter a valid email address")
+    .toLowerCase(),
   phone: z.string().optional(),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: strongPasswordSchema,
   role: z.enum(["client", "artist"]).default("client"),
+});
+
+const forgotPasswordSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .min(1, "Email is required")
+    .email("Enter a valid email address")
+    .toLowerCase(),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(20, "Invalid or expired reset link"),
+  password: strongPasswordSchema,
 });
 
 // Login validation
@@ -47,23 +76,43 @@ const artistProfileSchema = z.object({
   }).optional(),
 }).passthrough();
 
-// Artist payout bank (use PUT /api/artists/me/payout-bank only — never via generic profile update)
+const optionalString = (max) =>
+  z.preprocess(
+    (v) => (v === "" || v === undefined || v === null ? undefined : String(v).trim()),
+    z.string().max(max).optional(),
+  );
+
 const payoutBankSchema = z
   .object({
     accountHolderName: z.string().min(2, "Account name is required").max(120),
     bankName: z.string().min(2, "Bank name is required").max(120),
-    country: z.string().min(2, "Country is required").max(80),
-    routingNumber: z
-      .preprocess((v) => (v === "" || v === undefined || v === null ? undefined : String(v).trim()),
-        z.string().min(4).max(34).regex(/^[A-Za-z0-9-]+$/).optional()),
+    branchName: z.string().min(1, "Branch name is required").max(120),
+    branchCode: optionalString(20),
     accountNumber: z
       .string()
       .min(4)
       .max(34)
-      .regex(/^[A-Za-z0-9\s-]+$/, "Use letters, numbers, spaces, or hyphens only"),
-    swiftBic: z
-      .preprocess((v) => (v === "" || v === undefined || v === null ? undefined : String(v).trim().toUpperCase()),
-        z.string().max(11).regex(/^[A-Z0-9]+$/, "SWIFT/BIC uses letters and numbers only").optional()),
+      .regex(/^\d+$/, "Account number must contain digits only"),
+    accountType: z.enum(["savings", "current"]).default("savings"),
+    nicNumber: z
+      .string()
+      .min(10)
+      .max(12)
+      .regex(/^(\d{9}[VvXx]|\d{12})$/, "NIC must be 9 digits + V/X or 12 digits"),
+    mobileNumber: z
+      .string()
+      .regex(/^07\d{8}$/, "Mobile must be 07XXXXXXXX (10 digits)"),
+    emailAddress: z.string().email("Invalid email address"),
+    country: optionalString(80),
+    swiftBic: z.preprocess(
+      (v) => (v === "" || v === undefined || v === null ? undefined : String(v).trim().toUpperCase()),
+      z
+        .string()
+        .max(11)
+        .regex(/^[A-Z0-9]+$/, "SWIFT/BIC uses letters and numbers only")
+        .optional(),
+    ),
+    bankAddress: optionalString(240),
   })
   .strict();
 
@@ -144,6 +193,9 @@ const validateRequest = (schema) => {
 
 module.exports = {
   registerSchema,
+  strongPasswordSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
   loginSchema,
   artistProfileSchema,
   payoutBankSchema,

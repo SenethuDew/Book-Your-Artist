@@ -182,7 +182,8 @@ export default function Home() {
       try {
         const data = await getAllArtistsFromFirestore();
         if (data && data.length > 0) {
-          setFeaturedArtists(data.slice(0, 6));
+          // 8 artists = two full rows at lg:grid-cols-4
+          setFeaturedArtists(data.slice(0, 8));
         }
       } catch (err) {
         console.error(err);
@@ -299,13 +300,13 @@ export default function Home() {
             </p>
 
             <h1 className="mt-5 text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-5xl lg:text-[3.35rem] xl:text-[3.85rem]">
-              <span className="block text-white drop-shadow-[0_0_40px_rgba(167,139,250,0.15)]">
-                Hear the headline.
+              <span className="block bg-gradient-to-r from-violet-300 via-fuchsia-300 to-indigo-400 bg-clip-text text-transparent drop-shadow-[0_0_40px_rgba(167,139,250,0.15)]">
+                BOOK YOUR ARTIST
               </span>
-              <span className="mt-2 block bg-gradient-to-r from-violet-300 via-fuchsia-300 to-indigo-400 bg-clip-text text-transparent">
-                Book it live tonight.
+              <span className="mt-3 block max-w-3xl text-xl font-bold leading-tight tracking-tight text-white sm:text-2xl lg:mx-0 lg:max-w-none lg:text-3xl lg:leading-snug">
+                Book the perfect artist for your next event.
               </span>
-              <span className="mt-3 block font-medium text-gray-400 sm:text-2xl lg:text-xl xl:text-2xl">
+              <span className="mt-3 block font-bold text-gray-400 sm:text-2xl lg:text-xl xl:text-2xl">
                 Pro musicians. Real reviews. One studio-grade flow.
               </span>
             </h1>
@@ -466,9 +467,9 @@ export default function Home() {
           </div>
 
           {featuredArtists.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
               {featuredArtists.map((artist) => (
-                <FirebaseArtistCard key={artist.id || artist._id} artist={artist} />
+                <FirebaseArtistCard key={artist.id || artist._id} artist={artist} compact />
               ))}
             </div>
           ) : (

@@ -22,6 +22,8 @@ router.get("/config/firebase-public", firebaseConfigController.getPublicFirebase
 // ===== AUTH ROUTES =====
 router.post("/auth/register", authController.register);
 router.post("/auth/login", authController.login);
+router.post("/auth/forgot-password", authController.forgotPassword);
+router.post("/auth/reset-password", authController.resetPassword);
 router.post("/auth/firebase", authController.firebaseLogin);
 // Add logging
 const fs = require("fs");
@@ -41,6 +43,10 @@ router.put("/artists/me", auth, artistController.updateProfile);
 router.get("/artists/me/stats", auth, artistController.getStats);
 router.get("/artists/me/payout-bank", auth, artistController.getPayoutBank);
 router.put("/artists/me/payout-bank", auth, artistController.updatePayoutBank);
+router.delete("/artists/me/payout-bank", auth, artistController.deletePayoutBank);
+router.post("/artists/me/payout-bank/verify/start", auth, artistController.startPayoutVerification);
+router.post("/artists/me/payout-bank/verify/confirm", auth, artistController.confirmPayoutVerification);
+router.get("/artists/me/wallet", auth, artistController.getWallet);
 
 // ===== ARTIST SEARCH & BROWSE ROUTES =====
 router.get("/artists/genres", artistController.getGenres);
@@ -93,6 +99,7 @@ router.get("/admin/users", auth, adminController.getAllUsers);
 router.get("/admin/pending-artists", auth, adminController.getPendingArtists);
 router.put("/admin/artists/:artistId/approve", auth, adminController.approveArtist);
 router.put("/admin/artists/:artistId/reject", auth, adminController.rejectArtist);
+router.put("/admin/artists/:artistId/payout-verification", auth, artistController.adminSetPayoutVerification);
 router.get("/admin/stats", auth, adminController.getStats);
 router.put("/admin/users/:userId/suspend", auth, adminController.suspendUser);
 router.put("/admin/users/:userId/unsuspend", auth, adminController.unsuspendUser);

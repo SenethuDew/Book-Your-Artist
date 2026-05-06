@@ -105,7 +105,12 @@ async function ensureSocialFirebaseAuth(): Promise<ReturnType<typeof getAuth>> {
     return getAuth(app);
   })();
 
-  return ensureSocialFirebasePromise;
+  try {
+    return await ensureSocialFirebasePromise;
+  } catch (error) {
+    ensureSocialFirebasePromise = null;
+    throw error;
+  }
 }
 
 /** True when env is complete or the SPA can reach the backend for bootstrap config */
@@ -114,19 +119,51 @@ export function isFirebaseSocialAuthAvailable(): boolean {
   return Boolean(getApiBaseUrl().trim());
 }
 
+function getProviderErrorMessage(error: unknown, provider: "Google" | "Facebook") {
+  const fallback =
+    `${provider} sign-in is not configured yet. Add real Firebase Web app values to ` +
+    "backend/.env or frontend/.env.local, enable the provider in Firebase Authentication, then restart both servers.";
+
+  if (!(error instanceof Error)) return fallback;
+
+  const code = "code" in error ? String((error as { code?: unknown }).code ?? "") : "";
+  if (code === "auth/configuration-not-found") {
+    return `${provider} is not enabled for this Firebase project. Enable it in Firebase Console -> Authentication -> Sign-in method.`;
+  }
+  if (code === "auth/unauthorized-domain") {
+    return "This domain is not authorized in Firebase. Add localhost to Firebase Console -> Authentication -> Settings -> Authorized domains.";
+  }
+  if (code === "auth/popup-closed-by-user") {
+    return `${provider} sign-in was cancelled before it completed.`;
+  }
+  if (code === "auth/account-exists-with-different-credential") {
+    return "An account already exists with this email using another sign-in method.";
+  }
+
+  return error.message || fallback;
+}
+
 /** Google — enable Google provider in Firebase Console → Authentication → Sign-in method */
 export async function signInWithGoogle(): Promise<string> {
-  const authInstance = await ensureSocialFirebaseAuth();
-  const provider = new GoogleAuthProvider();
-  provider.setCustomParameters({ prompt: "select_account" });
-  const result = await signInWithPopup(authInstance, provider);
-  return idTokenFromResult(result);
+  try {
+    const authInstance = await ensureSocialFirebaseAuth();
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    const result = await signInWithPopup(authInstance, provider);
+    return idTokenFromResult(result);
+  } catch (error) {
+    throw new Error(getProviderErrorMessage(error, "Google"));
+  }
 }
 
 /** Facebook — enable Facebook in Firebase Console and add Facebook App ID + secret */
 export async function signInWithFacebook(): Promise<string> {
-  const authInstance = await ensureSocialFirebaseAuth();
-  const provider = new FacebookAuthProvider();
-  const result = await signInWithPopup(authInstance, provider);
-  return idTokenFromResult(result);
+  try {
+    const authInstance = await ensureSocialFirebaseAuth();
+    const provider = new FacebookAuthProvider();
+    const result = await signInWithPopup(authInstance, provider);
+    return idTokenFromResult(result);
+  } catch (error) {
+    throw new Error(getProviderErrorMessage(error, "Facebook"));
+  }
 }

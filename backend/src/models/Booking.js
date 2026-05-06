@@ -54,6 +54,17 @@ const bookingSchema = new mongoose.Schema(
       index: true,
     },
     paymentIntentId: String,
+    stripeCheckoutSessionId: String,
+    advanceAmount: Number,
+    advanceStatus: {
+      type: String,
+      enum: ["none", "held", "credited", "refunded"],
+      default: "none",
+      index: true,
+    },
+    advanceCreditedAt: Date,
+    advanceRefundedAt: Date,
+    refundId: String,
     status: {
       type: String,
       enum: ["pending", "confirmed", "completed", "cancelled", "disputed"],

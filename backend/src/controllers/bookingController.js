@@ -4,6 +4,7 @@ const Availability = require("../models/Availability");
 const User = require("../models/User");
 const { bookingSchema } = require("../validators");
 const { isSingleGigPerDayCategory } = require("../utils/artistCalendarMode");
+const stripeService = require("../services/stripeService");
 
 const toObjectIdString = (value) => {
   if (!value) return "";
@@ -213,7 +214,11 @@ class BookingController {
       const artistPrice = Math.round(totalPrice * 0.85 * 100) / 100; // 85% to artist
       const platformFee = Math.round(totalPrice * 0.15 * 100) / 100; // 15% platform fee
 
-      // Create booking
+      const advanceAmount =
+        Number(req.body.advanceAmount) > 0
+          ? Number(req.body.advanceAmount)
+          : Math.round(totalPrice * 0.5 * 100) / 100;
+
       const booking = new Booking({
         clientId,
         artistId,
@@ -230,6 +235,10 @@ class BookingController {
         status: "pending",
         paymentStatus: req.body.paymentStatus === "paid" ? "paid" : "pending",
         paymentIntentId,
+        stripeCheckoutSessionId:
+          paymentIntentId && String(paymentIntentId).startsWith("cs_") ? paymentIntentId : undefined,
+        advanceAmount,
+        advanceStatus: req.body.paymentStatus === "paid" ? "held" : "none",
       });
 
       await booking.save();
@@ -419,13 +428,53 @@ class BookingController {
       }
 
       booking.status = status;
-      await booking.save();
+
+      let walletNotice = null;
+      let refundNotice = null;
 
       if (status === "confirmed") {
         await Availability.findOneAndUpdate(
           { bookingId: booking._id, artistId: booking.artistId },
           { status: "Booked" }
         );
+
+        if (
+          booking.paymentStatus === "paid" &&
+          booking.advanceStatus !== "credited" &&
+          booking.advanceStatus !== "refunded"
+        ) {
+          const advance =
+            Number(booking.advanceAmount) ||
+            Math.round(Number(booking.totalPrice || 0) * 0.5 * 100) / 100;
+          if (advance > 0) {
+            const profile = await ArtistProfile.findOne({ userId: booking.artistId });
+            if (profile) {
+              if (!profile.wallet) {
+                profile.wallet = {
+                  balance: 0,
+                  totalEarned: 0,
+                  totalRefunded: 0,
+                  currency: "USD",
+                  ledger: [],
+                };
+              }
+              profile.wallet.balance = (profile.wallet.balance || 0) + advance;
+              profile.wallet.totalEarned = (profile.wallet.totalEarned || 0) + advance;
+              profile.wallet.ledger.push({
+                bookingId: booking._id,
+                type: "credit",
+                amount: advance,
+                note: "Advance credited on booking accept",
+                createdAt: new Date(),
+              });
+              await profile.save();
+              booking.advanceAmount = advance;
+              booking.advanceStatus = "credited";
+              booking.advanceCreditedAt = new Date();
+              walletNotice = `Advance ${advance} credited to artist wallet`;
+            }
+          }
+        }
       }
 
       if (status === "cancelled") {
@@ -433,7 +482,47 @@ class BookingController {
           { bookingId: booking._id, artistId: booking.artistId },
           { status: "Available", bookingId: null }
         );
+
+        if (booking.advanceStatus === "credited") {
+          const profile = await ArtistProfile.findOne({ userId: booking.artistId });
+          if (profile && profile.wallet) {
+            const debit = Number(booking.advanceAmount || 0);
+            profile.wallet.balance = Math.max(0, (profile.wallet.balance || 0) - debit);
+            profile.wallet.totalRefunded = (profile.wallet.totalRefunded || 0) + debit;
+            profile.wallet.ledger.push({
+              bookingId: booking._id,
+              type: "refund",
+              amount: debit,
+              note: "Booking cancelled — advance reversed from wallet",
+              createdAt: new Date(),
+            });
+            await profile.save();
+          }
+        }
+
+        if (
+          booking.paymentStatus === "paid" &&
+          booking.paymentIntentId &&
+          booking.advanceStatus !== "refunded"
+        ) {
+          try {
+            const refund = await stripeService.refundPayment(
+              booking.paymentIntentId,
+              Number(booking.advanceAmount) || undefined,
+            );
+            booking.paymentStatus = "refunded";
+            booking.advanceStatus = "refunded";
+            booking.advanceRefundedAt = new Date();
+            booking.refundId = refund.refundId;
+            refundNotice = `Refund issued to client (${refund.refundId})`;
+          } catch (refundError) {
+            console.error("Refund failed:", refundError.message);
+            refundNotice = `Refund failed: ${refundError.message}`;
+          }
+        }
       }
+
+      await booking.save();
 
       const updatedBooking = await Booking.findById(booking._id)
         .populate("clientId", "name email phone profileImage")
@@ -444,6 +533,8 @@ class BookingController {
         success: true,
         message: `Booking ${status} successfully`,
         booking: enrichedBooking,
+        walletNotice,
+        refundNotice,
       });
     } catch (error) {
       console.error("Update booking status error:", error);

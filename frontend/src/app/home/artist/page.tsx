@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useAuth } from "@/contexts";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { API_BASE_URL } from "@/lib/api";
 
 /** Avatar URLs stored on Mongo are often `/uploads/...` paths — prefix API host for <img>. */
@@ -180,10 +180,11 @@ function ArtistDashboardContent() {
     }
   }, [user?.name]);
 
-  useEffect(() => { 
-    const fetchDashboardDataInternal = async () => {
+  const fetchDashboardData = useCallback(
+    async (opts: { showSpinner?: boolean } = {}) => {
+      const { showSpinner = false } = opts;
       try {
-        setLoading(true);
+        if (showSpinner) setLoading(true);
         const token = localStorage.getItem("token") || localStorage.getItem("authToken");
         if (!token) {
           setLoading(false);
@@ -290,49 +291,96 @@ function ArtistDashboardContent() {
             const bks: Booking[] = bData.bookings;
             setBookings(bks);
 
-            let pendCount = 0, upCount = 0, comCount = 0, totalVal = 0, monthVal = 0, pendEarning = 0;
+            let pendCount = 0,
+              upCount = 0,
+              comCount = 0,
+              totalVal = 0,
+              monthVal = 0,
+              pendEarning = 0;
             const now = new Date();
             const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-            bks.forEach(b => {
-              if(b.status === "pending") pendCount++;
-              if(b.status === "confirmed") { upCount++; pendEarning += (b.artistPrice || 0); }
-              if(b.status === "completed") {
-                 comCount++;
-                 totalVal += (b.artistPrice || 0);
-                 if(new Date(b.eventDate) >= startOfMonth) monthVal += (b.artistPrice || 0);
+            bks.forEach((b) => {
+              const eventDate = new Date(b.eventDate);
+              const eventEnded = eventDate < now;
+
+              if (b.status === "pending") pendCount++;
+
+              // A confirmed booking whose date has passed counts as "played"
+              // even if it hasn't been manually marked completed yet.
+              const isPlayed =
+                b.status === "completed" || (b.status === "confirmed" && eventEnded);
+              const isUpcoming = b.status === "confirmed" && !eventEnded;
+
+              if (isUpcoming) {
+                upCount++;
+                pendEarning += b.artistPrice || 0;
+              }
+              if (isPlayed) {
+                comCount++;
+                totalVal += b.artistPrice || 0;
+                if (eventDate >= startOfMonth) monthVal += b.artistPrice || 0;
               }
             });
 
-            setStats(prev => ({
-              ...prev, totalBookings: bks.length, pendingRequests: pendCount, upcomingBookings: upCount, completedBookings: comCount,
-              totalEarnings: totalVal, monthlyEarnings: monthVal, pendingPayments: pendEarning
+            setStats((prev) => ({
+              ...prev,
+              totalBookings: bks.length,
+              pendingRequests: pendCount,
+              upcomingBookings: upCount,
+              completedBookings: comCount,
+              totalEarnings: totalVal,
+              monthlyEarnings: monthVal,
+              pendingPayments: pendEarning,
             }));
           }
         }
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (showSpinner) setLoading(false);
+      }
+    },
+    [user?.name, router],
+  );
+
+  useEffect(() => {
+    if (!user) return;
+
+    void fetchDashboardData({ showSpinner: true });
+
+    const POLL_MS = 30_000;
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void fetchDashboardData();
+      }
+    }, POLL_MS);
+
+    const refresh = () => {
+      if (document.visibilityState === "visible") {
+        void fetchDashboardData();
       }
     };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
 
-    if (user) {
-      fetchDashboardDataInternal(); 
-    }
-  }, [user, router]);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [user, fetchDashboardData]);
 
   const handleBookingAction = async (id: string, status: string) => {
     try {
       setActionLoading(id);
       const token = localStorage.getItem("token") || localStorage.getItem("authToken");
       await fetch(`${API_BASE_URL}/api/bookings/${id}/status`, {
-         method: "PATCH",
-         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-         body: JSON.stringify({ status })
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
       });
-      // Optionally trigger re-fetch by updating a dummy state, but for now we'll just reload the page or update local state
-      window.location.reload();
+      await fetchDashboardData();
     } finally {
       setActionLoading(null);
     }

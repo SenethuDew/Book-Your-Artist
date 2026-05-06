@@ -12,6 +12,7 @@ import {
   signInWithGoogle,
 } from "@/lib/firebaseSocialAuth";
 import { sanitizePostAuthRedirect } from "@/lib/bookingAuthRedirect";
+import { isValidEmail } from "@/lib/authValidation";
 
 function LoginInner() {
   const [email, setEmail] = useState("");
@@ -36,6 +37,11 @@ function LoginInner() {
   const oauthBusy = oauthProvider !== null;
 
   const isFormInvalid = !email.trim() || !password.trim();
+
+  const forgotPasswordHref =
+    redirectAfterLogin != null
+      ? `/auth/forgot-password?redirect=${encodeURIComponent(redirectAfterLogin)}`
+      : "/auth/forgot-password";
 
   const goAfterLogin = (role: "artist" | "client" | "admin") => {
     if (redirectAfterLogin) {
@@ -89,6 +95,12 @@ function LoginInner() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isFormInvalid) return;
+
+    if (email.includes("@") && !isValidEmail(email)) {
+      setError("Enter a valid email address.");
+      return;
+    }
+
     setError("");
     setLoading(true);
 
@@ -164,9 +176,12 @@ function LoginInner() {
                 </div>
                 <input
                   id="email"
-                  type="text"
+                  type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setError("");
+                  }}
                   placeholder="your@email.com"
                   required
                   autoComplete="username"
@@ -180,7 +195,10 @@ function LoginInner() {
                 <label htmlFor="password" className="block text-sm font-medium text-gray-300">
                   Password
                 </label>
-                <Link href="#" className="text-xs font-medium text-violet-400 hover:text-violet-300 transition-colors">
+                <Link
+                  href={forgotPasswordHref}
+                  className="text-xs font-medium text-violet-400 hover:text-violet-300 transition-colors"
+                >
                   Forgot password?
                 </Link>
               </div>

@@ -148,6 +148,7 @@ export default function ArtistDetail() {
   const openBookingFlow = () => {
     if (authLoading) return;
     if (!user?.id && !user?._id) {
+      alert("Please sign in to book this artist.");
       router.push(bookingLoginUrl(bookingReturnPath));
       return;
     }
@@ -158,6 +159,7 @@ export default function ArtistDetail() {
     e.preventDefault();
 
     if (!user?.id && !user?._id) {
+      alert("Please sign in to book this artist.");
       router.push(bookingLoginUrl(bookingReturnPath));
       return;
     }

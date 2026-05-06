@@ -34,6 +34,9 @@ const userSchema = new mongoose.Schema(
       default: "active",
       index: true,
     },
+    /** SHA-256 hash of raw reset token (never store plaintext token) */
+    passwordResetToken: String,
+    passwordResetExpires: Date,
   },
   { timestamps: true }
 );

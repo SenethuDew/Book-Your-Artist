@@ -6,6 +6,21 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { API_BASE_URL } from "@/lib/api";
+
+/** Avatar URLs stored on Mongo are often `/uploads/...` paths — prefix API host for `<img>`. */
+function absoluteMediaUrl(raw: string | undefined | null): string | null {
+  const s = typeof raw === "string" ? raw.trim() : "";
+  if (!s) return null;
+  if (/^https?:\/\//i.test(s)) return s;
+  const path = s.startsWith("/") ? s : `/${s}`;
+  return `${API_BASE_URL}${path}`;
+}
+
+function clientFirstName(name: string | undefined): string {
+  const t = name?.trim();
+  if (!t) return "Guest";
+  return t.split(/\s+/)[0] ?? "Guest";
+}
 import { getAllArtistsFromFirestore } from "@/lib/firebaseBookingAPI";
 import {
   Search,
@@ -146,6 +161,7 @@ function ClientHomeContent() {
   const [recommendedArtists, setRecommendedArtists] = useState<HomeFeaturedArtist[]>([]);
   const [searchableArtists, setSearchableArtists] = useState<HomeFeaturedArtist[]>([]);
   const [loading, setLoading] = useState(true);
+  const [clientProfileImageUrl, setClientProfileImageUrl] = useState<string | null>(null);
 
   // Search states
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -155,11 +171,28 @@ function ClientHomeContent() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const token = localStorage.getItem("token");
+      const token =
+        localStorage.getItem("authToken") || localStorage.getItem("token");
       if (!token) return;
 
       try {
         setLoading(true);
+
+        try {
+          const meRes = await fetch(`${API_BASE_URL}/api/users/me`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (meRes.ok) {
+            const meData = (await meRes.json()) as {
+              user?: { profileImage?: string };
+            };
+            setClientProfileImageUrl(absoluteMediaUrl(meData?.user?.profileImage));
+          } else {
+            setClientProfileImageUrl(null);
+          }
+        } catch {
+          setClientProfileImageUrl(null);
+        }
 
         // Fetch stats
         const statsRes = await fetch(`${API_BASE_URL}/api/bookings/stats`, {
@@ -200,6 +233,8 @@ function ClientHomeContent() {
 
     if (user) {
       fetchData();
+    } else {
+      setClientProfileImageUrl(null);
     }
   }, [user]);
 
@@ -449,12 +484,22 @@ function ClientHomeContent() {
                   }}
                   className="flex items-center gap-3 p-1.5 pr-3 bg-white/5 border border-white/10 hover:bg-white/10 rounded-full transition-all group"
                 >
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-violet-500 flex items-center justify-center font-bold text-xs ring-2 ring-white/10 group-hover:ring-violet-500/50 transition-all shadow-inner">
-                    {user?.name?.charAt(0) || "C"}
+                  <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-gradient-to-tr from-blue-500 to-violet-500 ring-2 ring-white/10 group-hover:ring-violet-500/50 transition-all shadow-inner">
+                    {clientProfileImageUrl ? (
+                      <img
+                        src={clientProfileImageUrl}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center text-xs font-bold">
+                        {clientFirstName(user?.name).charAt(0).toUpperCase() || "C"}
+                      </span>
+                    )}
                   </div>
                   <div className="hidden sm:block text-left max-w-[120px]">
                     <p className="text-sm font-bold truncate leading-tight">
-                      {user?.name || "Client"}
+                      {clientFirstName(user?.name)}
                     </p>
                   </div>
                   <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isProfileOpen ? "rotate-180" : ""}`} />
@@ -467,11 +512,26 @@ function ClientHomeContent() {
                       onClick={() => setIsProfileOpen(false)}
                     ></div>
                     <div className="absolute right-0 mt-3 w-56 bg-[#120A20] border border-white/10 rounded-2xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] py-2 z-50 animate-in fade-in slide-in-from-top-4 duration-200">
-                      <div className="px-4 py-3 border-b border-white/5 mb-2">
-                        <p className="text-white font-bold">{user?.name}</p>
-                        <p className="text-gray-400 text-xs truncate">
-                          {user?.email}
-                        </p>
+                      <div className="px-4 py-3 border-b border-white/5 mb-2 flex items-center gap-3">
+                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-gradient-to-tr from-blue-500 to-violet-500 ring-2 ring-white/10">
+                          {clientProfileImageUrl ? (
+                            <img
+                              src={clientProfileImageUrl}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <span className="flex h-full w-full items-center justify-center text-sm font-bold">
+                              {clientFirstName(user?.name).charAt(0).toUpperCase() || "C"}
+                            </span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-white font-bold truncate">
+                            {clientFirstName(user?.name)}
+                          </p>
+                          <p className="text-gray-400 text-xs truncate">{user?.email}</p>
+                        </div>
                       </div>
                       <Link
                         href="/profile"
@@ -522,15 +582,15 @@ function ClientHomeContent() {
           <div className="absolute -top-[30%] -right-[10%] w-[60%] h-[120%] bg-fuchsia-600/20 blur-[120px] rounded-full pointer-events-none z-[-1]" />
           <div className="absolute -bottom-[30%] -left-[10%] w-[60%] h-[120%] bg-violet-600/20 blur-[120px] rounded-full pointer-events-none z-[-1]" />
 
-          <div className="px-6 sm:px-12 lg:px-16 py-20 sm:py-28 relative z-10 flex flex-col items-start min-h-[500px] justify-center">
-            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs sm:text-sm font-bold mb-8 tracking-wide shadow-sm backdrop-blur-md">
+          <div className="px-6 sm:px-12 lg:px-16 py-14 sm:py-20 lg:py-24 relative z-10 flex flex-col items-start min-h-[clamp(20rem,52vh,34rem)] sm:min-h-[clamp(22rem,48vh,38rem)] lg:min-h-[clamp(26rem,46vh,42rem)] justify-center">
+            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs sm:text-sm font-bold mb-6 sm:mb-7 tracking-wide shadow-sm backdrop-blur-md">
               <Star className="w-4 h-4 fill-violet-400 text-violet-400" /> Premium Connect Experience
             </span>
-            <h2 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-white via-white to-gray-500 mb-6 tracking-tight leading-[1.1] max-w-4xl">
+            <h2 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-white via-white to-gray-500 mb-5 sm:mb-6 tracking-tight leading-[1.1] max-w-4xl">
               Elevate Your Event With Phenomenal Talent.
             </h2>
-            <p className="text-lg sm:text-xl text-gray-300 mb-10 max-w-2xl font-medium leading-relaxed">
-              Welcome back, {user?.name?.split(" ")[0] || "Guest"}. Find top-tier DJs, live bands, solo artists, and rappers for your next unforgettable occasion. Compare, book, and enjoy.
+            <p className="text-lg sm:text-xl text-gray-300 mb-9 sm:mb-10 max-w-2xl font-medium leading-relaxed">
+              Welcome back, {clientFirstName(user?.name)}. Find top-tier DJs, live bands, solo artists, and rappers for your next unforgettable occasion. Compare, book, and enjoy.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
@@ -552,7 +612,7 @@ function ClientHomeContent() {
         </section>
 
         {/* INLINE SEARCH & FILTER SECTION */}
-        <section className="relative -mt-28 z-20 max-w-5xl mx-auto px-4 sm:px-0">
+        <section className="relative -mt-24 sm:-mt-28 lg:-mt-32 z-20 max-w-5xl mx-auto px-4 sm:px-0">
           <div className="bg-[#120A20]/90 backdrop-blur-2xl border border-white/10 rounded-3xl p-4 sm:p-6 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)] ring-1 ring-white/5">
             <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="relative col-span-1 md:col-span-2">

@@ -125,19 +125,37 @@ class StripeService {
   }
 
   /**
-   * Refund a payment
+   * Resolve a stored reference (PaymentIntent id or Checkout Session id) to a
+   * real PaymentIntent id that can be refunded.
+   */
+  async resolvePaymentIntentId(reference) {
+    if (!reference) return null;
+    if (reference.startsWith("pi_")) return reference;
+    if (reference.startsWith("cs_")) {
+      const stripeClient = getStripe();
+      const session = await stripeClient.checkout.sessions.retrieve(reference);
+      return session?.payment_intent || null;
+    }
+    return reference;
+  }
+
+  /**
+   * Refund a payment by PaymentIntent id or Checkout Session id.
    */
   async refundPayment(paymentIntentId, amount = null) {
     try {
       const stripeClient = getStripe();
+      const realIntentId = await this.resolvePaymentIntentId(paymentIntentId);
+      if (!realIntentId) {
+        throw new Error("Could not resolve a Stripe PaymentIntent for refund");
+      }
       const refund = await stripeClient.refunds.create({
-        payment_intent: paymentIntentId,
+        payment_intent: realIntentId,
         amount: amount ? Math.round(amount * 100) : undefined,
       });
 
-      // Update payment record
       await Payment.findOneAndUpdate(
-        { stripePaymentIntentId: paymentIntentId },
+        { stripePaymentIntentId: { $in: [paymentIntentId, realIntentId] } },
         { status: "refunded", refundedAt: new Date() },
         { new: true }
       );
@@ -146,6 +164,7 @@ class StripeService {
         success: true,
         refundId: refund.id,
         amount: refund.amount / 100,
+        paymentIntentId: realIntentId,
       };
     } catch (error) {
       console.error("Error refunding payment:", error);

@@ -1,5 +1,10 @@
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+const bcryptjs = require("bcryptjs");
+const { z } = require("zod");
 const User = require("../models/User");
+const { registerSchema, forgotPasswordSchema, resetPasswordSchema } = require("../validators");
+const emailService = require("../services/emailService");
 
 class AuthController {
   /**
@@ -8,15 +13,17 @@ class AuthController {
    */
   async register(req, res) {
     try {
-      const { name, email, password, role } = req.body;
-
-      // Validate input
-      if (!name || !email || !password || !role) {
+      const validation = registerSchema.safeParse(req.body);
+      if (!validation.success) {
+        const err = validation.error.errors[0];
         return res.status(400).json({
           success: false,
-          message: "Please provide all required fields",
+          message: err.message,
+          errors: validation.error.flatten().fieldErrors,
         });
       }
+
+      const { name, email, password, role } = validation.data;
 
       // Check if user already exists
       const existingUser = await User.findOne({ email });
@@ -35,9 +42,8 @@ class AuthController {
         status: "active",
       });
 
-      // Hash password manually before saving
-      const salt = require("bcryptjs").genSaltSync(10);
-      user.password = require("bcryptjs").hashSync(password, salt);
+      const salt = bcryptjs.genSaltSync(10);
+      user.password = bcryptjs.hashSync(password, salt);
 
       await user.save();
 
@@ -94,6 +100,19 @@ class AuthController {
           success: false,
           message: "Please provide your email/phone and password",
         });
+      }
+
+      if (identifier.includes("@")) {
+        const emailParsed = z
+          .string()
+          .email("Enter a valid email address")
+          .safeParse(identifier.trim().toLowerCase());
+        if (!emailParsed.success) {
+          return res.status(400).json({
+            success: false,
+            message: emailParsed.error.errors[0]?.message || "Enter a valid email address",
+          });
+        }
       }
 
       // Find user (allow phone OR email login)
@@ -496,6 +515,121 @@ class AuthController {
         success: false,
         message: "Failed to delete profile",
         error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  }
+
+  /**
+   * Request password reset email
+   * POST /auth/forgot-password  { email }
+   */
+  async forgotPassword(req, res) {
+    try {
+      const validation = forgotPasswordSchema.safeParse(req.body);
+      if (!validation.success) {
+        const err = validation.error.errors[0];
+        return res.status(400).json({
+          success: false,
+          message: err.message,
+        });
+      }
+
+      const { email } = validation.data;
+      const generic = {
+        success: true,
+        message:
+          "If an account exists for that email, we sent password reset instructions.",
+      };
+
+      const user = await User.findOne({ email });
+      if (!user) {
+        return res.status(200).json(generic);
+      }
+
+      const rawToken = crypto.randomBytes(32).toString("hex");
+      const hashed = crypto.createHash("sha256").update(rawToken).digest("hex");
+      user.passwordResetToken = hashed;
+      user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
+      await user.save();
+
+      const base = (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/$/, "");
+      const resetUrl = `${base}/auth/reset-password?token=${encodeURIComponent(rawToken)}`;
+
+      const emailResult = await emailService.sendPasswordResetEmail(user.email, resetUrl);
+
+      if (!emailResult.delivered && process.env.NODE_ENV === "production") {
+        user.passwordResetToken = undefined;
+        user.passwordResetExpires = undefined;
+        await user.save();
+        return res.status(502).json({
+          success: false,
+          message: "Could not send email. Configure SMTP or try again later.",
+        });
+      }
+
+      return res.status(200).json({
+        ...generic,
+        ...(process.env.NODE_ENV !== "production" && !emailResult.delivered
+          ? {
+              devResetUrl: resetUrl,
+              message: `${generic.message} (Dev: email not configured — use devResetUrl below.)`,
+            }
+          : {}),
+      });
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Something went wrong. Try again later.",
+      });
+    }
+  }
+
+  /**
+   * Complete password reset with token from email
+   * POST /auth/reset-password  { token, password }
+   */
+  async resetPassword(req, res) {
+    try {
+      const validation = resetPasswordSchema.safeParse(req.body);
+      if (!validation.success) {
+        const err = validation.error.errors[0];
+        return res.status(400).json({
+          success: false,
+          message: err.message,
+          errors: validation.error.flatten().fieldErrors,
+        });
+      }
+
+      const { token, password } = validation.data;
+      const hashed = crypto.createHash("sha256").update(token).digest("hex");
+      const user = await User.findOne({
+        passwordResetToken: hashed,
+        passwordResetExpires: { $gt: new Date() },
+      });
+
+      if (!user) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid or expired reset link. Please request a new one.",
+        });
+      }
+
+      const salt = bcryptjs.genSaltSync(10);
+      user.password = bcryptjs.hashSync(password, salt);
+      user.passwordResetToken = undefined;
+      user.passwordResetExpires = undefined;
+      await user.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Password updated. You can sign in with your new password.",
+      });
+    } catch (error) {
+      console.error("Reset password error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Could not reset password. Try again.",
       });
     }
   }
