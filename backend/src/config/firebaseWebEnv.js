@@ -157,14 +157,28 @@ function getFirebaseWebOptions() {
   const apiKey =
     process.env.FIREBASE_WEB_API_KEY?.trim() ||
     process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.trim();
-  const projectId = process.env.FIREBASE_PROJECT_ID?.trim();
+  const projectId =
+    process.env.FIREBASE_PROJECT_ID?.trim() ||
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID?.trim();
   const defaults = projectId ? deriveFromProjectId(projectId) : { authDomain: "", storageBucket: "" };
   const authDomain =
-    process.env.FIREBASE_AUTH_DOMAIN?.trim() || defaults.authDomain || "";
+    process.env.FIREBASE_AUTH_DOMAIN?.trim() ||
+    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN?.trim() ||
+    defaults.authDomain ||
+    "";
   const storageBucket =
-    process.env.FIREBASE_STORAGE_BUCKET?.trim() || defaults.storageBucket || "";
-  const messagingSenderId = process.env.FIREBASE_MESSAGING_SENDER_ID?.trim() || "";
-  const appId = process.env.FIREBASE_APP_ID?.trim() || "";
+    process.env.FIREBASE_STORAGE_BUCKET?.trim() ||
+    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim() ||
+    defaults.storageBucket ||
+    "";
+  const messagingSenderId =
+    process.env.FIREBASE_MESSAGING_SENDER_ID?.trim() ||
+    process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID?.trim() ||
+    "";
+  const appId =
+    process.env.FIREBASE_APP_ID?.trim() ||
+    process.env.NEXT_PUBLIC_FIREBASE_APP_ID?.trim() ||
+    "";
 
   const assembled = normalizeOptions({
     apiKey,

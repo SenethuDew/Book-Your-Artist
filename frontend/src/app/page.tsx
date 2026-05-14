@@ -103,7 +103,7 @@ function SoundWaveDeck() {
         />
         <div className="relative mb-5 flex flex-wrap items-center justify-between gap-3">
           <span className="rounded-full bg-fuchsia-500/12 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-200 ring-1 ring-fuchsia-400/25">
-            Spotlight roster
+            Featured Artists
           </span>
           <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-emerald-300/95">
             <span className="relative flex h-2 w-2">
@@ -123,15 +123,14 @@ function SoundWaveDeck() {
           ))}
         </div>
         <p className="relative mt-6 text-center text-sm leading-relaxed text-gray-400">
-          <span className="text-gradient-warm bg-clip-text font-semibold text-transparent">Every genre.</span>{" "}
-          Every room size. Zero guesswork.
+          <span className="text-gradient-warm bg-clip-text font-semibold text-transparent">Artists for Every Event</span>
         </p>
       </div>
       <div className="animate-float-delay-1 pointer-events-none absolute -right-2 top-14 hidden rounded-2xl border border-violet-400/20 bg-[#0d0718]/90 px-4 py-2.5 text-[11px] font-bold text-violet-100 shadow-xl backdrop-blur-md sm:block">
-        ✦ 500+ vetted artists
+        ✦ Verified Artist Profiles
       </div>
       <div className="animate-float-delay-2 pointer-events-none absolute bottom-10 -left-4 hidden rounded-2xl border border-fuchsia-400/20 bg-[#0d0718]/90 px-4 py-2.5 text-[11px] font-bold text-fuchsia-100 shadow-xl backdrop-blur-md md:block">
-        Encrypted · Stripe-ready
+        Secure Booking & Payments
       </div>
     </div>
   );
@@ -295,7 +294,7 @@ export default function Home() {
           <div className="text-center lg:col-span-6 lg:text-left">
             <p className="animate-fade-in mb-4 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.35em] text-violet-300/90">
               <span className="h-px w-8 bg-gradient-to-r from-transparent via-violet-400 to-violet-400/70" aria-hidden />
-              Where live meets luxury
+              CONNECTING EVENTS WITH TALENTED ARTISTS
               <span className="hidden h-px w-8 bg-gradient-to-r from-violet-400/70 via-violet-400 to-transparent sm:inline" aria-hidden />
             </p>
 
@@ -304,15 +303,15 @@ export default function Home() {
                 BOOK YOUR ARTIST
               </span>
               <span className="mt-3 block max-w-3xl text-xl font-bold leading-tight tracking-tight text-white sm:text-2xl lg:mx-0 lg:max-w-none lg:text-3xl lg:leading-snug">
-                Book the perfect artist for your next event.
+                Discover and book singers, DJs, bands, and performers for your next event.
               </span>
               <span className="mt-3 block font-bold text-gray-400 sm:text-2xl lg:text-xl xl:text-2xl">
-                Pro musicians. Real reviews. One studio-grade flow.
+                Trusted artists. Easy booking. Secure payments.
               </span>
             </h1>
 
             <p className="mx-auto mt-8 max-w-xl text-base leading-relaxed text-gray-400 sm:text-lg lg:mx-0">
-              Search by vibe, budget, and calendar. Message artists, lock the date, and pay with confidence — without the endless DMs and spreadsheets.
+              Search artists by category, budget, location, and availability. Chat with artists, confirm bookings, and make secure payments in one platform.
             </p>
 
             <div className="mt-10 flex flex-col items-stretch gap-4 sm:flex-row sm:items-center lg:justify-start">
@@ -323,13 +322,13 @@ export default function Home() {
                 <svg className="relative z-10 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <span className="relative z-10">Browse the lineup</span>
+                <span className="relative z-10">Browse Artists</span>
               </Link>
               <Link
                 href="/sign-up"
                 className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.04] px-8 py-4 text-sm font-bold text-gray-100 backdrop-blur-sm transition-all duration-300 hover:border-violet-400/40 hover:bg-white/[0.08] sm:w-auto sm:rounded-xl"
               >
-                Go on tour with us → list your talent
+                Join as an Artist
               </Link>
             </div>
           </div>

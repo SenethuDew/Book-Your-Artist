@@ -47,6 +47,45 @@ class AuthController {
 
       await user.save();
 
+      // Generate email verification token
+      try {
+        const rawVerifyToken = crypto.randomBytes(32).toString("hex");
+        const hashedVerify = crypto.createHash("sha256").update(rawVerifyToken).digest("hex");
+        user.emailVerificationToken = hashedVerify;
+        user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+        user.isEmailVerified = false;
+        await user.save();
+
+        const base = (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/$/, "");
+        const verifyUrl = `${base}/auth/verify-email?token=${encodeURIComponent(rawVerifyToken)}`;
+
+        const emailResult = await emailService.sendEmail({
+          to: user.email,
+          subject: "Verify your Book Your Artist email",
+          text: `Please verify your email by visiting: ${verifyUrl}`,
+          html: `<p>Please verify your email by clicking the link below:</p><p><a href="${verifyUrl}">Verify email</a></p>`,
+        });
+
+        if (!emailResult.delivered && process.env.NODE_ENV === "production") {
+          // rollback token if we couldn't send in production
+          user.emailVerificationToken = undefined;
+          user.emailVerificationExpires = undefined;
+          await user.save();
+          return res.status(502).json({
+            success: false,
+            message: "Could not send verification email. Configure SMTP or try again later.",
+          });
+        }
+
+        // In non-production, include a devVerifyUrl to ease development when SMTP is not configured
+        var devVerifyUrl = undefined;
+        if (process.env.NODE_ENV !== "production" && !emailResult.delivered) {
+          devVerifyUrl = verifyUrl;
+        }
+      } catch (e) {
+        console.error("Failed to send verification email:", e);
+      }
+
       // Generate token
       const token = jwt.sign(
         { id: user._id, email: user.email, role: user.role },
@@ -64,12 +103,14 @@ class AuthController {
           id: user._id,
           name: user.name,
           email: user.email,
+          isEmailVerified: !!user.isEmailVerified,
           role: user.role,
           status: user.status,
           profileImage: user.profileImage,
           phone: user.phone,
           location: user.location,
         },
+        ...(devVerifyUrl ? { devVerifyUrl } : {}),
       });
     } catch (error) {
       console.error("Register error - Full details:", error);
@@ -185,6 +226,7 @@ class AuthController {
           id: user._id,
           name: user.name,
           email: user.email,
+          isEmailVerified: !!user.isEmailVerified,
           role: user.role,
           status: user.status,
           profileImage: user.profileImage,
@@ -199,6 +241,39 @@ class AuthController {
         message: "Login failed",
         error: process.env.NODE_ENV === "development" ? error.message : undefined,
       });
+    }
+  }
+
+  /**
+   * Verify email using token sent to user's mailbox
+   * GET /auth/verify-email?token=...
+   */
+  async verifyEmail(req, res) {
+    try {
+      const raw = String(req.query.token || "");
+      if (!raw) {
+        return res.status(400).json({ success: false, message: "Missing verification token" });
+      }
+
+      const hashed = crypto.createHash("sha256").update(raw).digest("hex");
+      const user = await User.findOne({
+        emailVerificationToken: hashed,
+        emailVerificationExpires: { $gt: new Date() },
+      });
+
+      if (!user) {
+        return res.status(400).json({ success: false, message: "Invalid or expired verification link" });
+      }
+
+      user.isEmailVerified = true;
+      user.emailVerificationToken = undefined;
+      user.emailVerificationExpires = undefined;
+      await user.save();
+
+      return res.json({ success: true, message: "Email verified successfully" });
+    } catch (error) {
+      console.error("Verify email error:", error);
+      return res.status(500).json({ success: false, message: "Could not verify email" });
     }
   }
 
@@ -377,6 +452,7 @@ class AuthController {
           id: user._id,
           name: user.name,
           email: user.email,
+          isEmailVerified: !!user.isEmailVerified,
           role: user.role,
           status: user.status,
           profileImage: user.profileImage,

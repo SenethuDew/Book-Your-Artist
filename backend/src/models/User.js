@@ -37,6 +37,15 @@ const userSchema = new mongoose.Schema(
     /** SHA-256 hash of raw reset token (never store plaintext token) */
     passwordResetToken: String,
     passwordResetExpires: Date,
+    // Email verification
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    /** SHA-256 hash of raw email verification token (never store plaintext token) */
+    emailVerificationToken: String,
+    emailVerificationExpires: Date,
   },
   { timestamps: true }
 );

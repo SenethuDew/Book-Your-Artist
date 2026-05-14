@@ -2,8 +2,10 @@
 
 /**
  * Google / Facebook sign-in via Firebase Auth (popup).
- * Uses validated NEXT_PUBLIC_* when present, otherwise GET /api/config/firebase-public
- * so backend and SPA share one Firebase web project without duplicating secrets in the browser bundle.
+ * Config resolution order:
+ * 1) Validated `NEXT_PUBLIC_FIREBASE_*` in the browser bundle (build-time env).
+ * 2) `GET /api/config/firebase-public` on the Next app (reads the same env on the server).
+ * 3) Same path on the Express API (`NEXT_PUBLIC_API_URL`), for deployments that only configure the backend.
  */
 
 import type { FirebaseOptions } from "firebase/app";
@@ -26,33 +28,14 @@ import {
 
 const SOCIAL_APP_NAME = SHARED_FIREBASE_OAUTH_APP_NAME;
 
-async function fetchPublicFirebaseWebConfig(): Promise<FirebaseOptions> {
-  const base = getApiBaseUrl().replace(/\/$/, "");
-  const response = await fetch(`${base}/api/config/firebase-public`, {
-    method: "GET",
-    headers: { Accept: "application/json" },
-  });
-  const text = await response.text();
-  const fallbackMessage =
-    "Firebase is not configured on the server yet. Follow backend/.env.example, then restart the API (and frontend if you updated .env.local).";
-  let parsed: {
-    apiKey?: string;
-    authDomain?: string;
-    projectId?: string;
-    storageBucket?: string;
-    messagingSenderId?: string;
-    appId?: string;
-    message?: string;
-    code?: string;
-  };
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    throw new Error(
-      !response.ok ? text.trim() || fallbackMessage : fallbackMessage,
-    );
-  }
-
+function firebaseOptionsFromParsed(parsed: {
+  apiKey?: string;
+  authDomain?: string;
+  projectId?: string;
+  storageBucket?: string;
+  messagingSenderId?: string;
+  appId?: string;
+}): FirebaseOptions | null {
   if (
     parsed.apiKey &&
     parsed.authDomain &&
@@ -70,14 +53,59 @@ async function fetchPublicFirebaseWebConfig(): Promise<FirebaseOptions> {
       appId: parsed.appId,
     };
   }
+  return null;
+}
 
-  const serverMsg =
-    typeof parsed.message === "string" ? parsed.message.trim() : "";
-  throw new Error(
-    !response.ok
-      ? serverMsg || text.trim() || fallbackMessage
-      : serverMsg || fallbackMessage,
-  );
+async function fetchPublicFirebaseWebConfig(): Promise<FirebaseOptions> {
+  const fallbackMessage =
+    "Firebase is not configured yet. Add real NEXT_PUBLIC_FIREBASE_* values in frontend/.env.local (Firebase Console → Web app snippet), and/or set FIREBASE_WEB_API_KEY, FIREBASE_PROJECT_ID, FIREBASE_MESSAGING_SENDER_ID, FIREBASE_APP_ID in backend/.env. Restart both servers.";
+
+  const urls: string[] = [];
+  if (typeof window !== "undefined") {
+    urls.push(`${window.location.origin}/api/config/firebase-public`);
+  }
+  urls.push(`${getApiBaseUrl().replace(/\/$/, "")}/api/config/firebase-public`);
+  const uniqueUrls = [...new Set(urls)];
+
+  let lastServerMsg = "";
+
+  for (const url of uniqueUrls) {
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      });
+    } catch {
+      continue;
+    }
+
+    const text = await response.text();
+    let parsed: {
+      apiKey?: string;
+      authDomain?: string;
+      projectId?: string;
+      storageBucket?: string;
+      messagingSenderId?: string;
+      appId?: string;
+      message?: string;
+    };
+    try {
+      parsed = JSON.parse(text) as typeof parsed;
+    } catch {
+      if (!response.ok && text.trim()) lastServerMsg = text.trim();
+      continue;
+    }
+
+    const options = firebaseOptionsFromParsed(parsed);
+    if (options) return options;
+
+    const serverMsg =
+      typeof parsed.message === "string" ? parsed.message.trim() : "";
+    if (serverMsg) lastServerMsg = serverMsg;
+  }
+
+  throw new Error(lastServerMsg || fallbackMessage);
 }
 
 async function resolveFirebaseWebConfig(): Promise<FirebaseOptions> {

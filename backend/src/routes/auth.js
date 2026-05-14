@@ -13,6 +13,9 @@ router.post("/login", authController.login);
 router.get("/me", auth, authController.getMe);
 router.get("/users/me", auth, authController.getMe);
 
+// Verify email link
+router.get("/verify-email", authController.verifyEmail);
+
 // Logout (for consistency)
 router.post("/logout", authController.logout);
 

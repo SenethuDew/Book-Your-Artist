@@ -13,6 +13,7 @@ import {
 } from "@/lib/firebaseSocialAuth";
 import { sanitizePostAuthRedirect } from "@/lib/bookingAuthRedirect";
 import { isValidEmail } from "@/lib/authValidation";
+import { showAuthDemoCredentials } from "@/lib/showAuthDemoCredentials";
 
 function LoginInner() {
   const [email, setEmail] = useState("");
@@ -37,6 +38,7 @@ function LoginInner() {
   const oauthBusy = oauthProvider !== null;
 
   const isFormInvalid = !email.trim() || !password.trim();
+  const showDemoCredentials = showAuthDemoCredentials();
 
   const forgotPasswordHref =
     redirectAfterLogin != null
@@ -48,7 +50,8 @@ function LoginInner() {
       router.push(redirectAfterLogin);
       return;
     }
-    const home = role === "artist" ? "/home/artist" : "/home/client";
+    const home =
+      role === "artist" ? "/home/artist" : role === "admin" ? "/home/admin" : "/home/client";
     router.push(home);
   };
 
@@ -285,30 +288,43 @@ function LoginInner() {
             </button>
           </div>
 
-          <div className="mt-6 grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setEmail("client@test.com");
-                setPassword("Client123!@");
-              }}
-              className="flex items-center justify-center p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-violet-500/30 transition-all text-sm font-medium text-gray-300 gap-2"
-            >
-              <span className="text-violet-400">👤</span>
-              Fill Client Demo
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setEmail("artist@test.com");
-                setPassword("Artist123!@");
-              }}
-              className="flex items-center justify-center p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-fuchsia-500/30 transition-all text-sm font-medium text-gray-300 gap-2"
-            >
-              <span className="text-fuchsia-400">🎸</span>
-              Fill Artist Demo
-            </button>
-          </div>
+          {showDemoCredentials ? (
+            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail("client@test.com");
+                  setPassword("Client123!@");
+                }}
+                className="flex items-center justify-center p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-violet-500/30 transition-all text-sm font-medium text-gray-300 gap-2"
+              >
+                <span className="text-violet-400">👤</span>
+                Fill Client Demo
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail("artist@test.com");
+                  setPassword("Artist123!@");
+                }}
+                className="flex items-center justify-center p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-fuchsia-500/30 transition-all text-sm font-medium text-gray-300 gap-2"
+              >
+                <span className="text-fuchsia-400">🎸</span>
+                Fill Artist Demo
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail("admin@test.com");
+                  setPassword("Admin123!@");
+                }}
+                className="flex items-center justify-center p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-amber-500/30 transition-all text-sm font-medium text-gray-300 gap-2"
+              >
+                <span className="text-amber-400/90">⚙</span>
+                Fill Admin Demo
+              </button>
+            </div>
+          ) : null}
 
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-400">
