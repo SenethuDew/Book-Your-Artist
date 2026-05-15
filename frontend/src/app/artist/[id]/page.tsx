@@ -1,9 +1,14 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getArtistFromFirestore, getArtistBookings } from '@/lib/firebaseBookingAPI';
-import { API_BASE_URL } from '@/lib/api';
+import {
+  loadArtistProfilePageData,
+  loadArtistBookingsBackground,
+  refreshArtistAvailability,
+  type ArtistProfilePayload,
+  type PublishedAvailabilitySlot,
+} from '@/lib/artistProfileLoad';
 import { FirebaseBookingForm } from '@/components/FirebaseBookingForm';
 import { intervalsOverlapHM, resolvePublishedSlotForPresetColumn, slotCalendarDay } from '@/lib/slotIntervals';
 import { bookingLoginUrl } from '@/lib/bookingAuthRedirect';
@@ -12,35 +17,7 @@ import { useAuth } from '@/contexts';
 import { MapPin, Star, Mic2, Calendar, Music2, ArrowLeft, CalendarCheck, CheckCircle2, Zap, UserCheck, ShieldCheck } from 'lucide-react';
 import { FaInstagram, FaSpotify, FaYoutube } from 'react-icons/fa';
 
-interface ArtistProfileData {
-  id?: string;
-  _id?: string;
-  name?: string;
-  stageName?: string;
-  category?: string;
-  artistType?: string;
-  location?: string;
-  hourlyRate?: number;
-  price?: number;
-  rating?: number;
-  genres?: string[];
-  profileImage?: string;
-  coverImage?: string;
-  biography?: string;
-  bio?: string;
-  socialLinks?: {
-    instagram?: string;
-    youtube?: string;
-    spotify?: string;
-  };
-  experience?: string;
-  yearsOfExperience?: string;
-  availability?: boolean;
-  user?: {
-    name?: string;
-    profileImage?: string;
-  };
-}
+type ArtistProfileData = ArtistProfilePayload;
 
 interface BookingSlotData {
   eventDate: string;
@@ -57,18 +34,6 @@ interface BookingLocation {
   address?: string;
   city?: string;
   country?: string;
-}
-
-interface PublishedAvailabilitySlot {
-  _id?: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  status?: string;
-  bookingId?: {
-    eventLocation?: BookingLocation;
-    eventType?: string;
-  };
 }
 
 interface AuthUserWithIds {
@@ -95,93 +60,50 @@ export default function ArtistProfilePage() {
     time: string;
     location: string;
   } | null>(null);
+  const wasBookingFormOpen = useRef(false);
 
   useEffect(() => {
-    async function loadArtist() {
-      if (!id) return;
+    if (!id) return;
+    let cancelled = false;
+
+    (async () => {
+      setLoading(true);
       try {
-        const [firebaseArtistData, bookingData] = await Promise.all([
-          getArtistFromFirestore(id),
-          getArtistBookings(id)
-        ]);
-        let artistData = firebaseArtistData as ArtistProfileData | null;
-
-        /** Merge category/type from Mongo so Bands/DJs get day-based calendars even when a Firestore doc exists. */
-        if (artistData && !id.startsWith("intl-")) {
-          try {
-            const profileRes = await fetch(`${API_BASE_URL}/api/artists/${id}`);
-            const profileData: { success?: boolean; artist?: ArtistProfileData } = await profileRes.json();
-            if (profileRes.ok && profileData?.success && profileData?.artist) {
-              const b = profileData.artist;
-              artistData = {
-                ...artistData,
-                category: artistData.category ?? b.category ?? b.artistType,
-                artistType: artistData.artistType ?? b.artistType ?? b.category,
-              };
-            }
-          } catch {
-            /* ignore */
-          }
-        }
-
-        // Fallback to backend artist profile for newly registered local artists.
-        if (!artistData && !id.startsWith('intl-')) {
-          try {
-            const profileRes = await fetch(`${API_BASE_URL}/api/artists/${id}`);
-            const profileData: { success?: boolean; artist?: ArtistProfileData } = await profileRes.json();
-            if (profileRes.ok && profileData?.success && profileData?.artist) {
-              const backendArtist = profileData.artist;
-              artistData = {
-                id,
-                _id: id,
-                name: backendArtist?.name || backendArtist?.user?.name,
-                stageName: backendArtist?.name || backendArtist?.user?.name,
-                category: backendArtist?.category || backendArtist?.artistType || 'Musician',
-                artistType: backendArtist?.artistType,
-                location: backendArtist?.location || '',
-                hourlyRate: backendArtist?.hourlyRate || 0,
-                rating: typeof backendArtist?.rating === 'number' ? backendArtist.rating : 0,
-                genres: Array.isArray(backendArtist?.genres) ? backendArtist.genres : [],
-                profileImage: backendArtist?.profileImage || backendArtist?.user?.profileImage || '',
-                coverImage: backendArtist?.coverImage || '',
-                biography: backendArtist?.bio || '',
-                socialLinks: backendArtist?.socialLinks || {},
-                experience: backendArtist?.yearsOfExperience || backendArtist?.experience || '',
-                availability: true,
-              };
-            }
-          } catch (profileErr) {
-            console.error("Error loading backend artist profile:", profileErr);
-          }
-        }
-
+        const { artist: artistData, publishedAvailability: slots } =
+          await loadArtistProfilePageData(id);
+        if (cancelled) return;
         setArtist(artistData);
-        setBookings((bookingData || []) as unknown as BookingSlotData[]);
-
-        // Pull published availability from backend so only published slots are bookable.
-        if (!id.startsWith('intl-')) {
-          try {
-            const res = await fetch(`${API_BASE_URL}/api/availability/artist/${id}?_=${Date.now()}`);
-            const data = await res.json();
-            if (res.ok && data?.success && Array.isArray(data.availability)) {
-              setPublishedAvailability(data.availability as PublishedAvailabilitySlot[]);
-            } else {
-              setPublishedAvailability([]);
-            }
-          } catch {
-            setPublishedAvailability([]);
-          }
-        } else {
-          setPublishedAvailability([]);
-        }
-      } catch (error) {
-        console.error("Error loading artist:", error);
-      } finally {
+        setPublishedAvailability(slots);
         setLoading(false);
+
+        loadArtistBookingsBackground(id).then((rows) => {
+          if (!cancelled) setBookings(rows as unknown as BookingSlotData[]);
+        });
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Error loading artist:", error);
+          setLoading(false);
+        }
       }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    if (!id || id.startsWith("intl-")) return;
+    if (wasBookingFormOpen.current && !showBookingForm) {
+      refreshArtistAvailability(id).then((slots) => {
+        setPublishedAvailability(slots);
+      });
+      loadArtistBookingsBackground(id).then((rows) => {
+        setBookings(rows as unknown as BookingSlotData[]);
+      });
     }
-    loadArtist();
-  }, [id, showBookingForm]); // added showBookingForm to refresh bookings after modal closes
+    wasBookingFormOpen.current = showBookingForm;
+  }, [id, showBookingForm]);
 
   if (loading) {
     return (

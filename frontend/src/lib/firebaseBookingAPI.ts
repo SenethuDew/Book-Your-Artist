@@ -11,6 +11,21 @@ import {
   type DocumentData
 } from 'firebase/firestore';
 
+/** Cap Firestore waits so search/profile pages never hang on offline Firebase. */
+const FIRESTORE_TIMEOUT_MS = 2500;
+
+function firestoreWithTimeout<T>(work: Promise<T>, fallback: T): Promise<T> {
+  return Promise.race([
+    work,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), FIRESTORE_TIMEOUT_MS)),
+  ]);
+}
+
+export function isFirestoreConfigured(): boolean {
+  const pid = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID?.trim();
+  return Boolean(pid && pid !== "YOUR_PROJECT_ID_HERE");
+}
+
 export interface BookingData {
   artistId: string;
   artistName: string;
@@ -41,12 +56,17 @@ export const getArtistFromFirestore = async (artistId: string) => {
     return SAMPLE_ARTISTS.find(a => a.id === artistId) || null;
   }
 
-  const docRef = doc(db, 'artists', artistId);
-  const docSnap = await getDoc(docRef);
-  if (docSnap.exists()) {
-    return { id: docSnap.id, ...docSnap.data() };
+  try {
+    const docRef = doc(db, 'artists', artistId);
+    const docSnap = await firestoreWithTimeout(getDoc(docRef), null);
+    if (docSnap?.exists()) {
+      return { id: docSnap.id, ...docSnap.data() };
+    }
+    return null;
+  } catch {
+    // Firestore unreachable (offline, wrong project, etc.) — fall back to backend API
+    return null;
   }
-  return null;
 };
 
 export const INTERNATIONAL_ARTISTS = [
@@ -340,8 +360,16 @@ export const getAllArtistsFromFirestore = async () => {
     return SAMPLE_ARTISTS;
   }
 
-  const querySnapshot = await getDocs(collection(db, 'artists'));
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  try {
+    const querySnapshot = await firestoreWithTimeout(
+      getDocs(collection(db, 'artists')),
+      { docs: [] } as Awaited<ReturnType<typeof getDocs>>,
+    );
+    return querySnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch {
+    // Firestore unreachable — fall back to sample artists so the search page still renders
+    return SAMPLE_ARTISTS;
+  }
 };
 
 export const checkBookingAvailability = async (artistId: string, eventDate: string, startTime: string, endTime: string) => {
@@ -377,14 +405,22 @@ export const checkBookingAvailability = async (artistId: string, eventDate: stri
 
 export const getArtistBookings = async (artistId: string) => {
   if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID === 'YOUR_PROJECT_ID_HERE') {
-    return []; 
+    return [];
   }
-  const q = query(
-    collection(db, 'bookings'),
-    where('artistId', '==', artistId)
-  );
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  try {
+    const q = query(
+      collection(db, 'bookings'),
+      where('artistId', '==', artistId)
+    );
+    const querySnapshot = await firestoreWithTimeout(
+      getDocs(q),
+      { docs: [] } as Awaited<ReturnType<typeof getDocs>>,
+    );
+    return querySnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch {
+    // Firestore unreachable — return empty so the page still renders
+    return [];
+  }
 };
 
 import { setDoc } from 'firebase/firestore';

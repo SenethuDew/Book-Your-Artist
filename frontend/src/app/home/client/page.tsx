@@ -5,7 +5,8 @@ import { useAuth } from "@/contexts";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { API_BASE_URL } from "@/lib/api";
+import { API_BASE_URL, getAuthToken } from "@/lib/api";
+import { fetchHomeArtists, type HomeArtist } from "@/lib/homeArtists";
 
 /** Avatar URLs stored on Mongo are often `/uploads/...` paths — prefix API host for `<img>`. */
 function absoluteMediaUrl(raw: string | undefined | null): string | null {
@@ -21,7 +22,6 @@ function clientFirstName(name: string | undefined): string {
   if (!t) return "Guest";
   return t.split(/\s+/)[0] ?? "Guest";
 }
-import { getAllArtistsFromFirestore } from "@/lib/firebaseBookingAPI";
 import {
   Search,
   Calendar,
@@ -74,20 +74,7 @@ interface Stats {
   totalRevenue: number;
 }
 
-interface HomeFeaturedArtist {
-  id?: string;
-  _id?: string;
-  name?: string;
-  stageName?: string;
-  category?: string;
-  location?: string;
-  hourlyRate?: number;
-  profileImage?: string;
-  coverImage?: string;
-  rating?: number;
-  genres?: string[];
-  availability?: boolean | string;
-}
+type HomeFeaturedArtist = HomeArtist;
 
 const CATEGORIES = [
   {
@@ -160,7 +147,8 @@ function ClientHomeContent() {
   const [notificationBookings, setNotificationBookings] = useState<Booking[]>([]);
   const [recommendedArtists, setRecommendedArtists] = useState<HomeFeaturedArtist[]>([]);
   const [searchableArtists, setSearchableArtists] = useState<HomeFeaturedArtist[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [bookingsLoading, setBookingsLoading] = useState(true);
+  const [artistsLoading, setArtistsLoading] = useState(true);
   const [clientProfileImageUrl, setClientProfileImageUrl] = useState<string | null>(null);
 
   // Search states
@@ -170,72 +158,87 @@ function ClientHomeContent() {
   const [categoryFilter, setCategoryFilter] = useState("");
 
   useEffect(() => {
-    const fetchData = async () => {
-      const token =
-        localStorage.getItem("authToken") || localStorage.getItem("token");
-      if (!token) return;
+    if (!user) {
+      setClientProfileImageUrl(null);
+      setBookingsLoading(false);
+      setArtistsLoading(false);
+      return;
+    }
 
+    const token = getAuthToken();
+    if (!token) {
+      setBookingsLoading(false);
+      setArtistsLoading(false);
+      return;
+    }
+
+    const authHeaders = { Authorization: `Bearer ${token}` };
+
+    const loadProfile = async () => {
       try {
-        setLoading(true);
-
-        try {
-          const meRes = await fetch(`${API_BASE_URL}/api/users/me`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (meRes.ok) {
-            const meData = (await meRes.json()) as {
-              user?: { profileImage?: string };
-            };
-            setClientProfileImageUrl(absoluteMediaUrl(meData?.user?.profileImage));
-          } else {
-            setClientProfileImageUrl(null);
-          }
-        } catch {
+        const meRes = await fetch(`${API_BASE_URL}/api/users/me`, {
+          headers: authHeaders,
+        });
+        if (meRes.ok) {
+          const meData = (await meRes.json()) as {
+            user?: { profileImage?: string };
+          };
+          setClientProfileImageUrl(absoluteMediaUrl(meData?.user?.profileImage));
+        } else {
           setClientProfileImageUrl(null);
         }
-
-        // Fetch stats
-        const statsRes = await fetch(`${API_BASE_URL}/api/bookings/stats`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const statsData = await statsRes.json();
-        if (statsData.success) {
-          setStats(statsData.stats);
-        }
-
-        // Fetch recent bookings
-        const bookingsRes = await fetch(
-          `${API_BASE_URL}/api/bookings/my?limit=20&sort=-createdAt`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        const bookingsData = await bookingsRes.json();
-        if (bookingsData.success) {
-          const bookings = bookingsData.bookings || [];
-          setNotificationBookings(bookings);
-          setRecentBookings(bookings.slice(0, 4));
-        }
-
-        // Fetch recommended artists
-        const firestoreArtists = await getAllArtistsFromFirestore();
-        if (firestoreArtists && firestoreArtists.length > 0) {
-          const artists = firestoreArtists as HomeFeaturedArtist[];
-          setSearchableArtists(artists);
-          setRecommendedArtists(artists.slice(0, 3));
-        }
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
-        setLoading(false);
+      } catch {
+        setClientProfileImageUrl(null);
       }
     };
 
-    if (user) {
-      fetchData();
-    } else {
-      setClientProfileImageUrl(null);
-    }
+    const loadBookings = async () => {
+      setBookingsLoading(true);
+      try {
+        const [statsRes, bookingsRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/bookings/stats`, { headers: authHeaders }),
+          fetch(
+            `${API_BASE_URL}/api/bookings/my?limit=20&sort=-createdAt`,
+            { headers: authHeaders },
+          ),
+        ]);
+
+        if (statsRes.ok) {
+          const statsData = await statsRes.json();
+          if (statsData.success) setStats(statsData.stats);
+        }
+
+        if (bookingsRes.ok) {
+          const bookingsData = await bookingsRes.json();
+          if (bookingsData.success) {
+            const bookings = bookingsData.bookings || [];
+            setNotificationBookings(bookings);
+            setRecentBookings(bookings.slice(0, 4));
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching bookings:", error);
+      } finally {
+        setBookingsLoading(false);
+      }
+    };
+
+    const loadArtists = async () => {
+      setArtistsLoading(true);
+      try {
+        const artists = await fetchHomeArtists(12);
+        setSearchableArtists(artists);
+        setRecommendedArtists(artists.slice(0, 3));
+      } catch (error) {
+        console.error("Error fetching artists:", error);
+      } finally {
+        setArtistsLoading(false);
+      }
+    };
+
+    loadProfile();
+    loadBookings();
+    loadArtists();
   }, [user]);
 
   const getStatusColor = (status: string) => {
@@ -746,7 +749,7 @@ function ClientHomeContent() {
               </div>
               <div className="relative z-10">
                 <p className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-1">Confirmed</p>
-                <p className="text-4xl font-black text-white">{loading ? "..." : stats.confirmed}</p>
+                <p className="text-4xl font-black text-white">{bookingsLoading ? "..." : stats.confirmed}</p>
               </div>
             </div>
 
@@ -759,7 +762,7 @@ function ClientHomeContent() {
               </div>
               <div className="relative z-10">
                 <p className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-1">Pending</p>
-                <p className="text-4xl font-black text-white">{loading ? "..." : stats.pending}</p>
+                <p className="text-4xl font-black text-white">{bookingsLoading ? "..." : stats.pending}</p>
               </div>
             </div>
 
@@ -772,7 +775,7 @@ function ClientHomeContent() {
               </div>
               <div className="relative z-10">
                 <p className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-1">Completed</p>
-                <p className="text-4xl font-black text-white">{loading ? "..." : stats.completed}</p>
+                <p className="text-4xl font-black text-white">{bookingsLoading ? "..." : stats.completed}</p>
               </div>
             </div>
 
@@ -785,7 +788,7 @@ function ClientHomeContent() {
               </div>
               <div className="relative z-10">
                 <p className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-1">Total Spent</p>
-                <p className="text-4xl font-black text-white">{loading ? "..." : `$${stats.totalRevenue.toFixed(0)}`}</p>
+                <p className="text-4xl font-black text-white">{bookingsLoading ? "..." : `$${stats.totalRevenue.toFixed(0)}`}</p>
                 <Link
                   href="/bookings"
                   className="mt-4 inline-flex text-sm font-bold text-violet-300 hover:text-violet-200 transition-colors"
@@ -812,7 +815,7 @@ function ClientHomeContent() {
               </Link>
             </div>
 
-            {loading ? (
+            {bookingsLoading ? (
               <div className="grid grid-cols-1 gap-4">
                 {[1, 2, 3].map((i) => (
                   <div
@@ -919,7 +922,20 @@ function ClientHomeContent() {
             </div>
 
             <div className="flex flex-col gap-4">
-              {recommendedArtists.length > 0 ? (
+              {artistsLoading ? (
+                [1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="bg-[#120A20] border border-white/5 rounded-3xl p-6 flex gap-4 animate-pulse"
+                  >
+                    <div className="w-16 h-16 bg-white/5 rounded-2xl shrink-0" />
+                    <div className="flex-1 space-y-3">
+                      <div className="h-5 bg-white/5 rounded w-2/3" />
+                      <div className="h-4 bg-white/5 rounded w-1/3" />
+                    </div>
+                  </div>
+                ))
+              ) : recommendedArtists.length > 0 ? (
                 recommendedArtists.map((artist) => (
                   <div
                     key={artist.id || artist._id}
@@ -979,11 +995,17 @@ function ClientHomeContent() {
                     <User className="w-8 h-8" />
                   </div>
                   <h4 className="text-xl font-bold text-white mb-2">
-                    Finding talent...
+                    No artists to show yet
                   </h4>
                   <p className="text-gray-400 text-sm leading-relaxed mb-6 font-medium">
-                    Check back soon for personalized artist recommendations based on your preferences.
+                    Browse the directory to discover performers and compare hourly rates.
                   </p>
+                  <Link
+                    href="/search"
+                    className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white font-bold px-6 py-3 rounded-2xl transition text-sm inline-flex items-center gap-2"
+                  >
+                    Browse Artists <ArrowRight className="w-4 h-4" />
+                  </Link>
                 </div>
               )}
             </div>

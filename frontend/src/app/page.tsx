@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts";
-import { getAllArtistsFromFirestore } from "@/lib/firebaseBookingAPI";
-import { FirebaseArtistCard, type FirebaseArtist } from "@/components/FirebaseArtistCard";
+import { fetchHomeArtists, type HomeArtist } from "@/lib/homeArtists";
+import { FirebaseArtistCard } from "@/components/FirebaseArtistCard";
 /* ─── Artist categories ─── */
 const artistCategories = [
   {
@@ -174,21 +174,24 @@ export default function Home() {
   const { loading, isAuthenticated, user } = useAuth();
   const router = useRouter();
   const [activeNavLink, setActiveNavLink] = useState<string>("");
-  const [featuredArtists, setFeaturedArtists] = useState<FirebaseArtist[]>([]);
+  const [featuredArtists, setFeaturedArtists] = useState<HomeArtist[]>([]);
+  const [artistsLoading, setArtistsLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchFeatured() {
+    let cancelled = false;
+    (async () => {
       try {
-        const data = await getAllArtistsFromFirestore();
-        if (data && data.length > 0) {
-          // 8 artists = two full rows at lg:grid-cols-4
-          setFeaturedArtists(data.slice(0, 8));
-        }
+        const data = await fetchHomeArtists(8);
+        if (!cancelled) setFeaturedArtists(data);
       } catch (err) {
         console.error(err);
+      } finally {
+        if (!cancelled) setArtistsLoading(false);
       }
-    }
-    fetchFeatured();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -465,7 +468,16 @@ export default function Home() {
             </p>
           </div>
 
-          {featuredArtists.length > 0 ? (
+          {artistsLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <div
+                  key={i}
+                  className="h-64 rounded-2xl border border-white/10 bg-white/5 animate-pulse"
+                />
+              ))}
+            </div>
+          ) : featuredArtists.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
               {featuredArtists.map((artist) => (
                 <FirebaseArtistCard key={artist.id || artist._id} artist={artist} compact />

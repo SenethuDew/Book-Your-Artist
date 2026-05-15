@@ -3,8 +3,8 @@
 import { useEffect, useState, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { getAllArtistsFromFirestore, seedSampleArtists, INTERNATIONAL_ARTISTS } from '@/lib/firebaseBookingAPI';
-import { API_BASE_URL } from '@/lib/api';
+import { INTERNATIONAL_ARTISTS } from '@/lib/firebaseBookingAPI';
+import { fetchSearchArtists } from '@/lib/homeArtists';
 import { FirebaseArtistCard } from '@/components/FirebaseArtistCard';
 import { ArrowLeft, Search, Music2, MapPin, Tag, Mic2, Globe, Home, Sparkles } from 'lucide-react';
 
@@ -36,12 +36,6 @@ interface ArtistSearchItem {
     name?: string;
     profileImage?: string;
   };
-}
-
-interface ArtistSearchResponse {
-  success?: boolean;
-  message?: string;
-  artists?: ArtistSearchItem[];
 }
 
 const ARTIST_CATEGORIES: CategoryOption[] = [
@@ -91,61 +85,32 @@ function SearchArtistsContent() {
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
   const [activeTab, setActiveTab] = useState<'local' | 'international'>('local');
 
-  const normalizeBackendArtist = (artist: ArtistSearchItem): ArtistSearchItem => ({
-    id: artist?.user?._id || artist?._id,
-    _id: artist?.user?._id || artist?._id,
-    name: artist?.name || artist?.user?.name || 'Unknown Artist',
-    stageName: artist?.name || artist?.user?.name || 'Unknown Artist',
-    category: artist?.category || artist?.artistType || 'Musician',
-    location: artist?.location || '',
-    genres: Array.isArray(artist?.genres) ? artist.genres : [],
-    hourlyRate: artist?.hourlyRate || 0,
-    rating: typeof artist?.rating === 'number' ? artist.rating : 0,
-    profileImage: artist?.profileImage || artist?.user?.profileImage || '',
-    availability: true,
-  });
-
   useEffect(() => {
-    const fetchArtists = async () => {
+    let cancelled = false;
+    (async () => {
       setLoading(true);
+      setError('');
       try {
-        const params = new URLSearchParams({
-          limit: '100',
-          sort: '-createdAt',
-        });
-        const [backendResponse, firestoreArtists] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/artists/search?${params.toString()}`),
-          getAllArtistsFromFirestore(),
-        ]);
-
-        const backendData = (await backendResponse.json()) as ArtistSearchResponse;
-        if (!backendResponse.ok || !backendData?.success) {
-          throw new Error(backendData?.message || 'Failed to load artists');
+        const artists = await fetchSearchArtists(100);
+        if (!cancelled) {
+          setAllArtists(artists as ArtistSearchItem[]);
+          if (!artists.length) {
+            setError('No artists available right now. Please try again shortly.');
+          }
         }
-
-        let sampleArtists = firestoreArtists;
-        if (sampleArtists.length === 0) {
-          await seedSampleArtists();
-          sampleArtists = await getAllArtistsFromFirestore();
-        }
-
-        const backendArtists = Array.isArray(backendData.artists)
-          ? backendData.artists.map(normalizeBackendArtist)
-          : [];
-
-        const sampleArtistIds = new Set((sampleArtists as ArtistSearchItem[]).map((artist) => artist.id || artist._id));
-        const newBackendArtists = backendArtists.filter((artist) => !sampleArtistIds.has(artist.id || artist._id));
-        setAllArtists([...(sampleArtists as ArtistSearchItem[]), ...newBackendArtists]);
       } catch (err) {
         console.error('Failed to load artists:', err);
-        const fallbackArtists = await getAllArtistsFromFirestore();
-        setAllArtists(fallbackArtists as ArtistSearchItem[]);
-        setError(fallbackArtists.length ? '' : 'Failed to load local artists. Please try again.');
+        if (!cancelled) {
+          setAllArtists([]);
+          setError('Failed to load local artists. Please try again.');
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
+    })();
+    return () => {
+      cancelled = true;
     };
-    fetchArtists();
   }, []);
 
   const handleCategoryChange = (categoryId: string) => {

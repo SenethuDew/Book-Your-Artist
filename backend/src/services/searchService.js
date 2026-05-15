@@ -202,11 +202,20 @@ class SearchService {
    */
   async getFeaturedArtists(limit = 6) {
     try {
-      const artists = await ArtistProfile.find({ verified: true })
+      let artists = await ArtistProfile.find({ verified: true })
         .populate("userId", "name email profileImage phone")
         .sort("-createdAt")
         .limit(limit)
         .lean();
+
+      // Home sections: show newest profiles when none are marked verified yet
+      if (!artists.length) {
+        artists = await ArtistProfile.find({})
+          .populate("userId", "name email profileImage phone")
+          .sort("-createdAt")
+          .limit(limit)
+          .lean();
+      }
 
       return {
         success: true,
