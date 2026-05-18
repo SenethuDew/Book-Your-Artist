@@ -135,7 +135,7 @@ function AIAssistantInner() {
           const data = (await res.json()) as { user?: Record<string, unknown> };
           if (!cancelled && data?.user) {
             const apiP = mapApiUserToProfile(data.user);
-            await upsertClientProfileFromApi(userId, data.user);
+            void upsertClientProfileFromApi(userId, data.user);
             const fireP = await loadClientProfile(userId);
             setProfile(mergeProfiles(apiP, fireP));
           }
@@ -210,7 +210,7 @@ function AIAssistantInner() {
       setMessages((m) => [...m, userMsg]);
       setInput("");
 
-      await appendChatMessage(userId, {
+      void appendChatMessage(userId, {
         sender: "user",
         text: trimmed,
         intent: "fallback",
@@ -237,11 +237,16 @@ function AIAssistantInner() {
           throw new Error(data.message || "Assistant request failed.");
         }
 
+        const replyText =
+          typeof data.reply === "string" && data.reply.trim()
+            ? data.reply
+            : "I could not generate a reply. Please try again or browse artists from Search.";
+
         const assistantMsg: UIMessage = {
           id: `a-${Date.now()}`,
           role: "assistant",
           ts: Date.now(),
-          content: data.reply,
+          content: replyText,
           artists: data.artists,
           actions: data.actions,
           intent: data.intent,
@@ -250,11 +255,11 @@ function AIAssistantInner() {
         };
         setMessages((m) => [...m, assistantMsg]);
 
-        if (data.session) await persistSession(data.session);
+        if (data.session) void persistSession(data.session);
 
-        await appendChatMessage(userId, {
+        void appendChatMessage(userId, {
           sender: "assistant",
-          text: data.reply,
+          text: replyText,
           intent: data.intent,
           metadata: {
             artistIds: data.artists?.map((a) => a.id) ?? [],

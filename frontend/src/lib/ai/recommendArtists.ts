@@ -9,6 +9,8 @@
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { ALL_CATALOG_ARTISTS, type CatalogArtist } from "@/lib/artistCatalog";
+import { fetchHomeArtists } from "@/lib/homeArtists";
+import { firestoreWithTimeout } from "@/lib/firestoreTimeout";
 import type { BookingData } from "./types";
 import type { RecommendedArtist } from "./types";
 
@@ -76,15 +78,55 @@ function docToRecommended(id: string, data: Record<string, unknown>): Recommende
   };
 }
 
-async function loadFromFirestore(): Promise<RecommendedArtist[]> {
-  if (!isFirebaseConfigured()) return ALL_CATALOG_ARTISTS.map(catalogToRecommended);
+async function loadFromBackendApi(): Promise<RecommendedArtist[]> {
   try {
-    const snap = await getDocs(collection(db, "artists"));
-    if (snap.empty) return ALL_CATALOG_ARTISTS.map(catalogToRecommended);
-    return snap.docs.map((d) => docToRecommended(d.id, { ...d.data(), id: d.id } as Record<string, unknown>));
+    const list = await fetchHomeArtists(50);
+    return list.map((a) =>
+      docToRecommended(String(a.id || a._id || ""), {
+        id: a.id || a._id,
+        name: a.name || a.stageName,
+        stageName: a.stageName,
+        category: a.category,
+        location: a.location,
+        hourlyRate: a.hourlyRate,
+        rating: a.rating,
+        profileImage: a.profileImage,
+        genres: a.genres,
+        biography: "",
+      } as Record<string, unknown>),
+    );
   } catch {
-    return ALL_CATALOG_ARTISTS.map(catalogToRecommended);
+    return [];
   }
+}
+
+async function loadFromFirestore(): Promise<RecommendedArtist[]> {
+  if (!isFirebaseConfigured()) return [];
+  try {
+    const snap = await firestoreWithTimeout(
+      getDocs(collection(db, "artists")),
+      { docs: [] } as Awaited<ReturnType<typeof getDocs>>,
+    );
+    if (snap.empty) return [];
+    return snap.docs.map((d) =>
+      docToRecommended(d.id, { ...d.data(), id: d.id } as Record<string, unknown>),
+    );
+  } catch {
+    return [];
+  }
+}
+
+function mergeArtistPools(...pools: RecommendedArtist[][]): RecommendedArtist[] {
+  const seen = new Set<string>();
+  const out: RecommendedArtist[] = [];
+  for (const pool of pools) {
+    for (const a of pool) {
+      if (!a.id || seen.has(a.id)) continue;
+      seen.add(a.id);
+      out.push(a);
+    }
+  }
+  return out;
 }
 
 function normalizeCategory(cat?: string): string {
@@ -113,7 +155,14 @@ function eventMatches(a: RecommendedArtist, eventType?: string): boolean {
  * Score and return top 3–5 artists for the assistant.
  */
 export async function recommendArtists(criteria: RecommendCriteria): Promise<RecommendedArtist[]> {
-  const pool = await loadFromFirestore();
+  const pool = mergeArtistPools(
+    await loadFromBackendApi(),
+    await loadFromFirestore(),
+    ALL_CATALOG_ARTISTS.map(catalogToRecommended),
+  );
+  if (!pool.length) {
+    return ALL_CATALOG_ARTISTS.map(catalogToRecommended).slice(0, 5);
+  }
   const wantCat = normalizeCategory(criteria.category);
   const wantOrigin = criteria.origin;
   const max = criteria.budgetMax ?? undefined;

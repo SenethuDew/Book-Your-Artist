@@ -133,7 +133,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json(response);
+    return NextResponse.json({
+      success: true,
+      ...response,
+      reply:
+        typeof response.reply === "string" && response.reply.trim()
+          ? response.reply
+          : "How can I help you with booking an artist today?",
+    });
   } catch (error) {
     console.error("[ai-assistant]", error);
     return NextResponse.json(

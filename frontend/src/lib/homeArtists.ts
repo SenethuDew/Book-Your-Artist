@@ -1,4 +1,9 @@
 import { API_BASE_URL } from "@/lib/api";
+import {
+  categoryLabelFromSlug,
+  resolveArtistCategorySlug,
+} from "@/lib/artistCategory";
+import { resolveArtistMediaUrl } from "@/lib/artistMediaUrl";
 import { SAMPLE_ARTISTS } from "@/lib/firebaseBookingAPI";
 
 export interface HomeArtist {
@@ -17,30 +22,39 @@ export interface HomeArtist {
   availability?: boolean | string;
 }
 
-function absoluteMediaUrl(raw: string | undefined | null): string | undefined {
-  const s = typeof raw === "string" ? raw.trim() : "";
-  if (!s) return undefined;
-  if (/^https?:\/\//i.test(s)) return s;
-  const path = s.startsWith("/") ? s : `/${s}`;
-  return `${API_BASE_URL}${path}`;
+function withResolvedImage(artist: HomeArtist): HomeArtist {
+  const profileImage = resolveArtistMediaUrl(artist.profileImage);
+  return profileImage ? { ...artist, profileImage } : artist;
 }
 
 export function normalizeBackendArtist(artist: Record<string, unknown>): HomeArtist {
   const user = artist.user as Record<string, unknown> | undefined;
   const userId = String(user?._id || user?.id || artist.userId || artist._id || "");
-  const profileImage = absoluteMediaUrl(
+  const profileImage = resolveArtistMediaUrl(
     (artist.profileImage || user?.profileImage) as string | undefined,
   );
+
+  const categoryRaw = String(artist.category || "");
+  const artistType = artist.artistType ? String(artist.artistType) : undefined;
+  const genres = Array.isArray(artist.genres) ? (artist.genres as string[]) : [];
+  const categorySlug = resolveArtistCategorySlug({
+    category: categoryRaw,
+    artistType,
+    genres,
+  });
+  const category = categorySlug
+    ? categoryLabelFromSlug(categorySlug)
+    : categoryRaw || artistType || "Musician";
 
   return {
     id: userId,
     _id: userId,
     name: String(artist.name || user?.name || "Unknown Artist"),
     stageName: String(artist.stageName || artist.name || user?.name || "Unknown Artist"),
-    category: String(artist.category || artist.artistType || "Musician"),
-    artistType: artist.artistType ? String(artist.artistType) : undefined,
+    category,
+    artistType,
     location: String(artist.location || ""),
-    genres: Array.isArray(artist.genres) ? (artist.genres as string[]) : [],
+    genres,
     hourlyRate: Number(artist.hourlyRate) || 0,
     rating: typeof artist.rating === "number" ? artist.rating : 0,
     profileImage,
@@ -75,7 +89,7 @@ export async function fetchHomeArtists(limit = 8): Promise<HomeArtist[]> {
       const key = String(artist.id || artist._id || "");
       if (!key || seen.has(key)) continue;
       seen.add(key);
-      merged.push(artist);
+      merged.push(withResolvedImage(artist));
     }
   };
 
@@ -155,7 +169,7 @@ export function mapApiArtistToProfile(
     _id: id,
     biography: String(raw.bio || raw.biography || ""),
     bio: String(raw.bio || raw.biography || ""),
-    coverImage: absoluteMediaUrl(raw.coverImage as string | undefined),
+    coverImage: resolveArtistMediaUrl(raw.coverImage as string | undefined),
     socialLinks: (raw.socialLinks as ArtistProfilePayload["socialLinks"]) || {},
     experience: String(raw.yearsOfExperience ?? raw.experience ?? ""),
     yearsOfExperience: raw.yearsOfExperience as string | number | undefined,

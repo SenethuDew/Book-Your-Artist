@@ -19,6 +19,7 @@ import {
   setDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { firestoreWithTimeout } from "@/lib/firestoreTimeout";
 import type { AISessionState, ClientProfileSnapshot, StoredChatMessage } from "./types";
 
 const isFirebaseReady = () =>
@@ -29,8 +30,8 @@ export async function loadClientProfile(userId: string): Promise<ClientProfileSn
   if (!userId || !isFirebaseReady()) return null;
   try {
     const ref = doc(db, "clients", userId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return null;
+    const snap = await firestoreWithTimeout(getDoc(ref), null);
+    if (!snap?.exists()) return null;
     const d = snap.data();
     return {
       fullName: d.fullName as string | undefined,
@@ -61,7 +62,8 @@ export async function upsertClientProfileFromApi(
   try {
     const ref = doc(db, "clients", userId);
     const prefs = (apiUser.preferences as Record<string, unknown> | undefined) ?? {};
-    await setDoc(
+    await firestoreWithTimeout(
+      setDoc(
       ref,
       {
         fullName: apiUser.name,
@@ -78,6 +80,8 @@ export async function upsertClientProfileFromApi(
         updatedAt: serverTimestamp(),
       },
       { merge: true }
+    ),
+      undefined,
     );
   } catch (e) {
     console.warn("[ai persistence] upsertClientProfileFromApi:", e);
@@ -88,8 +92,8 @@ export async function loadAISession(userId: string): Promise<AISessionState | nu
   if (!userId || !isFirebaseReady()) return null;
   try {
     const ref = doc(db, "ai_sessions", userId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return null;
+    const snap = await firestoreWithTimeout(getDoc(ref), null);
+    if (!snap?.exists()) return null;
     const d = snap.data();
     return {
       currentIntent: (d.currentIntent as AISessionState["currentIntent"]) ?? "help",
@@ -108,13 +112,16 @@ export async function loadAISession(userId: string): Promise<AISessionState | nu
 export async function saveAISession(userId: string, session: AISessionState): Promise<boolean> {
   if (!userId || !isFirebaseReady()) return false;
   try {
-    await setDoc(
-      doc(db, "ai_sessions", userId),
-      {
-        ...session,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
+    await firestoreWithTimeout(
+      setDoc(
+        doc(db, "ai_sessions", userId),
+        {
+          ...session,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      ),
+      undefined,
     );
     return true;
   } catch (e) {
@@ -129,14 +136,17 @@ export async function appendChatMessage(
 ): Promise<boolean> {
   if (!userId || !isFirebaseReady()) return false;
   try {
-    await addDoc(collection(db, "ai_chats", userId, "messages"), {
-      sender: msg.sender,
-      text: msg.text,
-      intent: msg.intent,
-      metadata: msg.metadata ?? {},
-      timestamp: msg.timestamp ?? Date.now(),
-      createdAt: serverTimestamp(),
-    });
+    await firestoreWithTimeout(
+      addDoc(collection(db, "ai_chats", userId, "messages"), {
+        sender: msg.sender,
+        text: msg.text,
+        intent: msg.intent,
+        metadata: msg.metadata ?? {},
+        timestamp: msg.timestamp ?? Date.now(),
+        createdAt: serverTimestamp(),
+      }),
+      undefined,
+    );
     return true;
   } catch (e) {
     console.warn("[ai persistence] appendChatMessage:", e);
@@ -147,7 +157,10 @@ export async function appendChatMessage(
 export async function clearChatMessages(userId: string): Promise<boolean> {
   if (!userId || !isFirebaseReady()) return false;
   try {
-    const snap = await getDocs(collection(db, "ai_chats", userId, "messages"));
+    const snap = await firestoreWithTimeout(
+      getDocs(collection(db, "ai_chats", userId, "messages")),
+      { docs: [] } as Awaited<ReturnType<typeof getDocs>>,
+    );
     await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
     return true;
   } catch (e) {
@@ -164,7 +177,9 @@ export async function loadChatMessages(userId: string, max = 80): Promise<Stored
       orderBy("timestamp", "asc"),
       limit(max)
     );
-    const snap = await getDocs(q);
+    const snap = await firestoreWithTimeout(getDocs(q), {
+      docs: [],
+    } as Awaited<ReturnType<typeof getDocs>>);
     return snap.docs.map((d) => {
       const x = d.data();
       return {

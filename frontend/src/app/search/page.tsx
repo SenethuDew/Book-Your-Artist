@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { INTERNATIONAL_ARTISTS } from '@/lib/firebaseBookingAPI';
+import { artistMatchesCategoryFilter } from '@/lib/artistCategory';
 import { fetchSearchArtists } from '@/lib/homeArtists';
 import { FirebaseArtistCard } from '@/components/FirebaseArtistCard';
 import { ArrowLeft, Search, Music2, MapPin, Tag, Mic2, Globe, Home, Sparkles } from 'lucide-react';
@@ -138,18 +139,15 @@ function SearchArtistsContent() {
         matchesSearch = searchString.includes(query);
       }
 
-      // Category Filter
       if (selectedCategory) {
-        const cat = ARTIST_CATEGORIES.find(c => c.id === selectedCategory);
-        if (cat) {
-          const artistCategory = (artist.category || '').toLowerCase();
-          const artistGenres = (artist.genres || []).map((g: string) => g.toLowerCase());
-          const categoryMatch = cat.name.toLowerCase().includes(artistCategory) || artistCategory.includes(cat.name.toLowerCase());
-          const genreMatch = cat.genres.some((catGenre) =>
-            artistGenres.some((ag: string) => ag.includes(catGenre.toLowerCase()) || catGenre.toLowerCase().includes(ag))
-          );
-          matchesCategory = categoryMatch || genreMatch;
-        }
+        matchesCategory = artistMatchesCategoryFilter(
+          {
+            category: artist.category,
+            artistType: artist.artistType,
+            genres: artist.genres,
+          },
+          selectedCategory,
+        );
       }
 
       return matchesSearch && matchesCategory;

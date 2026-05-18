@@ -6,15 +6,12 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { API_BASE_URL, getAuthToken } from "@/lib/api";
+import { artistMatchesCategoryFilter } from "@/lib/artistCategory";
 import { fetchHomeArtists, type HomeArtist } from "@/lib/homeArtists";
+import { resolveArtistMediaUrl } from "@/lib/artistMediaUrl";
 
-/** Avatar URLs stored on Mongo are often `/uploads/...` paths — prefix API host for `<img>`. */
 function absoluteMediaUrl(raw: string | undefined | null): string | null {
-  const s = typeof raw === "string" ? raw.trim() : "";
-  if (!s) return null;
-  if (/^https?:\/\//i.test(s)) return s;
-  const path = s.startsWith("/") ? s : `/${s}`;
-  return `${API_BASE_URL}${path}`;
+  return resolveArtistMediaUrl(raw) ?? null;
 }
 
 function clientFirstName(name: string | undefined): string {
@@ -79,6 +76,7 @@ type HomeFeaturedArtist = HomeArtist;
 const CATEGORIES = [
   {
     id: "dj",
+    slug: "djs",
     title: "DJs",
     icon: <SlidersHorizontal className="w-8 h-8 text-fuchsia-400" />,
     desc: "Party & Club DJs",
@@ -86,6 +84,7 @@ const CATEGORIES = [
   },
   {
     id: "band",
+    slug: "bands",
     title: "Live Bands",
     icon: <Music className="w-8 h-8 text-blue-400" />,
     desc: "Rock, Jazz & Pop",
@@ -93,6 +92,7 @@ const CATEGORIES = [
   },
   {
     id: "singer",
+    slug: "singers",
     title: "Singers",
     icon: <Mic2 className="w-8 h-8 text-purple-400" />,
     desc: "Solo Vocalists",
@@ -100,6 +100,7 @@ const CATEGORIES = [
   },
   {
     id: "rapper",
+    slug: "rappers",
     title: "Rappers",
     icon: <Mic className="w-8 h-8 text-cyan-400" />,
     desc: "Hip-Hop & Rap Artists",
@@ -309,7 +310,6 @@ function ClientHomeContent() {
 
   const artistMatchesSearch = (artist: HomeFeaturedArtist) => {
     const query = searchQuery.trim().toLowerCase();
-    const selectedCategory = categoryFilter.toLowerCase();
     const searchableText = [
       artist.name,
       artist.stageName,
@@ -322,10 +322,14 @@ function ClientHomeContent() {
       .toLowerCase();
 
     const matchesQuery = !query || searchableText.includes(query);
-    const matchesCategory =
-      !selectedCategory ||
-      (artist.category || "").toLowerCase().includes(selectedCategory) ||
-      (artist.genres || []).some((genre) => genre.toLowerCase().includes(selectedCategory));
+    const matchesCategory = artistMatchesCategoryFilter(
+      {
+        category: artist.category,
+        artistType: artist.artistType,
+        genres: artist.genres,
+      },
+      categoryFilter,
+    );
 
     return matchesQuery && matchesCategory;
   };
@@ -708,7 +712,7 @@ function ClientHomeContent() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {CATEGORIES.map((cat) => (
               <Link
-                href={`/search?category=${cat.title.replace("Live ", "").toLowerCase()}`}
+                href={`/search?category=${cat.slug}`}
                 key={cat.id}
                 className="group relative rounded-3xl overflow-hidden aspect-video md:aspect-[4/3] border border-white/5 isolate bg-gray-900 shadow-lg"
               >
